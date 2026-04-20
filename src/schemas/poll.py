@@ -26,3 +26,31 @@ class PollResultsResponse(BaseModel):
     results: List[OptionResult]
     total_votes: int
     created_at: datetime
+
+class PollSummary(BaseModel):
+    """Краткая информация для списка опросов"""
+    id: str
+    title: str
+    created_at: datetime
+    total_votes: int
+
+class PollDetailResponse(BaseModel):
+    """Детальный опрос"""
+    id: str
+    title: str
+    description: Optional[str]
+    options: List[str]
+    created_at: datetime
+    results: List[OptionResult]
+    total_votes: int
+
+class VoteRequest(BaseModel):
+    """Тело запроса для голосования"""
+    option: str = Field(..., min_length=1, max_length=100, description="Выбранный вариант ответа")
+
+class VoteResponse(BaseModel):
+    """Ответ после успешного голосования"""
+    poll_id: str
+    voted_option: str
+    total_votes: int
+    message: str

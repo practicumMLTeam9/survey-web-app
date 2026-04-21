@@ -16,12 +16,12 @@ app = FastAPI(
 polls_db: dict[str, dict] = {}
 
 
-@app.get("/", tags=["Root"])
+@app.get("/", tags=["Root"],summary="Корневой эндпоинт", description="Возвращает приветственное сообщение и статус сервиса.")
 async def root():
     return {"message": "Hello from src/api/app.py!"}
 
 
-@app.get("/health", tags=["Health"])
+@app.get("/health", tags=["Health"],summary="Проверка здоровья", description="Эндпоинт для проверки доступности сервиса (healthcheck).")
 async def health():
     return {"status": "OK"}
 
@@ -69,11 +69,27 @@ async def list_polls():
 
 @app.get("/polls/{poll_id}",
          response_model=PollDetailResponse,
+         summary="Получить детали опроса",
+         description="Возвращает полную информацию об опросе, включая текущие результаты и общее число голосов.",
          tags=["Polls"])
 async def get_poll_detail(poll_id: str):
     """Получить детальный опрос"""
     if poll_id not in polls_db:
         raise HTTPException(status_code=404, detail="Опрос не найден")
+    
+    poll_data = polls_db[poll_id]
+    votes = poll_data["votes"]
+    total_votes = sum(votes.values())
+
+    # Вычисляем results, так как модель PollDetailResponse требует это поле
+    results = []
+    for option, count in votes.items():
+        percentage = (count / total_votes * 100) if total_votes > 0 else 0.0
+        results.append(OptionResult(
+            option=option,
+            votes=count,
+            percentage=round(percentage, 2)
+        ))
 
     poll_data = polls_db[poll_id]
     return PollDetailResponse(
@@ -81,11 +97,17 @@ async def get_poll_detail(poll_id: str):
         title=poll_data["title"],
         description=poll_data["description"],
         options=poll_data["options"],
-        created_at=poll_data["created_at"]
+        created_at=poll_data["created_at"],
+        results=results,
+        total_votes=total_votes
     )
 
 
-@app.get("/polls/{poll_id}/results", response_model=PollResultsResponse)
+@app.get("/polls/{poll_id}/results", 
+         response_model=PollResultsResponse,
+         summary="Получить результаты опроса",
+         description="Возвращает агрегированные результаты голосования с процентами.",
+         tags=["Results"])
 async def get_poll_results(poll_id: str):
     if poll_id not in polls_db:
         raise HTTPException(status_code=404, detail="Опрос не найден")
@@ -111,25 +133,11 @@ async def get_poll_results(poll_id: str):
     )
 
 
-@app.get("/polls/{poll_id}",
-         response_model=PollDetailResponse,
-         tags=["Polls"])
-async def get_poll_detail(poll_id: str):
-    """Получить детальный опрос"""
-    if poll_id not in polls_db:
-        raise HTTPException(status_code=404, detail="Опрос не найден")
-
-    poll_data = polls_db[poll_id]
-    return PollDetailResponse(
-        id=poll_data["id"], title=poll_data["title"],
-        description=poll_data["description"], options=poll_data["options"],
-        created_at=poll_data["created_at"]
-    )
-
-
 @app.post("/polls/{poll_id}/vote",
           response_model=VoteResponse,
           status_code=status.HTTP_200_OK,
+          summary="Проголосовать в опросе",
+          description="Принимает выбранный вариант и увеличивает счётчик голосов. Возвращает обновлённое общее число голосов.",
           tags=["Voting"])
 async def vote_poll(poll_id: str, vote: VoteRequest):
     """Проголосовать в опросе"""

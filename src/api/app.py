@@ -82,14 +82,14 @@ async def get_poll_detail(poll_id: str):
     total_votes = sum(votes.values())
 
     # Вычисляем results, так как модель PollDetailResponse требует это поле
-    results = []
-    for option, count in votes.items():
-        percentage = (count / total_votes * 100) if total_votes > 0 else 0.0
-        results.append(OptionResult(
-            option=option,
-            votes=count,
-            percentage=round(percentage, 2)
-        ))
+    # results = []
+    # for option, count in votes.items():
+    #     percentage = (count / total_votes * 100) if total_votes > 0 else 0.0
+    #     results.append(OptionResult(
+    #         option=option,
+    #         votes=count,
+    #         percentage=round(percentage, 2)
+    #     ))
 
     poll_data = polls_db[poll_id]
     return PollDetailResponse(
@@ -98,7 +98,7 @@ async def get_poll_detail(poll_id: str):
         description=poll_data["description"],
         options=poll_data["options"],
         created_at=poll_data["created_at"],
-        results=results,
+        # results=results,
         total_votes=total_votes
     )
 

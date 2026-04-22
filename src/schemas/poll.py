@@ -41,7 +41,7 @@ class PollDetailResponse(BaseModel):
     description: Optional[str] = Field(None, description="Описание опроса")
     options: List[str] = Field(..., description="Список вариантов")
     created_at: datetime = Field(..., description="Дата и время создания")
-    results: List[OptionResult] = Field(..., description="Список результатов по вариантам")
+    # results: List[OptionResult] = Field(..., description="Список результатов по вариантам")
     total_votes: int = Field(..., description="Общее количество голосов")
 
 class VoteRequest(BaseModel):

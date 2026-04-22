@@ -8,41 +8,41 @@ class PollCreate(BaseModel):
     description: Optional[str] = Field(None, max_length=500, description="Описание (опционально)")
 
 class OptionResult(BaseModel):
-    option: str
-    votes: int
-    percentage: float
+    option: str = Field(..., description="Текст варианта ответа")
+    votes: int = Field(..., description="Количество голосов")
+    percentage: float = Field(..., description="Процент голосов")
 
 class PollResponse(BaseModel):
-    id: str
-    title: str
-    options: List[str]
-    description: Optional[str]
-    created_at: datetime
-    votes: Dict[str, int]
+    id: str = Field(..., description="Уникальный идентификатор опроса")
+    title: str = Field(..., description="Название опроса")
+    options: List[str] = Field(..., description="Список вариантов")
+    description: Optional[str] = Field(None, description="Описание опроса")
+    created_at: datetime = Field(..., description="Дата и время создания")
+    votes: Dict[str, int] = Field(..., description="Словарь с подсчётом голосов")
 
 class PollResultsResponse(BaseModel):
-    id: str
-    title: str
-    results: List[OptionResult]
-    total_votes: int
-    created_at: datetime
+    id: str = Field(..., description="Уникальный идентификатор опроса")
+    title: str = Field(..., description="Название опроса")
+    results: List[OptionResult] = Field(..., description="Список результатов по вариантам")
+    total_votes: int = Field(..., description="Общее количество голосов")
+    created_at: datetime = Field(..., description="Дата и время создания")
 
 class PollSummary(BaseModel):
     """Краткая информация для списка опросов"""
-    id: str
-    title: str
-    created_at: datetime
-    total_votes: int
+    id: str = Field(..., description="Уникальный идентификатор опроса")
+    title: str = Field(..., description="Название опроса")
+    created_at: datetime = Field(..., description="Дата и время создания")
+    total_votes: int = Field(..., description="Общее количество голосов")
 
 class PollDetailResponse(BaseModel):
     """Детальный опрос"""
-    id: str
-    title: str
-    description: Optional[str]
-    options: List[str]
-    created_at: datetime
-    results: List[OptionResult]
-    total_votes: int
+    id: str = Field(..., description="Уникальный идентификатор опроса")
+    title: str = Field(..., description="Название опроса")
+    description: Optional[str] = Field(None, description="Описание опроса")
+    options: List[str] = Field(..., description="Список вариантов")
+    created_at: datetime = Field(..., description="Дата и время создания")
+    results: List[OptionResult] = Field(..., description="Список результатов по вариантам")
+    total_votes: int = Field(..., description="Общее количество голосов")
 
 class VoteRequest(BaseModel):
     """Тело запроса для голосования"""
@@ -50,7 +50,7 @@ class VoteRequest(BaseModel):
 
 class VoteResponse(BaseModel):
     """Ответ после успешного голосования"""
-    poll_id: str
-    voted_option: str
-    total_votes: int
-    message: str
+    poll_id: str = Field(..., description="ID опроса")
+    voted_option: str = Field(..., description="Выбранный вариант")
+    total_votes: int = Field(..., description="Общее количество голосов после обновления")
+    message: str = Field(..., description="Статусное сообщение")

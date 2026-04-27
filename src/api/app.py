@@ -16,12 +16,14 @@ app = FastAPI(
 polls_db: dict[str, dict] = {}
 
 
-@app.get("/", tags=["Root"],summary="Корневой эндпоинт", description="Возвращает приветственное сообщение и статус сервиса.")
+@app.get("/", tags=["Root"], summary="Корневой эндпоинт",
+         description="Возвращает приветственное сообщение и статус сервиса.")
 async def root():
     return {"message": "Hello from src/api/app.py!"}
 
 
-@app.get("/health", tags=["Health"],summary="Проверка здоровья", description="Эндпоинт для проверки доступности сервиса (healthcheck).")
+@app.get("/health", tags=["Health"], summary="Проверка здоровья",
+         description="Эндпоинт для проверки доступности сервиса (healthcheck).")
 async def health():
     return {"status": "OK"}
 
@@ -31,24 +33,36 @@ async def health():
     response_model=PollResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Создать новый опрос",
-    description="Принимает название и варианты ответов, возвращает созданный опрос с уникальным ID.",
+    description="Принимает название и вопросы с вариантами ответов, возвращает созданный опрос с уникальным ID.",
     tags=["Polls"]
 )
 # спринт2: добавить поле location(филиал) в заголовках ?
 async def create_poll(poll: PollCreate):
     poll_id = str(uuid.uuid4())
 
-    new_poll = PollResponse(
-        id=poll_id,
-        title=poll.title,
-        options=poll.options,
-        description=poll.description,
-        created_at=datetime.now(timezone.utc),
-        votes={option: 0 for option in poll.options}  # Инициализация счётчиков
-    )
-    # Сохранение в хранилище
-    polls_db[poll_id] = new_poll.model_dump()
-    return new_poll
+    # Инициализируем вопросы со счётчиками голосов
+    questions_data = []
+    for q in poll.questions:
+        questions_data.append({
+            "question_text": q.question_text,
+            "options": q.options,
+            "text_answer": q.text_answer,
+            "votes": {opt: 0 for opt in q.options}  # Счётчик для каждого варианта
+        })
+
+        # Сохраняем в хранилище
+        polls_db[poll_id] = {
+            "id": poll_id,
+            "title": poll.title,
+            "city": poll.city,
+            "description": poll.description,
+            "created_at": datetime.now(timezone.utc),
+            "questions": questions_data
+        }
+        # Формируем ссылку (относительную или абсолютную)
+        vote_link = f"{request.base_url}polls/{poll_id}"
+
+        return PollCreatedResponse(id=poll_id, title=poll.title, vote_link=vote_link)
 
 
 @app.get("/polls",
@@ -76,7 +90,7 @@ async def get_poll_detail(poll_id: str):
     """Получить детальный опрос"""
     if poll_id not in polls_db:
         raise HTTPException(status_code=404, detail="Опрос не найден")
-    
+
     poll_data = polls_db[poll_id]
     votes = poll_data["votes"]
     total_votes = sum(votes.values())
@@ -103,7 +117,7 @@ async def get_poll_detail(poll_id: str):
     )
 
 
-@app.get("/polls/{poll_id}/results", 
+@app.get("/polls/{poll_id}/results",
          response_model=PollResultsResponse,
          summary="Получить результаты опроса",
          description="Возвращает агрегированные результаты голосования с процентами.",

@@ -16,12 +16,6 @@ app = FastAPI(
 polls_db: dict[str, dict] = {}
 
 
-@app.get("/", tags=["Root"], summary="Корневой эндпоинт",
-         description="Возвращает приветственное сообщение и статус сервиса.")
-async def root():
-    return {"message": "Hello from src/api/app.py!"}
-
-
 @app.get("/health", tags=["Health"], summary="Проверка здоровья",
          description="Эндпоинт для проверки доступности сервиса (healthcheck).")
 async def health():

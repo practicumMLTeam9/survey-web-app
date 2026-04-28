@@ -1,6 +1,6 @@
 # Database Overview
 
-База данных реализована на PostgreSQL и хранит опросы, пользователей, ответы и AI-аналитику.
+База данных реализована на PostgreSQL и хранит пользователей, опросы, ответы, подписки и AI-аналитику.
 
 ---
 
@@ -16,130 +16,173 @@
 | created_at | Дата создания аккаунта |
 | reset_token_hash | Хеш токена для сброса пароля |
 | reset_token_expires_at | Срок действия токена сброса пароля |
+| first_name | Имя пользователя |
+| last_name | Фамилия пользователя |
+| company_name | Название компании |
+| position | Должность |
+| phone | Телефон |
+| interface_language | Язык интерфейса |
+| role | Роль пользователя |
+| avatar_url | Ссылка на аватар |
 
-Связь: один пользователь может создать много опросов.
+Связи:
+- один пользователь может создать много опросов
+- один пользователь может иметь подписку
+- один пользователь может инициировать AI-запросы
 
 ---
 
-## 2. polls
+## 2. subscriptions
+
+Хранит тариф пользователя.
+
+| Поле | Описание |
+|---|---|
+| id | Уникальный идентификатор подписки |
+| user_id | ID пользователя |
+| plan | Тариф: free, pro, enterprise |
+| status | Статус: active, expired, cancelled |
+| started_at | Дата начала |
+| expires_at | Дата окончания |
+
+---
+
+## 3. polls
 
 Хранит основные данные опроса.
 
 | Поле | Описание |
 |---|---|
 | id | Уникальный идентификатор опроса |
-| title | Название опроса |
-| description | Описание опроса |
-| status | Статус опроса: draft, active, closed |
+| title | Название |
+| description | Описание |
+| status | draft, active, closed |
 | created_at | Дата создания |
-| created_by_user_id | ID пользователя, который создал опрос |
-| updated_at | Дата последнего изменения |
-| published_at | Дата публикации |
-| expires_at | Дата окончания |
-| is_anonymous | Признак анонимного опроса |
-| one_response_only | Ограничение на один ответ от участника |
+| created_by_user_id | Автор |
+| updated_at | Обновление |
+| published_at | Публикация |
+| expires_at | Завершение |
+| is_anonymous | Анонимность |
+| one_response_only | Один ответ |
+| poll_type | Тип опроса |
+| language | Язык |
+| max_participants | Лимит участников |
+| show_progress | Показывать прогресс |
+| notify_on_response | Уведомления |
+| generated_by_ai | Создан AI |
+| ai_generation_prompt | Промпт генерации |
+| target_participants | План участников |
 
 Связи:
 - один `poll` содержит много `questions`
 - один `poll` имеет много `submissions`
 - один `poll` может иметь AI-резюме и AI-чат
+- один `poll` связан с AI-запросами
 
 ---
 
-## 3. questions
+## 4. questions
 
 Хранит вопросы внутри опроса.
 
 | Поле | Описание |
 |---|---|
-| id | Уникальный идентификатор вопроса |
+| id | ID вопроса |
 | poll_id | ID опроса |
-| text | Текст вопроса |
-| type | Тип вопроса: single_choice, multiple_choice, text, scale |
-| is_required | Обязательный ли вопрос |
-| position | Порядок отображения вопроса |
-
-Связь: один вопрос может иметь много вариантов ответа.
+| text | Текст |
+| type | single_choice, multiple_choice, text, scale |
+| is_required | Обязательность |
+| position | Порядок |
 
 ---
 
-## 4. question_options
+## 5. question_options
 
-Хранит варианты ответа для вопросов с выбором.
+Хранит варианты ответов.
 
 | Поле | Описание |
 |---|---|
-| id | Уникальный идентификатор варианта |
+| id | ID варианта |
 | question_id | ID вопроса |
-| text | Текст варианта ответа |
-| position | Порядок отображения варианта |
-
-Используется для типов вопросов `single_choice`, `multiple_choice`, `scale`.
+| text | Текст |
+| position | Порядок |
 
 ---
 
-## 5. submissions
+## 6. submissions
 
-Хранит факт прохождения опроса участником.
+Факт прохождения опроса.
 
 | Поле | Описание |
 |---|---|
-| id | Уникальный идентификатор прохождения |
+| id | ID прохождения |
 | poll_id | ID опроса |
-| respondent_token | Анонимный идентификатор участника |
-| created_at | Дата отправки ответов |
-
-Связь: одно прохождение содержит много ответов.
+| respondent_token | Анонимный токен |
+| created_at | Дата |
+| started_at | Время начала |
+| completed_at | Время завершения |
 
 ---
 
-## 6. answers
+## 7. answers
 
-Хранит конкретные ответы участника.
+Ответы пользователей.
 
 | Поле | Описание |
 |---|---|
-| id | Уникальный идентификатор ответа |
-| submission_id | ID прохождения опроса |
+| id | ID ответа |
+| submission_id | ID прохождения |
 | question_id | ID вопроса |
-| option_id | ID выбранного варианта |
-| text_value | Текстовый ответ |
+| option_id | ID варианта |
+| text_value | Текст |
 
 Логика:
-- если вопрос с выбором — заполняется `option_id`
-- если вопрос текстовый — заполняется `text_value`
-- для multiple_choice создаётся несколько строк в `answers`
+- выбор → option_id  
+- текст → text_value  
+- multiple_choice → несколько строк  
 
 ---
 
-## 7. ai_summaries
+## 8. ai_summaries
 
-Хранит итоговое AI-резюме по опросу.
+AI-резюме.
 
 | Поле | Описание |
 |---|---|
-| id | Уникальный идентификатор резюме |
-| poll_id | ID опроса |
-| summary_text | Сгенерированное AI-резюме |
-| created_at | Дата генерации |
-
-Используется как кэш, чтобы не генерировать резюме повторно при каждом открытии страницы.
+| id | ID |
+| poll_id | Опрос |
+| summary_text | Текст |
+| created_at | Дата |
 
 ---
 
-## 8. ai_chat_messages
+## 9. ai_chat_messages
 
-Хранит историю общения пользователя с AI по конкретному опросу.
+Чат с AI.
 
 | Поле | Описание |
 |---|---|
-| id | Уникальный идентификатор сообщения |
-| poll_id | ID опроса |
-| role | Роль отправителя: user или assistant |
-| message_text | Текст сообщения |
-| created_at | Дата сообщения |
+| id | ID |
+| poll_id | Опрос |
+| role | user / assistant |
+| message_text | Текст |
+| created_at | Дата |
 
-Используется для функции “Спросить AI про этот опрос”.
+---
+
+## 10. ai_requests
+
+Логи AI-запросов.
+
+| Поле | Описание |
+|---|---|
+| id | ID |
+| user_id | Пользователь |
+| poll_id | Опрос |
+| request_type | generate_poll / summary / chat |
+| created_at | Дата |
+
+Используется для лимитов и аналитики.
 
 ---
 
@@ -147,89 +190,105 @@
 
 Основная логика связей:
 users → polls
+users → subscriptions
+users → ai_requests
+
 polls → questions → question_options
 polls → submissions → answers
 polls → ai_summaries
 polls → ai_chat_messages
+polls → ai_requests
 
-Подробно:
+## Подробно
 
-- Один пользователь может создать несколько опросов
-- Один опрос содержит несколько вопросов
-- Один вопрос может иметь несколько вариантов ответа
-- Один опрос может быть пройден много раз
-- Одно прохождение содержит ответы
-- Один опрос может иметь AI-резюме и AI-чат
+- Один пользователь может создать несколько опросов  
+- Один пользователь может иметь подписку  
+- Один пользователь может делать AI-запросы  
+
+- Один опрос содержит вопросы  
+- Один вопрос содержит варианты  
+
+- Один опрос проходит много пользователей  
+- Один submission содержит ответы  
+
+- Один опрос может иметь:
+  - AI-резюме  
+  - AI-чат  
+  - AI-запросы  
 
 ---
 
 # Constraints
 
-В базе используются ограничения целостности данных:
+- FOREIGN KEY  
+- ON DELETE CASCADE  
+- UNIQUE (poll_id, respondent_token)  
 
-- FOREIGN KEY — обеспечивает связи между таблицами
-- ON DELETE CASCADE — удаляет зависимые записи при удалении родительской
-- UNIQUE (poll_id, respondent_token) — ограничивает повторное прохождение опроса
-- CHECK constraints:
-  - questions.type (single_choice, multiple_choice, text, scale)
-  - polls.status (draft, active, closed)
+CHECK:
+- questions.type  
+- polls.status  
+- subscriptions.plan  
+- subscriptions.status  
+- ai_requests.request_type  
 
 ---
 
 # Indexes
 
-Для ускорения запросов добавлены индексы:
-
-- questions.poll_id
-- question_options.question_id
-- submissions.poll_id
-- answers.submission_id
-- answers.question_id
-- answers.option_id
-- ai_summaries.poll_id
-- ai_chat_messages.poll_id
-
-Используются для:
-- загрузки структуры опроса
-- подсчёта результатов
-- AI-аналитики
+- questions.poll_id  
+- question_options.question_id  
+- submissions.poll_id  
+- answers.submission_id  
+- answers.question_id  
+- answers.option_id  
+- ai_summaries.poll_id  
+- ai_chat_messages.poll_id  
+- polls.created_by_user_id  
+- polls.status  
+- subscriptions.user_id  
+- ai_requests.user_id  
+- ai_requests.poll_id  
 
 ---
 
 # Anonymous Mode
 
-Система поддерживает анонимное участие.
+Используется respondent_token.
 
-Используется поле `respondent_token` в таблице `submissions`.
-
-Это позволяет:
-- не хранить персональные данные
-- сохранить анонимность
-- ограничить повторные ответы
+Позволяет:
+- не хранить личные данные  
+- ограничить повторные ответы  
 
 ---
 
 # Data Flow
 
-1. Пользователь создаёт опрос → `polls`, `questions`, `question_options`
-2. Пользователь проходит опрос → `submissions`
-3. Ответы сохраняются → `answers`
-4. При просмотре результатов:
-   - данные агрегируются
-   - генерируется AI-резюме (при необходимости)
-5. AI-резюме сохраняется → `ai_summaries`
-6. Вопросы к AI сохраняются → `ai_chat_messages`
+1. Создание опроса → polls, questions, options  
+2. Прохождение → submissions  
+3. Ответы → answers  
+4. Аналитика → aggregation  
+5. AI → summaries / chat  
+6. Логи AI → ai_requests  
 
 ---
 
 # AI Integration
 
-AI-функциональность реализована через:
+- ai_summaries — кэш анализа  
+- ai_chat_messages — диалог  
+- ai_requests — лимиты  
 
-- ai_summaries — хранит итоговый анализ
-- ai_chat_messages — хранит историю общения
+---
 
-AI-ответы кэшируются в базе, что позволяет:
-- снизить нагрузку на AI
-- ускорить отображение результатов
-- избежать повторных вычислений
+# Subscription Logic
+
+Тарифы:
+- free  
+- pro  
+- enterprise  
+
+Ограничения:
+- опросы  
+- ответы  
+- участники  
+- AI-запросы  

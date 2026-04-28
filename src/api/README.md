@@ -12,7 +12,7 @@
 
 ### Запуск сервера с помощью uvicorn:
 
-`uvicorn src.api.app:app --reload`
+`uvicorn src.app:app --reload`
 
 ### Открыть swagger:
 

@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from api import polls, health
+from src.api import polls, health, auth
 
 app = FastAPI(
     title="Poll Application",
@@ -8,5 +8,6 @@ app = FastAPI(
 
 app.include_router(polls.router)
 app.include_router(health.router)
+app.include_router(auth.router)
 
 

@@ -1,0 +1,3033 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SurveyPulse — Корпоративные опросы</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --brand: #4F46E5;
+      --brand-light: #EEF2FF;
+      --brand-dark: #3730A3;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --danger: #EF4444;
+      --gray-50: #F9FAFB;
+      --gray-100: #F3F4F6;
+      --gray-200: #E5E7EB;
+      --gray-300: #D1D5DB;
+      --gray-400: #9CA3AF;
+      --gray-500: #6B7280;
+      --gray-600: #4B5563;
+      --gray-700: #374151;
+      --gray-800: #1F2937;
+      --gray-900: #111827;
+      --sidebar-w: 240px;
+      --radius: 10px;
+      --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+      --shadow-md: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -1px rgba(0,0,0,.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -2px rgba(0,0,0,.05);
+    }
+
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--gray-50); color: var(--gray-800); min-height: 100vh; display: flex; }
+
+    /* ─── Sidebar ─── */
+    .sidebar {
+      width: var(--sidebar-w); min-height: 100vh; background: #fff;
+      border-right: 1px solid var(--gray-200); display: flex; flex-direction: column;
+      position: fixed; left: 0; top: 0; bottom: 0; z-index: 100;
+    }
+    .sidebar-logo {
+      padding: 20px 20px 16px; border-bottom: 1px solid var(--gray-100);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .logo-icon {
+      width: 32px; height: 32px; background: var(--brand); border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .logo-icon svg { width: 18px; height: 18px; fill: #fff; }
+    .logo-text { font-size: 16px; font-weight: 700; color: var(--gray-900); }
+    .logo-badge { font-size: 10px; font-weight: 600; color: var(--brand); background: var(--brand-light); padding: 1px 6px; border-radius: 20px; }
+
+    .sidebar-nav { padding: 12px 10px; flex: 1; }
+    .nav-section { margin-bottom: 20px; }
+    .nav-label { font-size: 10px; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: .06em; padding: 0 10px; margin-bottom: 4px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+      border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;
+      color: var(--gray-600); transition: all .15s; user-select: none;
+    }
+    .nav-item:hover { background: var(--gray-100); color: var(--gray-900); }
+    .nav-item.active { background: var(--brand-light); color: var(--brand); }
+    .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .nav-badge { margin-left: auto; font-size: 11px; font-weight: 600; background: var(--brand); color: #fff; padding: 1px 7px; border-radius: 20px; }
+
+    .sidebar-bottom { padding: 12px 10px; border-top: 1px solid var(--gray-100); }
+    .user-card { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+    .user-card:hover { background: var(--gray-100); }
+    .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--brand); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+    .user-info { flex: 1; min-width: 0; }
+    .user-name { font-size: 13px; font-weight: 600; color: var(--gray-800); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .user-role { font-size: 11px; color: var(--gray-400); }
+
+    /* ─── Main ─── */
+    .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+    .topbar {
+      background: #fff; border-bottom: 1px solid var(--gray-200); padding: 0 28px;
+      height: 60px; display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 50;
+    }
+    .topbar-title { font-size: 17px; font-weight: 700; color: var(--gray-900); }
+    .topbar-actions { display: flex; align-items: center; gap: 10px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;
+      border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+      border: none; transition: all .15s; text-decoration: none;
+    }
+    .btn svg { width: 15px; height: 15px; }
+    .btn-primary { background: var(--brand); color: #fff; }
+    .btn-primary:hover { background: var(--brand-dark); }
+    .btn-secondary { background: var(--gray-100); color: var(--gray-700); }
+    .btn-secondary:hover { background: var(--gray-200); }
+    .btn-ghost { background: transparent; color: var(--gray-600); }
+    .btn-ghost:hover { background: var(--gray-100); }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
+    .btn-danger { background: #FEF2F2; color: var(--danger); }
+    .btn-danger:hover { background: #FEE2E2; }
+
+    .page { padding: 28px; flex: 1; display: none; }
+    .page.active { display: block; }
+
+    /* ─── Stats cards ─── */
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+    .stat-card {
+      background: #fff; border-radius: var(--radius); padding: 20px;
+      border: 1px solid var(--gray-200); box-shadow: var(--shadow);
+    }
+    .stat-label { font-size: 12px; font-weight: 500; color: var(--gray-500); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .04em; }
+    .stat-value { font-size: 28px; font-weight: 700; color: var(--gray-900); line-height: 1; margin-bottom: 6px; }
+    .stat-delta { font-size: 12px; font-weight: 500; }
+    .stat-delta.up { color: var(--success); }
+    .stat-delta.down { color: var(--danger); }
+    .stat-icon { float: right; margin-top: -36px; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+    .stat-icon svg { width: 20px; height: 20px; }
+    .stat-icon.indigo { background: var(--brand-light); color: var(--brand); }
+    .stat-icon.green { background: #D1FAE5; color: var(--success); }
+    .stat-icon.amber { background: #FEF3C7; color: var(--warning); }
+    .stat-icon.red { background: #FEE2E2; color: var(--danger); }
+
+    /* ─── Surveys list ─── */
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .section-title { font-size: 16px; font-weight: 700; color: var(--gray-900); }
+
+    .survey-table { background: #fff; border-radius: var(--radius); border: 1px solid var(--gray-200); overflow: hidden; box-shadow: var(--shadow); }
+    .survey-table table { width: 100%; border-collapse: collapse; }
+    .survey-table th { background: var(--gray-50); padding: 11px 16px; text-align: left; font-size: 11px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--gray-200); }
+    .survey-table td { padding: 14px 16px; border-bottom: 1px solid var(--gray-100); font-size: 14px; vertical-align: middle; }
+    .survey-table tr:last-child td { border-bottom: none; }
+    .survey-table tr:hover td { background: var(--gray-50); }
+
+    .survey-name { font-weight: 600; color: var(--gray-900); margin-bottom: 2px; }
+    .survey-meta { font-size: 12px; color: var(--gray-400); }
+
+    .status-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .status-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+    .status-badge.active { background: #D1FAE5; color: #065F46; }
+    .status-badge.active::before { background: var(--success); }
+    .status-badge.draft { background: var(--gray-100); color: var(--gray-600); }
+    .status-badge.draft::before { background: var(--gray-400); }
+    .status-badge.closed { background: #FEE2E2; color: #991B1B; }
+    .status-badge.closed::before { background: var(--danger); }
+    .status-badge.scheduled { background: #FEF3C7; color: #92400E; }
+    .status-badge.scheduled::before { background: var(--warning); }
+
+    .progress-bar { background: var(--gray-100); border-radius: 99px; height: 6px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 99px; background: var(--brand); transition: width .3s; }
+
+    .table-actions { display: flex; gap: 4px; }
+
+    /* ─── Search & filter bar ─── */
+    .filter-bar { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; }
+    .search-wrap { position: relative; flex: 1; max-width: 320px; }
+    .search-wrap input {
+      width: 100%; padding: 8px 12px 8px 36px; border: 1px solid var(--gray-200);
+      border-radius: 8px; font-size: 13px; outline: none; background: #fff;
+      transition: border-color .15s;
+    }
+    .search-wrap input:focus { border-color: var(--brand); }
+    .search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--gray-400); }
+    .filter-select {
+      padding: 8px 12px; border: 1px solid var(--gray-200); border-radius: 8px;
+      font-size: 13px; outline: none; background: #fff; cursor: pointer;
+      color: var(--gray-700);
+    }
+    .filter-select:focus { border-color: var(--brand); }
+
+    /* ─── Create survey page ─── */
+    .create-layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start; }
+    .card { background: #fff; border-radius: var(--radius); border: 1px solid var(--gray-200); box-shadow: var(--shadow); }
+    .card-header { padding: 16px 20px; border-bottom: 1px solid var(--gray-100); display: flex; align-items: center; justify-content: space-between; }
+    .card-title { font-size: 14px; font-weight: 700; color: var(--gray-900); }
+    .card-body { padding: 20px; }
+
+    .form-group { margin-bottom: 18px; }
+    .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px; }
+    .form-label span { font-weight: 400; color: var(--gray-400); }
+    .form-input, .form-textarea, .form-select {
+      width: 100%; padding: 9px 12px; border: 1px solid var(--gray-200);
+      border-radius: 8px; font-size: 13px; outline: none; font-family: inherit;
+      transition: border-color .15s; background: #fff; color: var(--gray-800);
+    }
+    .form-input:focus, .form-textarea:focus, .form-select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(79,70,229,.1); }
+    .form-textarea { resize: vertical; min-height: 80px; }
+
+    .question-list { display: flex; flex-direction: column; gap: 12px; }
+    .question-card {
+      border: 1px solid var(--gray-200); border-radius: var(--radius); overflow: hidden;
+      background: #fff; transition: box-shadow .15s;
+    }
+    .question-card:hover { box-shadow: var(--shadow-md); }
+    .question-card.drag-over { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(79,70,229,.2); }
+    .question-header {
+      display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+      background: var(--gray-50); cursor: pointer;
+    }
+    .q-drag { cursor: grab; color: var(--gray-300); }
+    .q-drag svg { width: 16px; height: 16px; }
+    .q-number { width: 22px; height: 22px; background: var(--brand); color: #fff; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+    .q-title { flex: 1; font-size: 13px; font-weight: 600; color: var(--gray-800); }
+    .q-type-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; background: var(--brand-light); color: var(--brand); }
+    .question-body { padding: 14px; display: none; }
+    .question-body.open { display: block; }
+
+    .options-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+    .option-row { display: flex; align-items: center; gap: 8px; }
+    .option-indicator { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--gray-300); flex-shrink: 0; }
+    .option-indicator.checkbox { border-radius: 4px; }
+    .option-input { flex: 1; padding: 7px 10px; border: 1px solid var(--gray-200); border-radius: 6px; font-size: 13px; outline: none; }
+    .option-input:focus { border-color: var(--brand); }
+    .option-remove { width: 24px; height: 24px; border: none; background: none; cursor: pointer; color: var(--gray-300); display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+    .option-remove:hover { color: var(--danger); background: #FEE2E2; }
+    .option-remove svg { width: 14px; height: 14px; }
+
+    .scale-preview { display: flex; gap: 8px; margin-top: 12px; }
+    .scale-btn { width: 40px; height: 40px; border-radius: 8px; border: 2px solid var(--gray-200); background: #fff; font-size: 14px; font-weight: 700; cursor: pointer; color: var(--gray-600); transition: all .15s; display: flex; align-items: center; justify-content: center; }
+    .scale-btn:hover { border-color: var(--brand); color: var(--brand); }
+
+    .add-question-bar {
+      border: 2px dashed var(--gray-200); border-radius: var(--radius); padding: 16px;
+      display: flex; gap: 8px; justify-content: center; margin-top: 12px;
+      cursor: pointer; transition: all .15s;
+    }
+    .add-question-bar:hover { border-color: var(--brand); background: var(--brand-light); }
+    .add-question-bar:hover .aq-label { color: var(--brand); }
+    .aq-label { font-size: 13px; font-weight: 600; color: var(--gray-500); }
+
+    .type-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .type-option {
+      display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+      border: 2px solid var(--gray-200); border-radius: 8px; cursor: pointer;
+      transition: all .15s; font-size: 13px; font-weight: 500; color: var(--gray-700);
+    }
+    .type-option:hover { border-color: var(--brand); color: var(--brand); }
+    .type-option.selected { border-color: var(--brand); background: var(--brand-light); color: var(--brand); }
+    .type-option svg { width: 16px; height: 16px; }
+
+    .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--gray-100); }
+    .settings-row:last-child { border-bottom: none; }
+    .settings-label { font-size: 13px; font-weight: 500; color: var(--gray-700); }
+    .settings-hint { font-size: 11px; color: var(--gray-400); margin-top: 1px; }
+    .toggle { width: 38px; height: 22px; background: var(--gray-200); border-radius: 99px; cursor: pointer; position: relative; transition: background .15s; flex-shrink: 0; }
+    .toggle.on { background: var(--brand); }
+    .toggle::after { content: ''; position: absolute; left: 3px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+    .toggle.on::after { transform: translateX(16px); }
+
+    /* ─── Survey preview / take survey ─── */
+    .survey-shell {
+      max-width: 640px; margin: 0 auto;
+    }
+    .survey-hero {
+      background: linear-gradient(135deg, var(--brand) 0%, #7C3AED 100%);
+      border-radius: var(--radius) var(--radius) 0 0; padding: 32px 32px 28px;
+      color: #fff;
+    }
+    .survey-company { font-size: 12px; font-weight: 600; opacity: .7; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+    .survey-title-big { font-size: 22px; font-weight: 800; margin-bottom: 8px; line-height: 1.3; }
+    .survey-desc { font-size: 14px; opacity: .85; line-height: 1.5; }
+    .survey-progress-wrap { padding: 12px 32px; background: #fff; border-left: 1px solid var(--gray-200); border-right: 1px solid var(--gray-200); }
+    .survey-progress-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--gray-500); margin-bottom: 6px; }
+    .survey-body { background: #fff; padding: 28px 32px; border: 1px solid var(--gray-200); border-top: none; border-radius: 0 0 var(--radius) var(--radius); }
+
+    .sq-block { margin-bottom: 28px; padding-bottom: 28px; border-bottom: 1px solid var(--gray-100); }
+    .sq-block:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .sq-label { font-size: 15px; font-weight: 700; color: var(--gray-900); margin-bottom: 4px; }
+    .sq-required { color: var(--danger); margin-left: 2px; }
+    .sq-hint { font-size: 12px; color: var(--gray-400); margin-bottom: 14px; }
+
+    .radio-option, .check-option {
+      display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+      border: 1.5px solid var(--gray-200); border-radius: 8px; cursor: pointer;
+      margin-bottom: 8px; font-size: 14px; color: var(--gray-700); transition: all .15s;
+    }
+    .radio-option:hover, .check-option:hover { border-color: var(--brand); background: var(--brand-light); color: var(--brand); }
+    .radio-option.selected, .check-option.selected { border-color: var(--brand); background: var(--brand-light); color: var(--brand); font-weight: 600; }
+    .radio-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid currentColor; flex-shrink: 0; position: relative; display: flex; align-items: center; justify-content: center; }
+    .radio-dot::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--brand); display: none; }
+    .radio-option.selected .radio-dot::after { display: block; }
+    .check-box { width: 18px; height: 18px; border-radius: 4px; border: 2px solid currentColor; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .check-box svg { width: 11px; height: 11px; display: none; }
+    .check-option.selected .check-box svg { display: block; }
+
+    .nps-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .nps-btn {
+      width: 46px; height: 46px; border-radius: 10px; border: 2px solid var(--gray-200);
+      background: #fff; font-size: 14px; font-weight: 700; cursor: pointer;
+      color: var(--gray-600); transition: all .15s; display: flex; align-items: center; justify-content: center;
+    }
+    .nps-btn:hover { border-color: var(--brand); color: var(--brand); }
+    .nps-btn.selected { background: var(--brand); border-color: var(--brand); color: #fff; }
+    .nps-labels { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; color: var(--gray-400); }
+
+    .stars-row { display: flex; gap: 6px; }
+    .star-btn { font-size: 28px; cursor: pointer; color: var(--gray-200); transition: color .1s; }
+    .star-btn.lit { color: #F59E0B; }
+
+    /* ─── AI Analytics ─── */
+    --ai-1: #7C3AED; --ai-2: #4F46E5; --ai-3: #0EA5E9;
+
+    .ai-banner {
+      background: linear-gradient(135deg, #1E1B4B 0%, #312E81 40%, #1E3A5F 100%);
+      border-radius: var(--radius); padding: 24px 28px; margin-bottom: 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: relative; overflow: hidden;
+    }
+    .ai-banner::before {
+      content: ''; position: absolute; top: -40px; right: -40px;
+      width: 200px; height: 200px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(124,58,237,.35) 0%, transparent 70%);
+    }
+    .ai-banner::after {
+      content: ''; position: absolute; bottom: -30px; left: 30%;
+      width: 150px; height: 150px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(14,165,233,.2) 0%, transparent 70%);
+    }
+    .ai-banner-left { position: relative; z-index: 1; }
+    .ai-banner-label {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
+      border-radius: 20px; padding: 3px 12px; font-size: 11px; font-weight: 700;
+      color: rgba(255,255,255,.9); letter-spacing: .05em; text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .ai-banner-label svg { width: 13px; height: 13px; }
+    .ai-banner-title { font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+    .ai-banner-sub { font-size: 13px; color: rgba(255,255,255,.6); }
+    .ai-banner-right { position: relative; z-index: 1; display: flex; gap: 8px; }
+    .btn-ai {
+      background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25);
+      color: #fff; backdrop-filter: blur(4px);
+    }
+    .btn-ai:hover { background: rgba(255,255,255,.25); }
+    .btn-ai-primary {
+      background: linear-gradient(135deg, #7C3AED, #4F46E5);
+      border: none; color: #fff; box-shadow: 0 4px 12px rgba(124,58,237,.4);
+    }
+    .btn-ai-primary:hover { box-shadow: 0 4px 20px rgba(124,58,237,.6); transform: translateY(-1px); }
+
+    .ai-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .ai-card {
+      background: #fff; border-radius: var(--radius); border: 1px solid var(--gray-200);
+      box-shadow: var(--shadow); overflow: hidden;
+    }
+    .ai-card-full { grid-column: 1 / -1; }
+    .ai-card-header {
+      padding: 14px 18px; border-bottom: 1px solid var(--gray-100);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .ai-card-icon {
+      width: 28px; height: 28px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .ai-card-icon svg { width: 14px; height: 14px; }
+    .ai-card-icon.violet { background: #EDE9FE; color: #7C3AED; }
+    .ai-card-icon.blue { background: #DBEAFE; color: #2563EB; }
+    .ai-card-icon.green { background: #D1FAE5; color: #059669; }
+    .ai-card-icon.amber { background: #FEF3C7; color: #D97706; }
+    .ai-card-icon.red { background: #FEE2E2; color: #DC2626; }
+    .ai-card-icon.sky { background: #E0F2FE; color: #0284C7; }
+    .ai-card-title { font-size: 13px; font-weight: 700; color: var(--gray-800); flex: 1; }
+    .ai-card-badge {
+      font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px;
+      background: linear-gradient(135deg, #7C3AED, #4F46E5); color: #fff; letter-spacing: .03em;
+    }
+    .ai-card-body { padding: 18px; }
+
+    /* Summary card */
+    .ai-summary-text {
+      font-size: 14px; color: var(--gray-700); line-height: 1.7;
+      border-left: 3px solid; border-image: linear-gradient(180deg,#7C3AED,#4F46E5) 1;
+      padding-left: 14px;
+    }
+    .ai-typing-cursor { display: inline-block; width: 2px; height: 16px; background: var(--brand); animation: blink 1s infinite; margin-left: 2px; vertical-align: text-bottom; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* Sentiment donut */
+    .sentiment-wrap { display: flex; align-items: center; gap: 20px; }
+    .donut-svg { flex-shrink: 0; }
+    .donut-center { font-size: 20px; font-weight: 800; fill: var(--gray-900); }
+    .donut-sub { font-size: 9px; fill: var(--gray-400); }
+    .sentiment-legend { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+    .legend-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .legend-label { color: var(--gray-600); flex: 1; }
+    .legend-pct { font-weight: 700; color: var(--gray-900); }
+    .legend-bar { flex: 2; height: 5px; background: var(--gray-100); border-radius: 99px; overflow: hidden; }
+    .legend-bar-fill { height: 100%; border-radius: 99px; }
+
+    /* Themes cloud */
+    .themes-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+    .theme-tag {
+      display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px;
+      border-radius: 99px; font-weight: 600; cursor: default;
+      transition: transform .15s, box-shadow .15s;
+    }
+    .theme-tag:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .theme-tag .t-count { font-size: 11px; opacity: .7; }
+
+    /* Insight cards */
+    .insight-list { display: flex; flex-direction: column; gap: 10px; }
+    .insight-item {
+      display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px;
+      border-radius: 8px; border: 1px solid var(--gray-100);
+    }
+    .insight-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 16px; }
+    .insight-title { font-size: 13px; font-weight: 700; color: var(--gray-900); margin-bottom: 2px; }
+    .insight-text { font-size: 12px; color: var(--gray-500); line-height: 1.5; }
+    .insight-item.positive { background: #F0FDF4; border-color: #BBF7D0; }
+    .insight-item.warning { background: #FFFBEB; border-color: #FDE68A; }
+    .insight-item.critical { background: #FFF1F2; border-color: #FECDD3; }
+    .insight-item.neutral { background: var(--gray-50); }
+
+    /* Recommendations */
+    .rec-list { display: flex; flex-direction: column; gap: 10px; }
+    .rec-item {
+      display: flex; gap: 12px; padding: 14px 16px; border-radius: 8px;
+      border: 1px solid var(--gray-200); background: #fff; align-items: flex-start;
+    }
+    .rec-num {
+      width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #fff;
+      background: linear-gradient(135deg, #7C3AED, #4F46E5);
+    }
+    .rec-body { flex: 1; }
+    .rec-title { font-size: 13px; font-weight: 700; color: var(--gray-900); margin-bottom: 3px; }
+    .rec-text { font-size: 12px; color: var(--gray-500); line-height: 1.5; }
+    .rec-priority { flex-shrink: 0; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; align-self: flex-start; }
+    .rec-priority.high { background: #FEE2E2; color: #B91C1C; }
+    .rec-priority.med { background: #FEF3C7; color: #92400E; }
+    .rec-priority.low { background: #D1FAE5; color: #065F46; }
+
+    /* Segment comparison */
+    .seg-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .seg-table th { text-align: left; font-size: 11px; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: .05em; padding: 6px 0 10px; border-bottom: 1px solid var(--gray-100); }
+    .seg-table td { padding: 10px 0; border-bottom: 1px solid var(--gray-50); vertical-align: middle; }
+    .seg-table tr:last-child td { border-bottom: none; }
+    .seg-name { font-weight: 600; color: var(--gray-800); }
+    .seg-score { font-weight: 800; font-size: 15px; }
+    .seg-delta { font-size: 12px; font-weight: 600; }
+    .seg-delta.up { color: var(--success); }
+    .seg-delta.down { color: var(--danger); }
+    .seg-bar-wrap { width: 100px; }
+
+    /* AI Chat */
+    .ai-chat-wrap { display: flex; flex-direction: column; gap: 10px; }
+    .chat-msg { display: flex; gap: 10px; align-items: flex-start; }
+    .chat-msg.user { flex-direction: row-reverse; }
+    .chat-avatar { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+    .chat-avatar.ai-av { background: linear-gradient(135deg,#7C3AED,#4F46E5); color: #fff; }
+    .chat-avatar.user-av { background: var(--gray-200); color: var(--gray-600); }
+    .chat-bubble { max-width: 80%; padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.6; }
+    .chat-msg.ai .chat-bubble { background: var(--gray-50); border: 1px solid var(--gray-200); color: var(--gray-700); border-radius: 4px 12px 12px 12px; }
+    .chat-msg.user .chat-bubble { background: linear-gradient(135deg,#7C3AED,#4F46E5); color: #fff; border-radius: 12px 4px 12px 12px; }
+    .chat-input-row { display: flex; gap: 8px; margin-top: 4px; }
+    .chat-input {
+      flex: 1; padding: 9px 14px; border: 1.5px solid var(--gray-200); border-radius: 99px;
+      font-size: 13px; outline: none; font-family: inherit;
+    }
+    .chat-input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(79,70,229,.1); }
+    .chat-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .chat-sug {
+      padding: 5px 12px; border: 1px solid var(--gray-200); border-radius: 99px;
+      font-size: 12px; cursor: pointer; color: var(--gray-600); background: #fff;
+      transition: all .15s;
+    }
+    .chat-sug:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-light); }
+
+    .ai-thinking {
+      display: flex; gap: 4px; align-items: center; padding: 10px 14px;
+      background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 4px 12px 12px 12px;
+      width: fit-content;
+    }
+    .ai-thinking span { width: 7px; height: 7px; background: var(--gray-300); border-radius: 50%; animation: bounce 1.2s infinite; }
+    .ai-thinking span:nth-child(2) { animation-delay: .2s; }
+    .ai-thinking span:nth-child(3) { animation-delay: .4s; }
+    @keyframes bounce { 0%,80%,100%{transform:scale(.8);opacity:.5} 40%{transform:scale(1.2);opacity:1} }
+
+    /* ─── AI Create ─── */
+    .create-mode-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
+    .mode-card {
+      border: 2px solid var(--gray-200); border-radius: var(--radius); padding: 20px 22px;
+      cursor: pointer; transition: all .2s; background: #fff; position: relative; overflow: hidden;
+    }
+    .mode-card:hover { border-color: var(--gray-300); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+    .mode-card.selected-manual { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(79,70,229,.1); }
+    .mode-card.selected-ai {
+      border-color: #7C3AED;
+      background: linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #1E3A5F 100%);
+      box-shadow: 0 8px 24px rgba(124,58,237,.3);
+    }
+    .mode-card.selected-ai:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(124,58,237,.4); }
+    .mode-card::before {
+      content: ''; position: absolute; top: -50px; right: -50px;
+      width: 140px; height: 140px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(124,58,237,.15) 0%, transparent 70%);
+      opacity: 0; transition: opacity .3s;
+    }
+    .mode-card.selected-ai::before { opacity: 1; }
+    .mode-card-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+    .mode-card-icon svg { width: 20px; height: 20px; }
+    .mode-card-icon.manual-icon { background: var(--gray-100); color: var(--gray-600); }
+    .mode-card.selected-manual .mode-card-icon.manual-icon { background: var(--brand-light); color: var(--brand); }
+    .mode-card-icon.ai-icon { background: rgba(255,255,255,.15); color: #fff; }
+    .mode-card-title { font-size: 15px; font-weight: 800; margin-bottom: 4px; color: var(--gray-800); }
+    .mode-card.selected-ai .mode-card-title { color: #fff; }
+    .mode-card.selected-ai .mode-card-desc { color: rgba(255,255,255,.65); }
+    .mode-card-desc { font-size: 13px; color: var(--gray-500); line-height: 1.4; }
+    .mode-selected-dot { position: absolute; top: 14px; right: 14px; width: 20px; height: 20px; border-radius: 50%; background: var(--brand); display: none; align-items: center; justify-content: center; }
+    .mode-selected-dot svg { width: 11px; height: 11px; color: #fff; }
+    .mode-card.selected-manual .mode-selected-dot { display: flex; }
+    .mode-card.selected-ai .mode-selected-dot { display: flex; background: rgba(255,255,255,.25); }
+    .ai-badge-inline {
+      display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700;
+      padding: 2px 8px; border-radius: 99px; text-transform: uppercase; letter-spacing: .04em;
+      background: linear-gradient(135deg,#7C3AED,#4F46E5); color: #fff; margin-left: 6px; vertical-align: middle;
+    }
+
+    /* AI create panel */
+    .ai-create-panel { margin-bottom: 24px; transition: all .3s; }
+    .ai-create-panel.hidden { display: none; }
+
+    /* State: input */
+    .ai-input-panel {
+      background: linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #1E3A5F 100%);
+      border-radius: var(--radius); padding: 28px; position: relative; overflow: hidden;
+    }
+    .ai-input-panel::before {
+      content: ''; position: absolute; top: -60px; right: -60px; width: 240px; height: 240px;
+      border-radius: 50%; background: radial-gradient(circle, rgba(124,58,237,.3) 0%, transparent 70%);
+    }
+    .ai-input-panel::after {
+      content: ''; position: absolute; bottom: -40px; left: 20%; width: 180px; height: 180px;
+      border-radius: 50%; background: radial-gradient(circle, rgba(14,165,233,.2) 0%, transparent 70%);
+    }
+    .ai-input-inner { position: relative; z-index: 1; }
+    .ai-panel-label {
+      display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700;
+      color: rgba(255,255,255,.7); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px;
+    }
+    .ai-panel-label svg { width: 13px; height: 13px; }
+    .ai-prompt-area {
+      width: 100%; background: rgba(255,255,255,.1); border: 1.5px solid rgba(255,255,255,.2);
+      border-radius: 10px; padding: 14px 16px; font-size: 14px; color: #fff; font-family: inherit;
+      resize: none; outline: none; min-height: 80px; transition: border-color .15s; line-height: 1.6;
+    }
+    .ai-prompt-area::placeholder { color: rgba(255,255,255,.4); }
+    .ai-prompt-area:focus { border-color: rgba(255,255,255,.5); background: rgba(255,255,255,.12); }
+    .ai-quick-prompts { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+    .ai-quick-btn {
+      padding: 5px 13px; border-radius: 99px; font-size: 12px; font-weight: 600;
+      background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2); color: rgba(255,255,255,.8);
+      cursor: pointer; transition: all .15s;
+    }
+    .ai-quick-btn:hover { background: rgba(255,255,255,.2); color: #fff; }
+    .ai-settings-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; align-items: center; }
+    .ai-select {
+      padding: 7px 12px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2);
+      border-radius: 8px; color: rgba(255,255,255,.9); font-size: 12px; font-family: inherit; outline: none; cursor: pointer;
+    }
+    .ai-select option { background: #312E81; color: #fff; }
+    .ai-generate-btn {
+      margin-left: auto; padding: 10px 22px; border-radius: 99px; border: none; cursor: pointer;
+      background: #fff; color: #312E81; font-size: 13px; font-weight: 800;
+      display: flex; align-items: center; gap: 7px; transition: all .2s;
+      box-shadow: 0 4px 14px rgba(0,0,0,.25);
+    }
+    .ai-generate-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,.3); }
+    .ai-generate-btn svg { width: 15px; height: 15px; }
+
+    /* State: generating */
+    .ai-generating-panel {
+      background: linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #1E3A5F 100%);
+      border-radius: var(--radius); padding: 40px 28px; text-align: center; display: none;
+    }
+    .ai-gen-orb {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: linear-gradient(135deg, #7C3AED, #4F46E5, #0EA5E9);
+      margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;
+      animation: pulse-orb 2s ease-in-out infinite;
+      box-shadow: 0 0 0 0 rgba(124,58,237,.4);
+    }
+    @keyframes pulse-orb {
+      0%   { transform: scale(1);    box-shadow: 0 0 0 0 rgba(124,58,237,.5); }
+      50%  { transform: scale(1.07); box-shadow: 0 0 0 16px rgba(124,58,237,0); }
+      100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(124,58,237,0); }
+    }
+    .ai-gen-orb svg { width: 30px; height: 30px; color: #fff; }
+    .ai-gen-title { font-size: 18px; font-weight: 800; color: #fff; margin-bottom: 6px; }
+    .ai-gen-subtitle { font-size: 13px; color: rgba(255,255,255,.55); margin-bottom: 28px; }
+    .ai-gen-steps { display: flex; flex-direction: column; gap: 10px; max-width: 320px; margin: 0 auto; }
+    .ai-step {
+      display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+      background: rgba(255,255,255,.08); border-radius: 8px; font-size: 13px; color: rgba(255,255,255,.5);
+      transition: all .4s;
+    }
+    .ai-step.done { background: rgba(255,255,255,.14); color: rgba(255,255,255,.9); }
+    .ai-step.active { background: rgba(255,255,255,.12); color: #fff; }
+    .ai-step-dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid rgba(255,255,255,.2); flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all .4s; }
+    .ai-step.done .ai-step-dot { background: #10B981; border-color: #10B981; }
+    .ai-step.active .ai-step-dot { border-color: rgba(255,255,255,.7); animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .ai-step.done .ai-step-dot::after { content: '✓'; font-size: 11px; font-weight: 800; color: #fff; }
+    .ai-step.active .ai-step-dot::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
+
+    /* State: done */
+    .ai-done-panel { display: none; }
+    .ai-done-header {
+      display: flex; align-items: center; gap: 12px; padding: 16px 20px;
+      background: linear-gradient(135deg, rgba(16,185,129,.1), rgba(79,70,229,.08));
+      border: 1px solid rgba(16,185,129,.25); border-radius: var(--radius); margin-bottom: 16px;
+    }
+    .ai-done-icon { width: 36px; height: 36px; background: #10B981; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .ai-done-icon svg { width: 18px; height: 18px; color: #fff; }
+    .ai-done-title { font-size: 14px; font-weight: 700; color: var(--gray-900); }
+    .ai-done-sub { font-size: 12px; color: var(--gray-500); }
+    .ai-done-actions { margin-left: auto; display: flex; gap: 8px; }
+
+    .ai-q-preview { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+    .ai-q-item {
+      display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px;
+      background: #fff; border: 1px solid var(--gray-200); border-radius: 10px;
+      opacity: 0; transform: translateY(8px);
+      animation: fadeUp .35s forwards;
+      box-shadow: var(--shadow);
+    }
+    @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+    .ai-q-num { width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; background: linear-gradient(135deg,#7C3AED,#4F46E5); }
+    .ai-q-content { flex: 1; }
+    .ai-q-text { font-size: 13px; font-weight: 600; color: var(--gray-800); margin-bottom: 4px; }
+    .ai-q-meta { display: flex; gap: 6px; align-items: center; }
+    .ai-q-type { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; background: var(--brand-light); color: var(--brand); }
+    .ai-q-reasoning { font-size: 11px; color: var(--gray-400); }
+    .ai-q-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    .ai-q-btn { width: 26px; height: 26px; border: 1px solid var(--gray-200); background: #fff; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--gray-400); transition: all .15s; }
+    .ai-q-btn:hover { background: var(--gray-100); color: var(--gray-700); }
+    .ai-q-btn svg { width: 13px; height: 13px; }
+    .ai-accept-bar {
+      display: flex; align-items: center; justify-content: space-between; padding: 14px 18px;
+      background: linear-gradient(135deg, #1E1B4B, #312E81); border-radius: var(--radius);
+    }
+    .ai-accept-bar-text { font-size: 13px; color: rgba(255,255,255,.8); }
+    .ai-accept-bar-text strong { color: #fff; }
+    .ai-accept-bar-actions { display: flex; gap: 8px; }
+
+    .text-answer { width: 100%; padding: 10px 14px; border: 1.5px solid var(--gray-200); border-radius: 8px; font-size: 14px; font-family: inherit; outline: none; resize: vertical; transition: border-color .15s; }
+    .text-answer:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(79,70,229,.1); }
+
+    .slider-wrap { padding: 8px 0; }
+    .slider-val { text-align: center; font-size: 22px; font-weight: 800; color: var(--brand); margin-bottom: 8px; }
+    input[type=range] { width: 100%; accent-color: var(--brand); cursor: pointer; }
+
+    .survey-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--gray-100); }
+    .survey-nav { display: flex; gap: 8px; }
+
+    /* ─── Results survey picker ─── */
+    .rsp-card {
+      background: #fff; border: 1px solid var(--gray-200); border-radius: var(--radius);
+      box-shadow: var(--shadow); padding: 16px 20px; margin-bottom: 20px;
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    }
+    .rsp-label { font-size: 12px; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+    .rsp-select-wrap { position: relative; flex: 1; min-width: 220px; max-width: 440px; }
+    .rsp-select-wrap svg { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--gray-400); pointer-events: none; }
+    .rsp-select {
+      width: 100%; padding: 9px 34px 9px 12px; border: 1.5px solid var(--gray-200);
+      border-radius: 8px; font-size: 14px; font-weight: 600; color: var(--gray-900);
+      background: var(--gray-50); outline: none; cursor: pointer; appearance: none;
+      font-family: inherit; transition: border-color .15s;
+    }
+    .rsp-select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(79,70,229,.1); background: #fff; }
+    .rsp-divider { width: 1px; height: 28px; background: var(--gray-200); flex-shrink: 0; }
+    .rsp-meta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .rsp-meta-item { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--gray-500); }
+    .rsp-meta-item strong { color: var(--gray-800); font-weight: 700; }
+    .rsp-meta-item svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+    /* ─── Results page ─── */
+    .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .result-card { background: #fff; border-radius: var(--radius); border: 1px solid var(--gray-200); padding: 20px; }
+    .result-card.full { grid-column: 1 / -1; }
+    .rc-title { font-size: 14px; font-weight: 700; color: var(--gray-800); margin-bottom: 14px; }
+
+    .bar-chart { display: flex; flex-direction: column; gap: 10px; }
+    .bar-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+    .bar-label { width: 130px; color: var(--gray-600); flex-shrink: 0; text-align: right; }
+    .bar-track { flex: 1; height: 24px; background: var(--gray-100); border-radius: 6px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 6px; background: var(--brand); display: flex; align-items: center; padding-left: 8px; font-size: 11px; font-weight: 700; color: #fff; transition: width 1s ease; }
+    .bar-pct { width: 38px; text-align: right; color: var(--gray-500); font-weight: 600; }
+
+    .nps-gauge { text-align: center; padding: 8px 0; }
+    .nps-score { font-size: 52px; font-weight: 900; color: var(--brand); line-height: 1; }
+    .nps-label { font-size: 13px; color: var(--gray-500); margin-top: 4px; }
+    .nps-segments { display: flex; height: 12px; border-radius: 6px; overflow: hidden; gap: 2px; margin-top: 14px; }
+    .nps-seg { border-radius: 2px; }
+
+    .response-feed { display: flex; flex-direction: column; gap: 10px; }
+    .response-item { background: var(--gray-50); border-radius: 8px; padding: 12px 14px; font-size: 13px; color: var(--gray-700); border-left: 3px solid var(--brand); }
+    .response-meta { font-size: 11px; color: var(--gray-400); margin-top: 4px; }
+
+    /* ─── Modal ─── */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 200; display: none; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+    .modal-overlay.open { display: flex; }
+    .modal { background: #fff; border-radius: 14px; width: 480px; max-width: calc(100vw - 32px); box-shadow: var(--shadow-lg); overflow: hidden; }
+    .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--gray-100); display: flex; align-items: center; justify-content: space-between; }
+    .modal-title { font-size: 16px; font-weight: 700; }
+    .modal-close { width: 28px; height: 28px; border: none; background: none; cursor: pointer; color: var(--gray-400); border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+    .modal-close:hover { background: var(--gray-100); color: var(--gray-700); }
+    .modal-close svg { width: 16px; height: 16px; }
+    .modal-body { padding: 20px 24px; }
+    .modal-footer { padding: 16px 24px; border-top: 1px solid var(--gray-100); display: flex; justify-content: flex-end; gap: 8px; }
+
+    /* ─── Notification toast ─── */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; background: var(--gray-900);
+      color: #fff; padding: 12px 18px; border-radius: 10px; font-size: 13px; font-weight: 500;
+      box-shadow: var(--shadow-lg); z-index: 300; transform: translateY(80px); opacity: 0;
+      transition: all .3s; display: flex; align-items: center; gap: 8px;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast svg { width: 16px; height: 16px; color: var(--success); }
+
+    /* ─── Empty state ─── */
+    .empty-state { text-align: center; padding: 60px 20px; }
+    .empty-icon { width: 64px; height: 64px; background: var(--brand-light); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+    .empty-icon svg { width: 32px; height: 32px; color: var(--brand); }
+    .empty-title { font-size: 16px; font-weight: 700; color: var(--gray-800); margin-bottom: 6px; }
+    .empty-text { font-size: 14px; color: var(--gray-500); margin-bottom: 20px; }
+
+    /* ─── Tabs ─── */
+    .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--gray-200); margin-bottom: 24px; }
+    .tab { padding: 10px 18px; font-size: 14px; font-weight: 500; cursor: pointer; color: var(--gray-500); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all .15s; }
+    .tab:hover { color: var(--gray-800); }
+    .tab.active { color: var(--brand); border-bottom-color: var(--brand); font-weight: 600; }
+
+    /* ─── Misc ─── */
+    .chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; background: var(--gray-100); color: var(--gray-600); }
+    .divider { height: 1px; background: var(--gray-100); margin: 16px 0; }
+
+    @media (max-width: 900px) {
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .create-layout { grid-template-columns: 1fr; }
+      .results-grid { grid-template-columns: 1fr; }
+      .results-grid .result-card.full { grid-column: auto; }
+    }
+
+    /* ─── Settings page ─── */
+    .settings-layout { display: grid; grid-template-columns: 220px 1fr; gap: 24px; align-items: start; }
+    .settings-nav-panel { background: #fff; border: 1px solid var(--gray-200); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; position: sticky; top: 84px; }
+    .settings-nav-item {
+      display: flex; align-items: center; gap: 10px; padding: 11px 16px;
+      font-size: 13px; font-weight: 500; color: var(--gray-600); cursor: pointer;
+      border-left: 3px solid transparent; transition: all .15s;
+    }
+    .settings-nav-item:hover { background: var(--gray-50); color: var(--gray-900); }
+    .settings-nav-item.active { background: var(--brand-light); color: var(--brand); border-left-color: var(--brand); font-weight: 600; }
+    .settings-nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .settings-nav-sep { height: 1px; background: var(--gray-100); margin: 4px 0; }
+
+    .settings-section { display: none; }
+    .settings-section.active { display: flex; flex-direction: column; gap: 20px; }
+
+    .settings-card { background: #fff; border: 1px solid var(--gray-200); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+    .settings-card-header { padding: 16px 24px; border-bottom: 1px solid var(--gray-100); }
+    .settings-card-title { font-size: 15px; font-weight: 700; color: var(--gray-900); }
+    .settings-card-sub { font-size: 13px; color: var(--gray-400); margin-top: 2px; }
+    .settings-card-body { padding: 24px; }
+    .settings-card-footer { padding: 14px 24px; background: var(--gray-50); border-top: 1px solid var(--gray-100); display: flex; justify-content: flex-end; gap: 8px; }
+
+    .settings-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .settings-avatar-row { display: flex; align-items: center; gap: 20px; margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--gray-100); }
+    .settings-avatar { width: 72px; height: 72px; border-radius: 50%; background: var(--brand); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 700; flex-shrink: 0; }
+    .settings-avatar-actions { display: flex; flex-direction: column; gap: 6px; }
+    .settings-avatar-hint { font-size: 12px; color: var(--gray-400); }
+
+    .notif-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--gray-100); gap: 24px; }
+    .notif-row:last-child { border-bottom: none; }
+    .notif-label { font-size: 13px; font-weight: 600; color: var(--gray-800); margin-bottom: 2px; }
+    .notif-hint { font-size: 12px; color: var(--gray-400); }
+
+    .security-item { display: flex; align-items: center; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--gray-100); }
+    .security-item:last-child { border-bottom: none; }
+    .security-item-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--gray-100); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .security-item-icon svg { width: 18px; height: 18px; color: var(--gray-500); }
+    .security-item-body { flex: 1; }
+    .security-item-label { font-size: 13px; font-weight: 600; color: var(--gray-800); }
+    .security-item-hint { font-size: 12px; color: var(--gray-400); margin-top: 1px; }
+
+    .session-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--gray-100); }
+    .session-item:last-child { border-bottom: none; }
+    .session-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .session-dot.current { background: var(--success); box-shadow: 0 0 0 3px #D1FAE5; }
+    .session-dot.other { background: var(--gray-300); }
+    .session-label { font-size: 13px; font-weight: 600; color: var(--gray-800); }
+    .session-meta { font-size: 12px; color: var(--gray-400); }
+
+    .danger-item { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid var(--gray-100); gap: 24px; }
+    .danger-item:last-child { border-bottom: none; }
+    .danger-item-label { font-size: 13px; font-weight: 600; color: var(--gray-800); }
+    .danger-item-hint { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
+
+    /* ─── Auth overlay ─── */
+    .auth-overlay {
+      position: fixed; inset: 0; z-index: 500;
+      display: flex; min-height: 100vh;
+    }
+    .auth-overlay.hidden { display: none; }
+
+    .auth-left {
+      width: 42%; background: linear-gradient(145deg, #1E1B4B 0%, #312E81 45%, #1E3A5F 100%);
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 48px 52px; position: relative; overflow: hidden;
+    }
+    .auth-left::before {
+      content: ''; position: absolute; top: -80px; right: -80px;
+      width: 360px; height: 360px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(124,58,237,.35) 0%, transparent 65%);
+    }
+    .auth-left::after {
+      content: ''; position: absolute; bottom: -60px; left: 10%;
+      width: 280px; height: 280px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(14,165,233,.2) 0%, transparent 65%);
+    }
+    .auth-left-content { position: relative; z-index: 1; }
+
+    .auth-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 64px; }
+    .auth-brand-icon {
+      width: 44px; height: 44px; background: rgba(255,255,255,.15);
+      border: 1px solid rgba(255,255,255,.25); border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .auth-brand-icon svg { width: 22px; height: 22px; fill: #fff; }
+    .auth-brand-name { font-size: 20px; font-weight: 800; color: #fff; }
+    .auth-brand-badge {
+      font-size: 10px; font-weight: 700; color: rgba(255,255,255,.7);
+      background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
+      padding: 2px 8px; border-radius: 20px;
+    }
+
+    .auth-hero-title {
+      font-size: 34px; font-weight: 900; color: #fff; line-height: 1.2; margin-bottom: 16px;
+    }
+    .auth-hero-title span {
+      background: linear-gradient(135deg, #A78BFA, #60A5FA);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .auth-hero-sub { font-size: 15px; color: rgba(255,255,255,.6); line-height: 1.6; margin-bottom: 40px; }
+
+    .auth-features { display: flex; flex-direction: column; gap: 14px; }
+    .auth-feature { display: flex; align-items: center; gap: 12px; }
+    .auth-feature-dot {
+      width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.15);
+    }
+    .auth-feature-dot svg { width: 14px; height: 14px; color: #A78BFA; }
+    .auth-feature-text { font-size: 13px; color: rgba(255,255,255,.75); font-weight: 500; }
+
+    .auth-left-footer { position: relative; z-index: 1; }
+    .auth-left-footer-text { font-size: 12px; color: rgba(255,255,255,.3); }
+
+    .auth-right {
+      flex: 1; background: var(--gray-50); display: flex; align-items: center;
+      justify-content: center; padding: 48px 32px;
+    }
+    .auth-box { width: 100%; max-width: 420px; }
+
+    .auth-tabs { display: flex; background: var(--gray-100); border-radius: 10px; padding: 4px; margin-bottom: 32px; }
+    .auth-tab {
+      flex: 1; padding: 9px; text-align: center; font-size: 14px; font-weight: 600;
+      border-radius: 8px; cursor: pointer; color: var(--gray-500); transition: all .2s;
+    }
+    .auth-tab.active { background: #fff; color: var(--gray-900); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+
+    .auth-form { display: none; }
+    .auth-form.active { display: block; }
+
+    .auth-title { font-size: 22px; font-weight: 800; color: var(--gray-900); margin-bottom: 6px; }
+    .auth-subtitle { font-size: 14px; color: var(--gray-500); margin-bottom: 28px; }
+
+    .auth-field { margin-bottom: 16px; }
+    .auth-field label { display: block; font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px; }
+    .auth-field input {
+      width: 100%; padding: 10px 14px; border: 1.5px solid var(--gray-200);
+      border-radius: 8px; font-size: 14px; outline: none; font-family: inherit;
+      background: #fff; color: var(--gray-800); transition: border-color .15s;
+    }
+    .auth-field input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(79,70,229,.1); }
+    .auth-field input::placeholder { color: var(--gray-400); }
+
+    .auth-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .auth-forgot { text-align: right; margin-top: -8px; margin-bottom: 16px; }
+    .auth-forgot a { font-size: 12px; color: var(--brand); text-decoration: none; font-weight: 500; }
+    .auth-forgot a:hover { text-decoration: underline; }
+
+    .auth-submit {
+      width: 100%; padding: 12px; border-radius: 8px; font-size: 15px; font-weight: 700;
+      background: var(--brand); color: #fff; border: none; cursor: pointer;
+      transition: all .2s; margin-top: 4px;
+    }
+    .auth-submit:hover { background: var(--brand-dark); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(79,70,229,.3); }
+
+    .auth-divider {
+      display: flex; align-items: center; gap: 12px; margin: 20px 0;
+      font-size: 12px; color: var(--gray-400);
+    }
+    .auth-divider::before, .auth-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--gray-200);
+    }
+
+    .auth-sso {
+      width: 100%; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      background: #fff; color: var(--gray-700); border: 1.5px solid var(--gray-200);
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: all .15s;
+    }
+    .auth-sso:hover { background: var(--gray-50); border-color: var(--gray-300); }
+    .auth-sso svg { width: 18px; height: 18px; }
+
+    .auth-terms {
+      font-size: 11px; color: var(--gray-400); text-align: center; margin-top: 16px; line-height: 1.5;
+    }
+    .auth-terms a { color: var(--brand); text-decoration: none; }
+
+    .auth-switch { font-size: 13px; color: var(--gray-500); text-align: center; margin-top: 20px; }
+    .auth-switch a { color: var(--brand); font-weight: 600; cursor: pointer; text-decoration: none; }
+    .auth-switch a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<!-- AUTH OVERLAY -->
+<div class="auth-overlay" id="auth-overlay">
+
+  <!-- Left brand panel -->
+  <div class="auth-left">
+    <div class="auth-left-content">
+      <div class="auth-brand">
+        <div class="auth-brand-icon">
+          <svg viewBox="0 0 20 20"><path d="M2 4h16v2H2V4zm0 5h10v2H2V9zm0 5h13v2H2v-2z"/></svg>
+        </div>
+        <span class="auth-brand-name">SurveyPulse</span>
+        <span class="auth-brand-badge">BETA</span>
+      </div>
+
+      <div class="auth-hero-title">Корпоративные опросы<br>нового <span>поколения</span></div>
+      <div class="auth-hero-sub">Создавайте опросы, собирайте ответы и получайте AI-аналитику в одном инструменте. Быстро, удобно, безопасно.</div>
+
+      <div class="auth-features">
+        <div class="auth-feature">
+          <div class="auth-feature-dot">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"/></svg>
+          </div>
+          <span class="auth-feature-text">AI генерирует опросы по описанию за секунды</span>
+        </div>
+        <div class="auth-feature">
+          <div class="auth-feature-dot">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd"/></svg>
+          </div>
+          <span class="auth-feature-text">Анализ тональности и ключевых тем из ответов</span>
+        </div>
+        <div class="auth-feature">
+          <div class="auth-feature-dot">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zm8 0a3 3 0 11-6 0 3 3 0 016 0zm-4.07 11c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg>
+          </div>
+          <span class="auth-feature-text">Сегментация по отделам, ролям и группам</span>
+        </div>
+        <div class="auth-feature">
+          <div class="auth-feature-dot">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
+          </div>
+          <span class="auth-feature-text">Полная анонимность и защита данных</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="auth-left-footer">
+      <div class="auth-left-footer-text">© 2026 SurveyPulse · Все права защищены</div>
+    </div>
+  </div>
+
+  <!-- Right form panel -->
+  <div class="auth-right">
+    <div class="auth-box">
+
+      <div class="auth-tabs">
+        <div class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Войти</div>
+        <div class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Регистрация</div>
+      </div>
+
+      <!-- Login form -->
+      <div class="auth-form active" id="form-login">
+        <div class="auth-title">Добро пожаловать</div>
+        <div class="auth-subtitle">Введите данные вашего аккаунта</div>
+
+        <div class="auth-field">
+          <label>Email</label>
+          <input type="email" placeholder="you@company.com" value="alexey@techcorp.ru" />
+        </div>
+        <div class="auth-field">
+          <label>Пароль</label>
+          <input type="password" placeholder="Ваш пароль" value="••••••••" />
+        </div>
+        <div class="auth-forgot"><a href="#">Забыли пароль?</a></div>
+        <button class="auth-submit" onclick="enterApp()">Войти в аккаунт</button>
+
+
+        <div class="auth-switch">Нет аккаунта? <a onclick="switchAuthTab('register')">Зарегистрироваться</a></div>
+      </div>
+
+      <!-- Register form -->
+      <div class="auth-form" id="form-register">
+        <div class="auth-title">Создать аккаунт</div>
+        <div class="auth-subtitle">Начните бесплатно — без карты</div>
+
+        <div class="auth-row">
+          <div class="auth-field">
+            <label>Имя</label>
+            <input type="text" placeholder="Алексей" />
+          </div>
+          <div class="auth-field">
+            <label>Фамилия</label>
+            <input type="text" placeholder="Козлов" />
+          </div>
+        </div>
+        <div class="auth-field">
+          <label>Рабочий email</label>
+          <input type="email" placeholder="you@company.com" />
+        </div>
+        <div class="auth-field">
+          <label>Название компании</label>
+          <input type="text" placeholder="TechCorp" />
+        </div>
+        <div class="auth-row">
+          <div class="auth-field">
+            <label>Пароль</label>
+            <input type="password" placeholder="Минимум 8 символов" />
+          </div>
+          <div class="auth-field">
+            <label>Повторите пароль</label>
+            <input type="password" placeholder="••••••••" />
+          </div>
+        </div>
+        <button class="auth-submit" onclick="enterApp()">Создать аккаунт</button>
+
+        <div class="auth-terms">
+          Регистрируясь, вы соглашаетесь с <a href="#">Условиями использования</a> и <a href="#">Политикой конфиденциальности</a>
+        </div>
+        <div class="auth-switch">Уже есть аккаунт? <a onclick="switchAuthTab('login')">Войти</a></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 20 20"><path d="M2 4h16v2H2V4zm0 5h10v2H2V9zm0 5h13v2H2v-2z"/></svg>
+    </div>
+    <span class="logo-text">SurveyPulse</span>
+    <span class="logo-badge">BETA</span>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section">
+      <div class="nav-label">Меню</div>
+      <div class="nav-item active" onclick="navigate('dashboard')">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M3 4a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 8a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H4a1 1 0 01-1-1v-4zm8-8a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V4zm0 8a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
+        Дашборд
+      </div>
+      <div class="nav-item" onclick="navigate('surveys')">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 5a1 1 0 000 2h14a1 1 0 100-2H3zm0 4a1 1 0 000 2h14a1 1 0 100-2H3zm0 4a1 1 0 000 2h8a1 1 0 100-2H3z" clip-rule="evenodd"/></svg>
+        Опросы
+        <span class="nav-badge">4</span>
+      </div>
+      <div class="nav-item" onclick="navigate('create')">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+        Создать опрос
+      </div>
+      <div class="nav-item" onclick="navigate('results')">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+        Результаты
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Управление</div>
+      <div class="nav-item" onclick="navigate('billing')">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/></svg>
+        Подписка
+      </div>
+      <div class="nav-item" onclick="navigate('settings')">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
+        Настройки
+      </div>
+    </div>
+  </nav>
+
+  <div class="sidebar-bottom">
+    <div class="user-card" onclick="navigate('settings')">
+      <div class="avatar">АК</div>
+      <div class="user-info">
+        <div class="user-name">Алексей Козлов</div>
+        <div class="user-role">Администратор</div>
+      </div>
+    </div>
+    <div style="margin-top:4px;">
+      <div class="nav-item" onclick="logout()" style="color:var(--gray-500);gap:8px;">
+        <svg viewBox="0 0 20 20" fill="currentColor" style="width:16px;height:16px;flex-shrink:0;"><path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"/></svg>
+        Выйти из аккаунта
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- ═══════════════════════ DASHBOARD ═══════════════════════ -->
+  <div id="page-dashboard" class="page active">
+    <div class="topbar">
+      <div class="topbar-title">Дашборд</div>
+      <div class="topbar-actions">
+        <button class="btn btn-primary" onclick="navigate('create')">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+          Новый опрос
+        </button>
+      </div>
+    </div>
+
+    <div style="padding: 28px;">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon indigo">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 5a1 1 0 000 2h14a1 1 0 100-2H3zm0 4a1 1 0 000 2h14a1 1 0 100-2H3zm0 4a1 1 0 000 2h8a1 1 0 100-2H3z" clip-rule="evenodd"/></svg>
+          </div>
+          <div class="stat-label">Всего опросов</div>
+          <div class="stat-value">12</div>
+          <div class="stat-delta up">↑ 3 за месяц</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zm8 0a3 3 0 11-6 0 3 3 0 016 0zm-4.07 11c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg>
+          </div>
+          <div class="stat-label">Ответов получено</div>
+          <div class="stat-value">1 842</div>
+          <div class="stat-delta up">↑ 12% к прошлому мес.</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon amber">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
+          </div>
+          <div class="stat-label">Активных опросов</div>
+          <div class="stat-value">3</div>
+          <div class="stat-delta">из 12 всего</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+          </div>
+          <div class="stat-label">Средний отклик</div>
+          <div class="stat-value">68%</div>
+          <div class="stat-delta up">↑ 5% к прошлому мес.</div>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <div class="section-title">Последние опросы</div>
+        <button class="btn btn-ghost btn-sm" onclick="navigate('surveys')">Все опросы →</button>
+      </div>
+
+      <div class="survey-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Название опроса</th>
+              <th>Статус</th>
+              <th>Ответов</th>
+              <th>Отклик</th>
+              <th>Закрывается</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div class="survey-name">Оценка удовлетворённости сотрудников Q2</div>
+                <div class="survey-meta">Корпоративный · 8 вопросов</div>
+              </td>
+              <td><span class="status-badge active">Активен</span></td>
+              <td>214 / 280</td>
+              <td>
+                <div class="progress-bar" style="width: 120px">
+                  <div class="progress-fill" style="width: 76%"></div>
+                </div>
+              </td>
+              <td style="color: var(--gray-500)">30 апр 2026</td>
+              <td>
+                <div class="table-actions">
+                  <button class="btn btn-secondary btn-sm" onclick="navigate('results')">Результаты</button>
+                  <button class="btn btn-ghost btn-sm">⋯</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="survey-name">NPS — Апрель 2026</div>
+                <div class="survey-meta">Клиентский · 3 вопроса</div>
+              </td>
+              <td><span class="status-badge active">Активен</span></td>
+              <td>891 / —</td>
+              <td>
+                <div class="progress-bar" style="width: 120px">
+                  <div class="progress-fill" style="width: 100%; background: var(--success)"></div>
+                </div>
+              </td>
+              <td style="color: var(--gray-500)">1 мая 2026</td>
+              <td>
+                <div class="table-actions">
+                  <button class="btn btn-secondary btn-sm" onclick="navigate('results')">Результаты</button>
+                  <button class="btn btn-ghost btn-sm">⋯</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="survey-name">Пульс-опрос: Удалённая работа</div>
+                <div class="survey-meta">Корпоративный · 5 вопросов</div>
+              </td>
+              <td><span class="status-badge scheduled">Запланирован</span></td>
+              <td>0 / 150</td>
+              <td>
+                <div class="progress-bar" style="width: 120px">
+                  <div class="progress-fill" style="width: 0%"></div>
+                </div>
+              </td>
+              <td style="color: var(--gray-500)">15 мая 2026</td>
+              <td>
+                <div class="table-actions">
+                  <button class="btn btn-secondary btn-sm">Редактировать</button>
+                  <button class="btn btn-ghost btn-sm">⋯</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="survey-name">Оценка онбординга — Q1 2026</div>
+                <div class="survey-meta">Корпоративный · 12 вопросов</div>
+              </td>
+              <td><span class="status-badge closed">Завершён</span></td>
+              <td>47 / 47</td>
+              <td>
+                <div class="progress-bar" style="width: 120px">
+                  <div class="progress-fill" style="width: 100%"></div>
+                </div>
+              </td>
+              <td style="color: var(--gray-500)">31 мар 2026</td>
+              <td>
+                <div class="table-actions">
+                  <button class="btn btn-secondary btn-sm" onclick="navigate('results')">Результаты</button>
+                  <button class="btn btn-ghost btn-sm">⋯</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ SURVEYS LIST ═══════════════════════ -->
+  <div id="page-surveys" class="page">
+    <div class="topbar">
+      <div class="topbar-title">Все опросы</div>
+      <div class="topbar-actions">
+        <button class="btn btn-primary" onclick="navigate('create')">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+          Новый опрос
+        </button>
+      </div>
+    </div>
+    <div style="padding: 28px;">
+      <div class="tabs">
+        <div class="tab active">Все (12)</div>
+        <div class="tab">Активные (3)</div>
+        <div class="tab">Черновики (2)</div>
+        <div class="tab">Завершённые (7)</div>
+      </div>
+      <div class="filter-bar">
+        <div class="search-wrap">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+          <input type="text" placeholder="Поиск по названию..." />
+        </div>
+        <select class="filter-select">
+          <option>Тип: Все</option>
+          <option>Корпоративный</option>
+          <option>Клиентский</option>
+        </select>
+        <select class="filter-select">
+          <option>Период: Любой</option>
+          <option>Апрель 2026</option>
+          <option>Март 2026</option>
+        </select>
+      </div>
+      <div class="survey-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Название</th>
+              <th>Тип</th>
+              <th>Статус</th>
+              <th>Ответов</th>
+              <th>Отклик</th>
+              <th>Дата создания</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="survey-rows">
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ CREATE SURVEY ═══════════════════════ -->
+  <div id="page-create" class="page">
+    <div class="topbar">
+      <div class="topbar-title">Создать опрос</div>
+      <div class="topbar-actions">
+        <button class="btn btn-secondary" onclick="showToast('Сохранено как черновик')">Сохранить черновик</button>
+        <button class="btn btn-primary" onclick="openPublishModal()">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg>
+          Опубликовать
+        </button>
+      </div>
+    </div>
+    <div style="padding: 28px;">
+
+      <!-- Mode picker -->
+      <div class="create-mode-picker">
+        <div class="mode-card" id="mode-manual" onclick="setCreateMode('manual')">
+          <div class="mode-selected-dot">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          </div>
+          <div class="mode-card-icon manual-icon">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+          </div>
+          <div class="mode-card-title">Создать вручную</div>
+          <div class="mode-card-desc">Заполните форму самостоятельно — добавляйте вопросы, выбирайте типы ответов и настраивайте опрос под свои нужды.</div>
+        </div>
+        <div class="mode-card selected-ai" id="mode-ai" onclick="setCreateMode('ai')">
+          <div class="mode-selected-dot">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          </div>
+          <div class="mode-card-icon ai-icon">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"/></svg>
+          </div>
+          <div class="mode-card-title" style="color:#fff;">Создать с помощью AI <span class="ai-badge-inline">NEW</span></div>
+          <div class="mode-card-desc">Опишите цель опроса — AI сгенерирует структуру, вопросы и типы ответов за секунды. Вы можете отредактировать результат.</div>
+        </div>
+      </div>
+
+      <!-- AI Create Panel -->
+      <div class="ai-create-panel" id="ai-create-panel">
+
+        <!-- State 1: Input -->
+        <div id="ai-state-input" class="ai-input-panel">
+          <div class="ai-input-inner">
+            <div class="ai-panel-label">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"/></svg>
+              Powered by Claude · Опишите ваш опрос
+            </div>
+            <textarea class="ai-prompt-area" id="ai-prompt-input" rows="3"
+              placeholder="Например: Нам нужен квартальный пульс-опрос для 200 сотрудников. Хотим понять уровень вовлечённости, отношение к remote-формату и запросы по обучению. Тон — дружелюбный, анонимный."></textarea>
+            <div class="ai-quick-prompts">
+              <span style="font-size:11px;color:rgba(255,255,255,.4);align-self:center;">Быстрый старт:</span>
+              <button class="ai-quick-btn" onclick="setPrompt(this)">Пульс-опрос сотрудников</button>
+              <button class="ai-quick-btn" onclick="setPrompt(this)">NPS после поддержки</button>
+              <button class="ai-quick-btn" onclick="setPrompt(this)">Оценка онбординга</button>
+              <button class="ai-quick-btn" onclick="setPrompt(this)">Опрос после события</button>
+              <button class="ai-quick-btn" onclick="setPrompt(this)">360° оценка руководителя</button>
+              <button class="ai-quick-btn" onclick="setPrompt(this)">Exit interview</button>
+            </div>
+            <div class="ai-settings-row">
+              <select class="ai-select">
+                <option>🎯 Аудитория: Сотрудники</option>
+                <option>🛒 Аудитория: Покупатели</option>
+                <option>🌐 Аудитория: Публичная</option>
+              </select>
+              <select class="ai-select">
+                <option>📝 Тон: Формальный</option>
+                <option>😊 Тон: Дружелюбный</option>
+                <option>⚡ Тон: Лаконичный</option>
+              </select>
+              <select class="ai-select">
+                <option>5 вопросов</option>
+                <option>8 вопросов</option>
+                <option>10 вопросов</option>
+                <option>Авто</option>
+              </select>
+              <select class="ai-select">
+                <option>🔒 Анонимно</option>
+                <option>👤 С именами</option>
+              </select>
+              <button class="ai-generate-btn" onclick="runAiGenerate()">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"/></svg>
+                Сгенерировать опрос
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- State 2: Generating -->
+        <div id="ai-state-generating" class="ai-generating-panel">
+          <div class="ai-gen-orb">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"/></svg>
+          </div>
+          <div class="ai-gen-title">AI создаёт ваш опрос</div>
+          <div class="ai-gen-subtitle">Это займёт несколько секунд</div>
+          <div class="ai-gen-steps">
+            <div class="ai-step" id="gen-step-1">
+              <div class="ai-step-dot"></div>
+              Анализирую цель и аудиторию
+            </div>
+            <div class="ai-step" id="gen-step-2">
+              <div class="ai-step-dot"></div>
+              Подбираю структуру и типы вопросов
+            </div>
+            <div class="ai-step" id="gen-step-3">
+              <div class="ai-step-dot"></div>
+              Формулирую вопросы
+            </div>
+            <div class="ai-step" id="gen-step-4">
+              <div class="ai-step-dot"></div>
+              Оптимизирую порядок и тональность
+            </div>
+          </div>
+        </div>
+
+        <!-- State 3: Done -->
+        <div id="ai-state-done" class="ai-done-panel">
+          <div class="ai-done-header">
+            <div class="ai-done-icon">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+            </div>
+            <div>
+              <div class="ai-done-title">AI сгенерировал 7 вопросов за 3 секунды</div>
+              <div class="ai-done-sub">Просмотрите, отредактируйте или добавьте вопросы — затем примените в редактор</div>
+            </div>
+            <div class="ai-done-actions">
+              <button class="btn btn-secondary btn-sm" onclick="resetAiState()">↻ Заново</button>
+              <button class="btn btn-primary btn-sm" onclick="acceptQuestions()" style="background:linear-gradient(135deg,#7C3AED,#4F46E5);border:none;">
+                Применить все →
+              </button>
+            </div>
+          </div>
+
+          <div class="ai-q-preview" id="ai-questions-preview"></div>
+
+          <div class="ai-accept-bar">
+            <div class="ai-accept-bar-text"><strong>7 вопросов</strong> готовы к добавлению в опрос</div>
+            <div class="ai-accept-bar-actions">
+              <button class="btn btn-ai btn-sm" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;" onclick="resetAiState()">Изменить запрос</button>
+              <button class="btn btn-sm" style="background:#fff;color:#312E81;font-weight:800;border-radius:99px;padding:8px 20px;" onclick="acceptQuestions()">
+                ✦ Применить в редактор
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="create-layout">
+        <!-- Left: editor -->
+        <div>
+          <div class="card" style="margin-bottom: 16px;">
+            <div class="card-header">
+              <div class="card-title">Основная информация</div>
+            </div>
+            <div class="card-body">
+              <div class="form-group">
+                <label class="form-label">Название опроса</label>
+                <input class="form-input" type="text" placeholder="Например: Пульс-опрос — Май 2026" value="Оценка удовлетворённости сотрудников Q2" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Описание <span>(необязательно)</span></label>
+                <textarea class="form-textarea" placeholder="Краткое описание цели опроса...">Помогите нам стать лучше — пройдите короткий опрос о вашем опыте работы. Это займёт около 3 минут.</textarea>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label">Тип опроса</label>
+                  <select class="form-select">
+                    <option>Корпоративный</option>
+                    <option>Клиентский</option>
+                    <option>Публичный</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0">
+                  <label class="form-label">Язык</label>
+                  <select class="form-select">
+                    <option>Русский</option>
+                    <option>English</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Question list -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Вопросы</div>
+              <span class="chip">8 вопросов</span>
+            </div>
+            <div class="card-body">
+              <div class="question-list" id="question-list">
+
+                <div class="question-card">
+                  <div class="question-header" onclick="toggleQ(this)">
+                    <span class="q-drag"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M7 2a2 2 0 10.001 4.001A2 2 0 007 2zm0 6a2 2 0 10.001 4.001A2 2 0 007 8zm0 6a2 2 0 10.001 4.001A2 2 0 007 14zm6-8a2 2 0 10-.001-4.001A2 2 0 0013 6zm0 2a2 2 0 10.001 4.001A2 2 0 0013 8zm0 6a2 2 0 10.001 4.001A2 2 0 0013 14z"/></svg></span>
+                    <span class="q-number">1</span>
+                    <span class="q-title">Как вы оцениваете своё общее удовлетворение от работы?</span>
+                    <span class="q-type-tag">Шкала</span>
+                  </div>
+                  <div class="question-body open">
+                    <div class="form-group">
+                      <label class="form-label">Текст вопроса</label>
+                      <input class="form-input" value="Как вы оцениваете своё общее удовлетворение от работы?" />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0">
+                      <label class="form-label">Тип ответа</label>
+                      <div class="type-picker">
+                        <div class="type-option" onclick="selectType(this)">
+                          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                          Один вариант
+                        </div>
+                        <div class="type-option" onclick="selectType(this)">
+                          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                          Несколько
+                        </div>
+                        <div class="type-option selected" onclick="selectType(this)">
+                          <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+                          Шкала 1–10
+                        </div>
+                        <div class="type-option" onclick="selectType(this)">
+                          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 5a1 1 0 000 2h14a1 1 0 100-2H3zm0 4a1 1 0 000 2h8a1 1 0 100-2H3zm0 4a1 1 0 000 2h5a1 1 0 100-2H3z" clip-rule="evenodd"/></svg>
+                          Текст
+                        </div>
+                      </div>
+                    </div>
+                    <div class="scale-preview" style="margin-top: 14px;">
+                      <div class="scale-btn">1</div><div class="scale-btn">2</div><div class="scale-btn">3</div>
+                      <div class="scale-btn">4</div><div class="scale-btn">5</div><div class="scale-btn">6</div>
+                      <div class="scale-btn">7</div><div class="scale-btn">8</div><div class="scale-btn">9</div>
+                      <div class="scale-btn">10</div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; color: var(--gray-400);">
+                      <span>Совсем не доволен</span><span>Очень доволен</span>
+                    </div>
+                    <div class="divider"></div>
+                    <div style="display: flex; gap: 8px;">
+                      <button class="btn btn-ghost btn-sm">Дублировать</button>
+                      <button class="btn btn-danger btn-sm">Удалить</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="question-card">
+                  <div class="question-header" onclick="toggleQ(this)">
+                    <span class="q-drag"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M7 2a2 2 0 10.001 4.001A2 2 0 007 2zm0 6a2 2 0 10.001 4.001A2 2 0 007 8zm0 6a2 2 0 10.001 4.001A2 2 0 007 14zm6-8a2 2 0 10-.001-4.001A2 2 0 0013 6zm0 2a2 2 0 10.001 4.001A2 2 0 0013 8zm0 6a2 2 0 10.001 4.001A2 2 0 0013 14z"/></svg></span>
+                    <span class="q-number">2</span>
+                    <span class="q-title">Что вам больше всего нравится в вашей работе?</span>
+                    <span class="q-type-tag">Несколько</span>
+                  </div>
+                  <div class="question-body">
+                    <div class="form-group">
+                      <label class="form-label">Текст вопроса</label>
+                      <input class="form-input" value="Что вам больше всего нравится в вашей работе?" />
+                    </div>
+                    <div class="options-list">
+                      <div class="option-row"><div class="option-indicator checkbox"></div><input class="option-input" value="Интересные задачи" /><button class="option-remove"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></button></div>
+                      <div class="option-row"><div class="option-indicator checkbox"></div><input class="option-input" value="Команда и коллеги" /><button class="option-remove"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></button></div>
+                      <div class="option-row"><div class="option-indicator checkbox"></div><input class="option-input" value="Гибкий график" /><button class="option-remove"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></button></div>
+                      <div class="option-row"><div class="option-indicator checkbox"></div><input class="option-input" value="Возможности роста" /><button class="option-remove"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></button></div>
+                    </div>
+                    <button class="btn btn-ghost btn-sm" style="margin-top: 10px;" onclick="showToast('Добавлен новый вариант')">+ Добавить вариант</button>
+                    <div class="divider"></div>
+                    <div style="display: flex; gap: 8px;">
+                      <button class="btn btn-ghost btn-sm">Дублировать</button>
+                      <button class="btn btn-danger btn-sm">Удалить</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="question-card">
+                  <div class="question-header" onclick="toggleQ(this)">
+                    <span class="q-drag"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M7 2a2 2 0 10.001 4.001A2 2 0 007 2zm0 6a2 2 0 10.001 4.001A2 2 0 007 8zm0 6a2 2 0 10.001 4.001A2 2 0 007 14zm6-8a2 2 0 10-.001-4.001A2 2 0 0013 6zm0 2a2 2 0 10.001 4.001A2 2 0 0013 8zm0 6a2 2 0 10.001 4.001A2 2 0 0013 14z"/></svg></span>
+                    <span class="q-number">3</span>
+                    <span class="q-title">Что можно улучшить в компании?</span>
+                    <span class="q-type-tag">Текст</span>
+                  </div>
+                  <div class="question-body">
+                    <div class="form-group" style="margin-bottom: 0">
+                      <label class="form-label">Текст вопроса</label>
+                      <input class="form-input" value="Что можно улучшить в компании?" />
+                    </div>
+                    <div class="divider"></div>
+                    <div style="display: flex; gap: 8px;">
+                      <button class="btn btn-ghost btn-sm">Дублировать</button>
+                      <button class="btn btn-danger btn-sm">Удалить</button>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              <div class="add-question-bar" onclick="openAddQuestion()">
+                <svg viewBox="0 0 20 20" fill="currentColor" style="width:16px;height:16px;color:var(--gray-400)"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+                <span class="aq-label">Добавить вопрос</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: settings sidebar -->
+        <div>
+          <div class="card" style="margin-bottom: 16px;">
+            <div class="card-header"><div class="card-title">Настройки</div></div>
+            <div class="card-body">
+              <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:8px;">
+                <div>
+                  <div class="settings-label">Количество участников</div>
+                  <div class="settings-hint">Максимум человек, которые могут пройти опрос</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;width:100%;">
+                  <input class="form-input" type="number" min="1" value="280" style="width:110px;" />
+                  <span style="font-size:13px;color:var(--gray-400);">человек</span>
+                  <label style="display:flex;align-items:center;gap:6px;margin-left:auto;font-size:12px;color:var(--gray-500);cursor:pointer;">
+                    <input type="checkbox" style="accent-color:var(--brand);" /> Без ограничений
+                  </label>
+                </div>
+              </div>
+              <div class="settings-row">
+                <div>
+                  <div class="settings-label">Показать прогресс</div>
+                  <div class="settings-hint">Шкала прогресса в опросе</div>
+                </div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+              </div>
+              <div class="settings-row">
+                <div>
+                  <div class="settings-label">Уведомления</div>
+                  <div class="settings-hint">Email при новом ответе</div>
+                </div>
+                <div class="toggle" onclick="this.classList.toggle('on')"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Preview section -->
+      <div class="section-header" style="margin-top:28px;margin-bottom:16px;">
+        <div class="section-title">Предпросмотр опроса</div>
+        <span style="font-size:13px;color:var(--gray-400);">Так видят опрос участники</span>
+      </div>
+      <div style="background:var(--gray-100);border-radius:var(--radius);padding:28px;">
+        <div class="survey-shell">
+          <div class="survey-hero">
+            <div class="survey-company">TechCorp · Корпоративный опрос</div>
+            <div class="survey-title-big">Оценка удовлетворённости сотрудников Q2</div>
+            <div class="survey-desc">Помогите нам стать лучше — пройдите короткий опрос о вашем опыте работы. Это займёт около 3 минут.</div>
+          </div>
+          <div class="survey-progress-wrap">
+            <div class="survey-progress-label"><span>Вопрос 2 из 5</span><span>40%</span></div>
+            <div class="progress-bar"><div class="progress-fill" id="survey-progress" style="width: 40%"></div></div>
+          </div>
+          <div class="survey-body">
+
+            <div class="sq-block" id="sq-1" style="display:none;">
+              <div class="sq-label">Как вы оцениваете своё общее удовлетворение от работы?<span class="sq-required">*</span></div>
+              <div class="sq-hint">Выберите число от 1 до 10</div>
+              <div class="nps-row" id="scale-q1">
+                <button class="nps-btn" onclick="pickScale(this,'scale-q1')">1</button>
+                <button class="nps-btn" onclick="pickScale(this,'scale-q1')">2</button>
+                <button class="nps-btn" onclick="pickScale(this,'scale-q1')">3</button>
+                <button class="nps-btn" onclick="pickScale(this,'scale-q1')">4</button>
+                <button class="nps-btn" onclick="pickScale(this,'scale-q1')">5</button>
+                <button class="nps-btn" onclick="pickScale(this,'scale-q1')">6</button>
+                <button class="nps-btn" onclick="pickScale(this,'scale-q1')">7</button>
+                <button class="nps-btn" onclick="pickScale(this,'scale-q1')">8</button>
+                <button class="nps-btn" onclick="pickScale(this,'scale-q1')">9</button>
+                <button class="nps-btn" onclick="pickScale(this,'scale-q1')">10</button>
+              </div>
+              <div class="nps-labels"><span>Совсем не доволен</span><span>Очень доволен</span></div>
+            </div>
+
+            <div class="sq-block" id="sq-2">
+              <div class="sq-label">Что вам больше всего нравится в вашей работе?<span class="sq-required">*</span></div>
+              <div class="sq-hint">Можно выбрать несколько вариантов</div>
+              <div class="check-option" onclick="this.classList.toggle('selected')">
+                <div class="check-box"><svg viewBox="0 0 12 12" fill="currentColor"><path d="M1 6l4 4L11 2"/></svg></div>
+                Интересные задачи
+              </div>
+              <div class="check-option selected" onclick="this.classList.toggle('selected')">
+                <div class="check-box"><svg viewBox="0 0 12 12" fill="currentColor"><path d="M1 6l4 4L11 2" stroke="#4F46E5" stroke-width="2" fill="none"/></svg></div>
+                Команда и коллеги
+              </div>
+              <div class="check-option" onclick="this.classList.toggle('selected')">
+                <div class="check-box"><svg viewBox="0 0 12 12" fill="currentColor"><path d="M1 6l4 4L11 2"/></svg></div>
+                Гибкий график
+              </div>
+              <div class="check-option selected" onclick="this.classList.toggle('selected')">
+                <div class="check-box"><svg viewBox="0 0 12 12" fill="currentColor"><path d="M1 6l4 4L11 2" stroke="#4F46E5" stroke-width="2" fill="none"/></svg></div>
+                Возможности роста
+              </div>
+            </div>
+
+            <div class="sq-block" id="sq-3" style="display:none;">
+              <div class="sq-label">Рекомендовали бы вы компанию как место работы?<span class="sq-required">*</span></div>
+              <div class="sq-hint">0 — точно нет, 10 — точно да</div>
+              <div class="nps-row" id="nps-q3">
+                <button class="nps-btn" onclick="pickScale(this,'nps-q3')">0</button>
+                <button class="nps-btn" onclick="pickScale(this,'nps-q3')">1</button>
+                <button class="nps-btn" onclick="pickScale(this,'nps-q3')">2</button>
+                <button class="nps-btn" onclick="pickScale(this,'nps-q3')">3</button>
+                <button class="nps-btn" onclick="pickScale(this,'nps-q3')">4</button>
+                <button class="nps-btn" onclick="pickScale(this,'nps-q3')">5</button>
+                <button class="nps-btn selected" onclick="pickScale(this,'nps-q3')">6</button>
+                <button class="nps-btn" onclick="pickScale(this,'nps-q3')">7</button>
+                <button class="nps-btn" onclick="pickScale(this,'nps-q3')">8</button>
+                <button class="nps-btn" onclick="pickScale(this,'nps-q3')">9</button>
+                <button class="nps-btn" onclick="pickScale(this,'nps-q3')">10</button>
+              </div>
+              <div class="nps-labels"><span>Точно нет</span><span>Точно да</span></div>
+            </div>
+
+            <div class="sq-block" id="sq-4" style="display:none;">
+              <div class="sq-label">Оцените свой рабочий баланс</div>
+              <div class="sq-hint">Насколько вам комфортен текущий режим работы?</div>
+              <div class="stars-row" id="star-q4">
+                <span class="star-btn lit" onclick="pickStar(this,'star-q4')">★</span>
+                <span class="star-btn lit" onclick="pickStar(this,'star-q4')">★</span>
+                <span class="star-btn lit" onclick="pickStar(this,'star-q4')">★</span>
+                <span class="star-btn lit" onclick="pickStar(this,'star-q4')">★</span>
+                <span class="star-btn" onclick="pickStar(this,'star-q4')">★</span>
+              </div>
+            </div>
+
+            <div class="sq-block" id="sq-5" style="display:none;">
+              <div class="sq-label">Что можно улучшить в компании?</div>
+              <div class="sq-hint">Ваш ответ останется анонимным</div>
+              <textarea class="text-answer" rows="4" placeholder="Напишите ваши мысли..."></textarea>
+            </div>
+
+            <div class="survey-footer">
+              <div class="survey-nav">
+                <button class="btn btn-secondary" id="btn-prev" onclick="surveyPrev()">← Назад</button>
+              </div>
+              <div style="font-size: 12px; color: var(--gray-400);">Вопрос <span id="q-cur">2</span> из 5</div>
+              <button class="btn btn-primary" id="btn-next" onclick="surveyNext()">Далее →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ RESULTS ═══════════════════════ -->
+  <div id="page-results" class="page">
+    <div class="topbar">
+      <div class="topbar-title">Результаты — Оценка удовлетворённости Q2</div>
+      <div class="topbar-actions">
+        <button class="btn btn-secondary" onclick="showToast('Скачивание PDF...')">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          Скачать PDF
+        </button>
+        <button class="btn btn-primary" onclick="showToast('Ссылка скопирована!')">Поделиться</button>
+      </div>
+    </div>
+    <div style="padding: 28px;">
+
+      <!-- Survey picker -->
+      <div class="rsp-card">
+        <span class="rsp-label">Опрос</span>
+        <div class="rsp-select-wrap">
+          <select class="rsp-select" id="results-survey-select" onchange="selectResultsSurvey(this.value)">
+          </select>
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+        </div>
+        <div class="rsp-divider"></div>
+        <div class="rsp-meta">
+          <div class="rsp-meta-item">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zm8 0a3 3 0 11-6 0 3 3 0 016 0zm-4.07 11c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg>
+            <strong id="rsp-answers">214 / 280</strong> ответов
+          </div>
+          <div class="rsp-meta-item">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
+            <strong id="rsp-time">3:12</strong> мин
+          </div>
+          <div class="rsp-meta-item">
+            <span class="status-badge" id="rsp-status">Активен</span>
+          </div>
+          <div class="rsp-meta-item" style="margin-left:auto;">
+            <span id="rsp-date" style="color:var(--gray-400);font-size:12px;">до 30 апр 2026</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-grid" style="margin-bottom: 20px;">
+        <div class="stat-card">
+          <div class="stat-icon green"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zm8 0a3 3 0 11-6 0 3 3 0 016 0zm-4.07 11c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg></div>
+          <div class="stat-label">Ответов</div>
+          <div class="stat-value" id="res-stat-answers">214</div>
+          <div class="stat-delta" id="res-stat-answers-sub">из 280 приглашённых</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon indigo"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></div>
+          <div class="stat-label">Отклик</div>
+          <div class="stat-value" id="res-stat-rate">76%</div>
+          <div class="stat-delta up" id="res-stat-rate-sub">↑ Выше среднего</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon amber"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg></div>
+          <div class="stat-label">Ср. время заполнения</div>
+          <div class="stat-value" id="res-stat-time">3:12</div>
+          <div class="stat-delta">минуты</div>
+        </div>
+      </div>
+
+      <div class="results-grid">
+
+        <div class="result-card">
+          <div class="rc-title">Вопрос 1 — Общее удовлетворение (шкала 1–10)</div>
+          <div class="nps-gauge">
+            <div class="nps-score">7.8</div>
+            <div class="nps-label">Средняя оценка из 10</div>
+            <div class="nps-segments" style="margin-top: 16px;">
+              <div class="nps-seg" style="width:8%; background:#EF4444;"></div>
+              <div class="nps-seg" style="width:7%; background:#F97316;"></div>
+              <div class="nps-seg" style="width:10%; background:#FBBF24;"></div>
+              <div class="nps-seg" style="width:75%; background:#10B981;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--gray-400);margin-top:4px;">
+              <span>1–4 (недовольны)</span><span>5–7 (нейтрально)</span><span>8–10 (довольны)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="result-card">
+          <div class="rc-title">Вопрос 2 — Что нравится в работе?</div>
+          <div class="bar-chart">
+            <div class="bar-row">
+              <div class="bar-label">Команда</div>
+              <div class="bar-track"><div class="bar-fill" style="width: 78%;">78%</div></div>
+              <div class="bar-pct">167</div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-label">Задачи</div>
+              <div class="bar-track"><div class="bar-fill" style="width: 63%;">63%</div></div>
+              <div class="bar-pct">135</div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-label">Рост</div>
+              <div class="bar-track"><div class="bar-fill" style="width: 52%;">52%</div></div>
+              <div class="bar-pct">111</div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-label">График</div>
+              <div class="bar-track"><div class="bar-fill" style="width: 44%;">44%</div></div>
+              <div class="bar-pct">94</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="result-card">
+          <div class="rc-title">Вопрос 3 — Рекомендация компании (NPS)</div>
+          <div class="nps-gauge">
+            <div class="nps-score" style="color: #10B981;">+42</div>
+            <div class="nps-label">Net Promoter Score</div>
+            <div style="display:flex;gap:16px;justify-content:center;margin-top:12px;font-size:13px;">
+              <span style="color:#10B981;font-weight:700;">Промоутеры 58%</span>
+              <span style="color:var(--gray-400);">Нейтральные 26%</span>
+              <span style="color:#EF4444;font-weight:700;">Критики 16%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="result-card">
+          <div class="rc-title">Вопрос 4 — Work-life баланс (звёзды)</div>
+          <div style="text-align:center;padding:10px 0;">
+            <div style="font-size:36px;color:#F59E0B;margin-bottom:8px;">★★★★☆</div>
+            <div style="font-size:24px;font-weight:800;color:var(--gray-800);">4.1 / 5</div>
+            <div style="font-size:13px;color:var(--gray-400);margin-top:4px;">214 ответов</div>
+          </div>
+          <div class="bar-chart" style="margin-top: 12px;">
+            <div class="bar-row"><div class="bar-label">5 ★</div><div class="bar-track"><div class="bar-fill" style="width:38%;background:#F59E0B;">38%</div></div><div class="bar-pct">81</div></div>
+            <div class="bar-row"><div class="bar-label">4 ★</div><div class="bar-track"><div class="bar-fill" style="width:32%;background:#FBBF24;">32%</div></div><div class="bar-pct">68</div></div>
+            <div class="bar-row"><div class="bar-label">3 ★</div><div class="bar-track"><div class="bar-fill" style="width:18%;background:#FDE68A;">18%</div></div><div class="bar-pct">39</div></div>
+            <div class="bar-row"><div class="bar-label">2 ★</div><div class="bar-track"><div class="bar-fill" style="width:8%;background:#FEF3C7;">8%</div></div><div class="bar-pct">17</div></div>
+            <div class="bar-row"><div class="bar-label">1 ★</div><div class="bar-track"><div class="bar-fill" style="width:4%;background:#FEF9C3;">4%</div></div><div class="bar-pct">9</div></div>
+          </div>
+        </div>
+
+        <div class="result-card full">
+          <div class="rc-title">Вопрос 5 — Открытые ответы (последние)</div>
+          <div class="response-feed">
+            <div class="response-item">
+              Хотелось бы больше возможностей для профессионального развития — обучение, конференции. Сейчас это совсем не приоритет.
+              <div class="response-meta">Аноним · 22 апр 2026, 10:14</div>
+            </div>
+            <div class="response-item">
+              Отличная команда, но процессы иногда затягиваются. Было бы здорово сократить количество совещаний.
+              <div class="response-meta">Аноним · 21 апр 2026, 17:32</div>
+            </div>
+            <div class="response-item">
+              Нужно больше прозрачности по стратегии компании. Хочется понимать, куда мы движемся.
+              <div class="response-meta">Аноним · 21 апр 2026, 15:08</div>
+            </div>
+            <div class="response-item">
+              Всё устраивает! Работа интересная, коллеги замечательные. Разве что офис мог бы быть чуть просторнее 😊
+              <div class="response-meta">Аноним · 20 апр 2026, 11:45</div>
+            </div>
+          </div>
+          <div style="text-align:center;margin-top:16px;">
+            <button class="btn btn-secondary btn-sm">Показать все 214 ответов</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- AI Chat -->
+      <div class="ai-card ai-card-full" id="ai-chat-focus" style="margin-top:20px;">
+        <div class="ai-card-header">
+          <div class="ai-card-icon violet">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clip-rule="evenodd"/></svg>
+          </div>
+          <div class="ai-card-title">Спросить AI про этот опрос</div>
+          <span class="ai-card-badge">AI</span>
+        </div>
+        <div class="ai-card-body">
+          <div class="chat-suggestions">
+            <button class="chat-sug" onclick="sendChatMsg(this.textContent)">Почему отдел разработки недоволен?</button>
+            <button class="chat-sug" onclick="sendChatMsg(this.textContent)">Какова динамика NPS за год?</button>
+            <button class="chat-sug" onclick="sendChatMsg(this.textContent)">Что нужно сделать в первую очередь?</button>
+            <button class="chat-sug" onclick="sendChatMsg(this.textContent)">Как повысить отклик в следующем опросе?</button>
+            <button class="chat-sug" onclick="sendChatMsg(this.textContent)">Сравни с бенчмарком отрасли</button>
+          </div>
+          <div class="ai-chat-wrap" id="chat-messages">
+            <div class="chat-msg ai">
+              <div class="chat-avatar ai-av">✦</div>
+              <div class="chat-bubble">Привет! Я проанализировал 214 ответов этого опроса. Задайте любой вопрос — о конкретном отделе, вопросе, тренде или сравнении с предыдущими волнами.</div>
+            </div>
+          </div>
+          <div class="chat-input-row" style="margin-top:14px;">
+            <input class="chat-input" id="chat-input" type="text" placeholder="Спросите что-нибудь об опросе..." onkeydown="if(event.key==='Enter')sendChatMsg()" />
+            <button class="btn btn-primary btn-sm" onclick="sendChatMsg()" style="border-radius:99px;padding:8px 18px;">
+              <svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ═══════════════════════ SETTINGS ═══════════════════════ -->
+  <div id="page-settings" class="page">
+    <div class="topbar">
+      <div class="topbar-title">Настройки</div>
+    </div>
+    <div style="padding: 28px;">
+      <div class="settings-layout">
+
+        <!-- Left nav -->
+        <div class="settings-nav-panel">
+          <div class="settings-nav-item active" onclick="switchSettings('profile', this)">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
+            Профиль
+          </div>
+          <div class="settings-nav-item" onclick="switchSettings('company', this)">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clip-rule="evenodd"/></svg>
+            Компания
+          </div>
+          <div class="settings-nav-sep"></div>
+          <div class="settings-nav-item" onclick="switchSettings('notifications', this)">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zm0 16a2 2 0 01-2-2h4a2 2 0 01-2 2z"/></svg>
+            Уведомления
+          </div>
+          <div class="settings-nav-item" onclick="switchSettings('security', this)">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
+            Безопасность
+          </div>
+          <div class="settings-nav-sep"></div>
+          <div class="settings-nav-item" onclick="switchSettings('danger', this)">
+            <svg viewBox="0 0 20 20" fill="currentColor" style="color:var(--danger)"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+            <span style="color:var(--danger)">Опасная зона</span>
+          </div>
+        </div>
+
+        <!-- Right content -->
+        <div>
+
+          <!-- Profile -->
+          <div class="settings-section active" id="settings-profile">
+            <div class="settings-card">
+              <div class="settings-card-header">
+                <div class="settings-card-title">Личные данные</div>
+                <div class="settings-card-sub">Информация о вашем аккаунте</div>
+              </div>
+              <div class="settings-card-body">
+                <div class="settings-avatar-row">
+                  <div class="settings-avatar">АК</div>
+                  <div class="settings-avatar-actions">
+                    <button class="btn btn-secondary btn-sm" onclick="showToast('Выберите файл изображения')">Загрузить фото</button>
+                    <button class="btn btn-ghost btn-sm" onclick="showToast('Фото удалено')">Удалить</button>
+                    <div class="settings-avatar-hint">JPG, PNG до 2 МБ</div>
+                  </div>
+                </div>
+                <div class="settings-row2">
+                  <div class="form-group">
+                    <label class="form-label">Имя</label>
+                    <input class="form-input" type="text" value="Алексей" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Фамилия</label>
+                    <input class="form-input" type="text" value="Козлов" />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Email</label>
+                  <input class="form-input" type="email" value="alexey@techcorp.ru" />
+                </div>
+                <div class="settings-row2">
+                  <div class="form-group">
+                    <label class="form-label">Должность</label>
+                    <input class="form-input" type="text" value="HR-директор" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Телефон <span style="font-weight:400;color:var(--gray-400)">(необязательно)</span></label>
+                    <input class="form-input" type="tel" value="+7 (495) 000-00-00" />
+                  </div>
+                </div>
+                <div class="form-group" style="margin-bottom:0">
+                  <label class="form-label">Язык интерфейса</label>
+                  <select class="form-select" style="max-width:220px;">
+                    <option selected>Русский</option>
+                    <option>English</option>
+                    <option>Қазақша</option>
+                  </select>
+                </div>
+              </div>
+              <div class="settings-card-footer">
+                <button class="btn btn-secondary" onclick="showToast('Изменения отменены')">Отмена</button>
+                <button class="btn btn-primary" onclick="showToast('Профиль сохранён')">Сохранить</button>
+              </div>
+            </div>
+
+            <div class="settings-card">
+              <div class="settings-card-header">
+                <div class="settings-card-title">Роль в системе</div>
+                <div class="settings-card-sub">Ваши права доступа в SurveyPulse</div>
+              </div>
+              <div class="settings-card-body" style="display:flex;align-items:center;gap:16px;">
+                <div style="width:44px;height:44px;border-radius:12px;background:var(--brand-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                  <svg viewBox="0 0 20 20" fill="currentColor" style="width:22px;height:22px;color:var(--brand)"><path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                </div>
+                <div>
+                  <div style="font-size:14px;font-weight:700;color:var(--gray-900);">Администратор</div>
+                  <div style="font-size:12px;color:var(--gray-400);margin-top:2px;">Полный доступ: создание опросов, просмотр всех результатов, управление участниками и настройками.</div>
+                </div>
+                <button class="btn btn-ghost btn-sm" style="margin-left:auto;flex-shrink:0;" onclick="showToast('Обратитесь к владельцу аккаунта для смены роли')">Сменить роль</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Company -->
+          <div class="settings-section" id="settings-company">
+            <div class="settings-card">
+              <div class="settings-card-header">
+                <div class="settings-card-title">Данные компании</div>
+                <div class="settings-card-sub">Отображаются в опросах и отчётах</div>
+              </div>
+              <div class="settings-card-body">
+                <div class="form-group">
+                  <label class="form-label">Название компании</label>
+                  <input class="form-input" type="text" value="TechCorp" />
+                </div>
+                <div class="settings-row2">
+                  <div class="form-group">
+                    <label class="form-label">Отрасль</label>
+                    <select class="form-select">
+                      <option selected>Информационные технологии</option>
+                      <option>Финансы и банки</option>
+                      <option>Производство</option>
+                      <option>Ретейл</option>
+                      <option>Здравоохранение</option>
+                      <option>Образование</option>
+                      <option>Другое</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Размер компании</label>
+                    <select class="form-select">
+                      <option>1–50 сотрудников</option>
+                      <option>51–200 сотрудников</option>
+                      <option selected>201–500 сотрудников</option>
+                      <option>501–1000 сотрудников</option>
+                      <option>Более 1000</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Сайт <span style="font-weight:400;color:var(--gray-400)">(необязательно)</span></label>
+                  <input class="form-input" type="url" value="https://techcorp.ru" />
+                </div>
+                <div class="form-group" style="margin-bottom:0">
+                  <label class="form-label">Часовой пояс</label>
+                  <select class="form-select" style="max-width:280px;">
+                    <option selected>UTC+3 — Москва, Санкт-Петербург</option>
+                    <option>UTC+5 — Екатеринбург</option>
+                    <option>UTC+7 — Красноярск</option>
+                    <option>UTC+8 — Иркутск</option>
+                    <option>UTC+0 — Лондон</option>
+                  </select>
+                </div>
+              </div>
+              <div class="settings-card-footer">
+                <button class="btn btn-secondary" onclick="showToast('Изменения отменены')">Отмена</button>
+                <button class="btn btn-primary" onclick="showToast('Данные компании сохранены')">Сохранить</button>
+              </div>
+            </div>
+
+            <div class="settings-card">
+              <div class="settings-card-header">
+                <div class="settings-card-title">Брендирование</div>
+                <div class="settings-card-sub">Логотип и цвет отображаются в шапке опросов</div>
+              </div>
+              <div class="settings-card-body">
+                <div style="display:flex;align-items:center;gap:20px;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--gray-100);">
+                  <div style="width:72px;height:72px;border-radius:12px;border:2px dashed var(--gray-200);background:var(--gray-50);display:flex;align-items:center;justify-content:center;cursor:pointer;" onclick="showToast('Выберите файл логотипа')">
+                    <svg viewBox="0 0 20 20" fill="currentColor" style="width:24px;height:24px;color:var(--gray-300)"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/></svg>
+                  </div>
+                  <div>
+                    <div style="font-size:13px;font-weight:600;color:var(--gray-800);margin-bottom:4px;">Логотип компании</div>
+                    <div style="font-size:12px;color:var(--gray-400);margin-bottom:8px;">PNG или SVG, минимум 200×200 пикселей</div>
+                    <button class="btn btn-secondary btn-sm" onclick="showToast('Выберите файл логотипа')">Загрузить</button>
+                  </div>
+                </div>
+                <div class="form-group" style="margin-bottom:0">
+                  <label class="form-label">Основной цвет бренда</label>
+                  <div style="display:flex;align-items:center;gap:10px;">
+                    <input type="color" value="#4F46E5" style="width:42px;height:38px;border:1px solid var(--gray-200);border-radius:8px;cursor:pointer;padding:2px;" />
+                    <input class="form-input" type="text" value="#4F46E5" style="max-width:140px;font-family:monospace;" />
+                    <span style="font-size:12px;color:var(--gray-400);">Используется в кнопках и акцентах опроса</span>
+                  </div>
+                </div>
+              </div>
+              <div class="settings-card-footer">
+                <button class="btn btn-secondary" onclick="showToast('Изменения отменены')">Отмена</button>
+                <button class="btn btn-primary" onclick="showToast('Брендирование сохранено')">Сохранить</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Notifications -->
+          <div class="settings-section" id="settings-notifications">
+            <div class="settings-card">
+              <div class="settings-card-header">
+                <div class="settings-card-title">Email-уведомления</div>
+                <div class="settings-card-sub">Выберите, о чём получать письма</div>
+              </div>
+              <div class="settings-card-body">
+                <div class="notif-row">
+                  <div>
+                    <div class="notif-label">Новый ответ на опрос</div>
+                    <div class="notif-hint">Письмо при каждом новом заполнении</div>
+                  </div>
+                  <div class="toggle" onclick="this.classList.toggle('on')"></div>
+                </div>
+                <div class="notif-row">
+                  <div>
+                    <div class="notif-label">Достигнут целевой отклик</div>
+                    <div class="notif-hint">Когда опрос достиг нужного числа ответов</div>
+                  </div>
+                  <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+                </div>
+                <div class="notif-row">
+                  <div>
+                    <div class="notif-label">Опрос завершён</div>
+                    <div class="notif-hint">По истечении срока или достижении лимита</div>
+                  </div>
+                  <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+                </div>
+                <div class="notif-row">
+                  <div>
+                    <div class="notif-label">Еженедельный дайджест</div>
+                    <div class="notif-hint">Сводка по всем активным опросам каждый понедельник</div>
+                  </div>
+                  <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+                </div>
+                <div class="notif-row">
+                  <div>
+                    <div class="notif-label">AI-аналитика готова</div>
+                    <div class="notif-hint">Когда AI завершил обработку результатов опроса</div>
+                  </div>
+                  <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+                </div>
+                <div class="notif-row">
+                  <div>
+                    <div class="notif-label">Новости и обновления продукта</div>
+                    <div class="notif-hint">Информация о новых функциях SurveyPulse</div>
+                  </div>
+                  <div class="toggle" onclick="this.classList.toggle('on')"></div>
+                </div>
+              </div>
+              <div class="settings-card-footer">
+                <button class="btn btn-primary" onclick="showToast('Настройки уведомлений сохранены')">Сохранить</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Security -->
+          <div class="settings-section" id="settings-security">
+            <div class="settings-card">
+              <div class="settings-card-header">
+                <div class="settings-card-title">Пароль</div>
+                <div class="settings-card-sub">Изменение пароля для входа в аккаунт</div>
+              </div>
+              <div class="settings-card-body">
+                <div class="form-group">
+                  <label class="form-label">Текущий пароль</label>
+                  <input class="form-input" type="password" placeholder="Введите текущий пароль" style="max-width:340px;" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Новый пароль</label>
+                  <input class="form-input" type="password" placeholder="Минимум 8 символов" style="max-width:340px;" />
+                </div>
+                <div class="form-group" style="margin-bottom:0">
+                  <label class="form-label">Повторите новый пароль</label>
+                  <input class="form-input" type="password" placeholder="Повторите пароль" style="max-width:340px;" />
+                </div>
+              </div>
+              <div class="settings-card-footer">
+                <button class="btn btn-primary" onclick="showToast('Пароль успешно изменён')">Изменить пароль</button>
+              </div>
+            </div>
+
+            <div class="settings-card">
+              <div class="settings-card-header">
+                <div class="settings-card-title">Двухфакторная аутентификация</div>
+                <div class="settings-card-sub">Дополнительная защита аккаунта</div>
+              </div>
+              <div class="settings-card-body">
+                <div class="security-item">
+                  <div class="security-item-icon">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/></svg>
+                  </div>
+                  <div class="security-item-body">
+                    <div class="security-item-label">SMS-подтверждение</div>
+                    <div class="security-item-hint">Код на номер +7 (495) •••• 00-00</div>
+                  </div>
+                  <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+                </div>
+                <div class="security-item">
+                  <div class="security-item-icon">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg>
+                  </div>
+                  <div class="security-item-body">
+                    <div class="security-item-label">Приложение-аутентификатор</div>
+                    <div class="security-item-hint">Google Authenticator, Yandex Key и др.</div>
+                  </div>
+                  <div class="toggle" onclick="this.classList.toggle('on')"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-card">
+              <div class="settings-card-header">
+                <div class="settings-card-title">Активные сессии</div>
+                <div class="settings-card-sub">Устройства, с которых выполнен вход</div>
+              </div>
+              <div class="settings-card-body">
+                <div class="session-item">
+                  <div class="session-dot current"></div>
+                  <div style="flex:1;">
+                    <div class="session-label">Chrome · macOS — Текущая сессия</div>
+                    <div class="session-meta">Москва, Россия · 28 апр 2026, 10:41</div>
+                  </div>
+                  <span style="font-size:11px;font-weight:700;color:var(--success);background:#D1FAE5;padding:2px 8px;border-radius:20px;">Активна</span>
+                </div>
+                <div class="session-item">
+                  <div class="session-dot other"></div>
+                  <div style="flex:1;">
+                    <div class="session-label">Safari · iPhone 15</div>
+                    <div class="session-meta">Москва, Россия · 27 апр 2026, 19:05</div>
+                  </div>
+                  <button class="btn btn-ghost btn-sm" onclick="showToast('Сессия завершена')">Завершить</button>
+                </div>
+                <div class="session-item">
+                  <div class="session-dot other"></div>
+                  <div style="flex:1;">
+                    <div class="session-label">Chrome · Windows 11</div>
+                    <div class="session-meta">Санкт-Петербург, Россия · 25 апр 2026, 14:22</div>
+                  </div>
+                  <button class="btn btn-ghost btn-sm" onclick="showToast('Сессия завершена')">Завершить</button>
+                </div>
+              </div>
+              <div class="settings-card-footer">
+                <button class="btn btn-danger btn-sm" onclick="showToast('Все другие сессии завершены')">Завершить все другие сессии</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Danger zone -->
+          <div class="settings-section" id="settings-danger">
+            <div class="settings-card">
+              <div class="settings-card-header">
+                <div class="settings-card-title" style="color:var(--danger);">Опасная зона</div>
+                <div class="settings-card-sub">Необратимые действия. Действуйте осторожно.</div>
+              </div>
+              <div class="settings-card-body">
+                <div class="danger-item">
+                  <div>
+                    <div class="danger-item-label">Экспорт всех данных</div>
+                    <div class="danger-item-hint">Скачать архив со всеми опросами, ответами и настройками</div>
+                  </div>
+                  <button class="btn btn-secondary btn-sm" onclick="showToast('Архив формируется, ссылка придёт на email')">Экспортировать</button>
+                </div>
+                <div class="danger-item">
+                  <div>
+                    <div class="danger-item-label">Удалить все завершённые опросы</div>
+                    <div class="danger-item-hint">Удалятся все опросы со статусом «Завершён» и их результаты</div>
+                  </div>
+                  <button class="btn btn-danger btn-sm" onclick="showToast('Действие отменено — требуется подтверждение')">Удалить</button>
+                </div>
+                <div class="danger-item">
+                  <div>
+                    <div class="danger-item-label">Удалить аккаунт</div>
+                    <div class="danger-item-hint">Аккаунт, все опросы и результаты будут удалены без возможности восстановления</div>
+                  </div>
+                  <button class="btn btn-danger btn-sm" onclick="showToast('Действие отменено — требуется подтверждение')">Удалить аккаунт</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ BILLING ═══════════════════════ -->
+  <div id="page-billing" class="page">
+    <div class="topbar">
+      <div class="topbar-title">Подписка</div>
+      <div class="topbar-actions">
+        <span style="font-size:13px;color:var(--gray-500);">Текущий план:</span>
+        <span style="font-size:13px;font-weight:700;color:var(--brand);background:var(--brand-light);padding:4px 12px;border-radius:20px;">Pro</span>
+      </div>
+    </div>
+    <div style="padding:28px;">
+
+      <!-- Current plan banner -->
+      <div style="background:linear-gradient(135deg,#1E1B4B,#312E81,#1E3A5F);border-radius:var(--radius);padding:24px 28px;margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:-50px;right:-50px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(124,58,237,.3) 0%,transparent 70%);"></div>
+        <div style="position:relative;z-index:1;">
+          <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Активный план</div>
+          <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px;">Pro <span style="font-size:14px;font-weight:500;color:rgba(255,255,255,.6);">· оплачено до 28 апреля 2027</span></div>
+          <div style="font-size:13px;color:rgba(255,255,255,.55);">Следующее списание: <strong style="color:rgba(255,255,255,.85);">2 990 ₽</strong> · 28 апреля 2027</div>
+        </div>
+        <div style="position:relative;z-index:1;display:flex;gap:10px;">
+          <button class="btn btn-sm" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;" onclick="showToast('История платежей открыта')">История платежей</button>
+          <button class="btn btn-sm" style="background:#fff;color:#312E81;font-weight:700;" onclick="showToast('Управление картой открыто')">Управление картой</button>
+        </div>
+      </div>
+
+      <!-- Usage stats -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;">
+        <div class="stat-card">
+          <div class="stat-icon indigo"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 5a1 1 0 000 2h14a1 1 0 100-2H3zm0 4a1 1 0 000 2h14a1 1 0 100-2H3zm0 4a1 1 0 000 2h8a1 1 0 100-2H3z" clip-rule="evenodd"/></svg></div>
+          <div class="stat-label">Опросов</div>
+          <div class="stat-value">12</div>
+          <div class="stat-delta" style="color:var(--gray-400);">из 50 в месяц</div>
+          <div class="progress-bar" style="margin-top:8px;"><div class="progress-fill" style="width:24%"></div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zm8 0a3 3 0 11-6 0 3 3 0 016 0zm-4.07 11c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg></div>
+          <div class="stat-label">Ответов</div>
+          <div class="stat-value">1 842</div>
+          <div class="stat-delta" style="color:var(--gray-400);">из 5 000 в месяц</div>
+          <div class="progress-bar" style="margin-top:8px;"><div class="progress-fill" style="width:37%;background:var(--success)"></div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon amber"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zm8 0a3 3 0 11-6 0 3 3 0 016 0zm-4.07 11c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg></div>
+          <div class="stat-label">Участников</div>
+          <div class="stat-value">280</div>
+          <div class="stat-delta" style="color:var(--gray-400);">из 1 000 в аккаунте</div>
+          <div class="progress-bar" style="margin-top:8px;"><div class="progress-fill" style="width:28%;background:var(--warning)"></div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon indigo"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"/></svg></div>
+          <div class="stat-label">AI-запросов</div>
+          <div class="stat-value">47</div>
+          <div class="stat-delta" style="color:var(--gray-400);">из 200 в месяц</div>
+          <div class="progress-bar" style="margin-top:8px;"><div class="progress-fill" style="width:24%"></div></div>
+        </div>
+      </div>
+
+      <!-- Plan cards -->
+      <div class="section-header" style="margin-bottom:20px;">
+        <div class="section-title">Выберите план</div>
+        <div style="display:flex;align-items:center;gap:8px;background:var(--gray-100);border-radius:8px;padding:4px;">
+          <span id="billing-monthly" style="padding:5px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:#fff;color:var(--gray-900);box-shadow:0 1px 3px rgba(0,0,0,.1);" onclick="setBillingPeriod('monthly')">Ежемесячно</span>
+          <span id="billing-annual" style="padding:5px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;color:var(--gray-500);" onclick="setBillingPeriod('annual')">Ежегодно <span style="font-size:11px;color:var(--success);font-weight:700;">−20%</span></span>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:32px;">
+
+        <!-- Free -->
+        <div class="card" style="position:relative;">
+          <div class="card-body" style="padding:28px;">
+            <div style="font-size:13px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Free</div>
+            <div style="font-size:36px;font-weight:900;color:var(--gray-900);line-height:1;margin-bottom:4px;">0 ₽</div>
+            <div style="font-size:13px;color:var(--gray-400);margin-bottom:24px;">Бесплатно навсегда</div>
+            <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-bottom:24px;" onclick="showToast('Вы уже используете более мощный план')">Текущий план ниже</button>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray-600);"><span style="color:var(--success);font-weight:700;">✓</span> До 5 опросов в месяц</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray-600);"><span style="color:var(--success);font-weight:700;">✓</span> До 100 ответов в месяц</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray-600);"><span style="color:var(--success);font-weight:700;">✓</span> До 10 участников</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray-600);"><span style="color:var(--success);font-weight:700;">✓</span> Базовые типы вопросов</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray-300);"><span>✗</span> AI-генерация опросов</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray-300);"><span>✗</span> AI-аналитика</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray-300);"><span>✗</span> Экспорт PDF</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pro (current, highlighted) -->
+        <div class="card" style="position:relative;border-color:var(--brand);box-shadow:0 0 0 2px rgba(79,70,229,.15),var(--shadow-md);">
+          <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--brand);color:#fff;font-size:11px;font-weight:800;padding:3px 14px;border-radius:20px;white-space:nowrap;letter-spacing:.04em;">ТЕКУЩИЙ ПЛАН</div>
+          <div class="card-body" style="padding:28px;">
+            <div style="font-size:13px;font-weight:700;color:var(--brand);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Pro</div>
+            <div style="font-size:36px;font-weight:900;color:var(--gray-900);line-height:1;margin-bottom:4px;" id="pro-price">2 990 ₽</div>
+            <div style="font-size:13px;color:var(--gray-400);margin-bottom:24px;" id="pro-period">в месяц · при оплате ежемесячно</div>
+            <button class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:24px;opacity:.5;cursor:default;">Активен</button>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray-600);"><span style="color:var(--success);font-weight:700;">✓</span> До 50 опросов в месяц</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray-600);"><span style="color:var(--success);font-weight:700;">✓</span> До 5 000 ответов в месяц</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray-600);"><span style="color:var(--success);font-weight:700;">✓</span> До 1 000 участников</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray-600);"><span style="color:var(--success);font-weight:700;">✓</span> Все типы вопросов</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray-600);"><span style="color:var(--success);font-weight:700;">✓</span> AI-генерация (200/мес)</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray-600);"><span style="color:var(--success);font-weight:700;">✓</span> AI-аналитика и инсайты</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray-600);"><span style="color:var(--success);font-weight:700;">✓</span> Экспорт PDF</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray-300);"><span>✗</span> Безлимитные участники</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray-300);"><span>✗</span> SSO / корпоративный вход</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Enterprise -->
+        <div class="card" style="position:relative;background:linear-gradient(160deg,#1E1B4B 0%,#1e2a4b 100%);border-color:#312E81;">
+          <div class="card-body" style="padding:28px;">
+            <div style="font-size:13px;font-weight:700;color:#A78BFA;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Enterprise</div>
+            <div style="font-size:36px;font-weight:900;color:#fff;line-height:1;margin-bottom:4px;">По запросу</div>
+            <div style="font-size:13px;color:rgba(255,255,255,.4);margin-bottom:24px;">Индивидуальные условия</div>
+            <button class="btn btn-sm" style="width:100%;justify-content:center;margin-bottom:24px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;padding:10px;" onclick="showToast('Заявка отправлена — мы свяжемся с вами!')">Связаться с нами</button>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.75);"><span style="color:#10B981;font-weight:700;">✓</span> Безлимитные опросы</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.75);"><span style="color:#10B981;font-weight:700;">✓</span> Безлимитные ответы</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.75);"><span style="color:#10B981;font-weight:700;">✓</span> Безлимитные участники</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.75);"><span style="color:#10B981;font-weight:700;">✓</span> AI-генерация без ограничений</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.75);"><span style="color:#10B981;font-weight:700;">✓</span> SSO / корпоративный вход</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.75);"><span style="color:#10B981;font-weight:700;">✓</span> Выделенный менеджер</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.75);"><span style="color:#10B981;font-weight:700;">✓</span> SLA и приоритетная поддержка</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.75);"><span style="color:#10B981;font-weight:700;">✓</span> Брендирование интерфейса</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Payment history -->
+      <div class="section-header" style="margin-bottom:16px;">
+        <div class="section-title">История платежей</div>
+        <button class="btn btn-ghost btn-sm" onclick="showToast('Скачивание квитанций...')">Скачать все</button>
+      </div>
+      <div class="survey-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Дата</th>
+              <th>Описание</th>
+              <th>Сумма</th>
+              <th>Статус</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="color:var(--gray-500);font-size:13px;">28 мар 2026</td>
+              <td><div class="survey-name">Pro · Ежемесячный план</div><div class="survey-meta">Visa •••• 4242</div></td>
+              <td style="font-weight:700;color:var(--gray-900);">2 990 ₽</td>
+              <td><span class="status-badge active">Оплачено</span></td>
+              <td><button class="btn btn-ghost btn-sm" onclick="showToast('Квитанция скачана')">Квитанция</button></td>
+            </tr>
+            <tr>
+              <td style="color:var(--gray-500);font-size:13px;">28 фев 2026</td>
+              <td><div class="survey-name">Pro · Ежемесячный план</div><div class="survey-meta">Visa •••• 4242</div></td>
+              <td style="font-weight:700;color:var(--gray-900);">2 990 ₽</td>
+              <td><span class="status-badge active">Оплачено</span></td>
+              <td><button class="btn btn-ghost btn-sm" onclick="showToast('Квитанция скачана')">Квитанция</button></td>
+            </tr>
+            <tr>
+              <td style="color:var(--gray-500);font-size:13px;">28 янв 2026</td>
+              <td><div class="survey-name">Pro · Ежемесячный план</div><div class="survey-meta">Visa •••• 4242</div></td>
+              <td style="font-weight:700;color:var(--gray-900);">2 990 ₽</td>
+              <td><span class="status-badge active">Оплачено</span></td>
+              <td><button class="btn btn-ghost btn-sm" onclick="showToast('Квитанция скачана')">Квитанция</button></td>
+            </tr>
+            <tr>
+              <td style="color:var(--gray-500);font-size:13px;">28 дек 2025</td>
+              <td><div class="survey-name">Переход с Free на Pro</div><div class="survey-meta">Visa •••• 4242</div></td>
+              <td style="font-weight:700;color:var(--gray-900);">2 990 ₽</td>
+              <td><span class="status-badge active">Оплачено</span></td>
+              <td><button class="btn btn-ghost btn-sm" onclick="showToast('Квитанция скачана')">Квитанция</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+<!-- MODAL: publish -->
+<div class="modal-overlay" id="modal-publish">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Опубликовать опрос</div>
+      <button class="modal-close" onclick="closeModal('modal-publish')">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:14px;color:var(--gray-600);margin-bottom:16px;">Выберите способ рассылки опроса участникам:</p>
+      <div class="form-group">
+        <label class="form-label">Способ отправки</label>
+        <select class="form-select">
+          <option>Отправить по email всем сотрудникам</option>
+          <option>Поделиться ссылкой</option>
+          <option>Встроить на сайт</option>
+          <option>Отправить выбранным отделам</option>
+        </select>
+      </div>
+      <div style="background: var(--gray-50); border-radius: 8px; padding: 12px 14px; font-size: 13px; color: var(--gray-600);">
+        <div style="font-weight: 600; margin-bottom: 4px;">Краткая сводка</div>
+        <div>• 8 вопросов · ~3 минуты</div>
+        <div>• Анонимный режим включён</div>
+        <div>• Закрывается: 30 апр 2026</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-publish')">Отмена</button>
+      <button class="btn btn-primary" onclick="closeModal('modal-publish'); showToast('Опрос опубликован! Приглашения отправлены.')">
+        Опубликовать
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: add question -->
+<div class="modal-overlay" id="modal-addq">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Тип нового вопроса</div>
+      <button class="modal-close" onclick="closeModal('modal-addq')">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div class="type-option" onclick="closeModal('modal-addq'); showToast('Добавлен вопрос с одним вариантом')">
+          <svg viewBox="0 0 20 20" fill="currentColor" style="width:18px;height:18px;"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+          Один вариант
+        </div>
+        <div class="type-option" onclick="closeModal('modal-addq'); showToast('Добавлен вопрос с несколькими вариантами')">
+          <svg viewBox="0 0 20 20" fill="currentColor" style="width:18px;height:18px;"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Несколько вариантов
+        </div>
+        <div class="type-option" onclick="closeModal('modal-addq'); showToast('Добавлена шкала 1–10')">
+          <svg viewBox="0 0 20 20" fill="currentColor" style="width:18px;height:18px;"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+          Шкала 1–10
+        </div>
+        <div class="type-option" onclick="closeModal('modal-addq'); showToast('Добавлена оценка звёздами')">
+          <svg viewBox="0 0 20 20" fill="currentColor" style="width:18px;height:18px;"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          Звёзды (1–5)
+        </div>
+        <div class="type-option" onclick="closeModal('modal-addq'); showToast('Добавлен текстовый вопрос')">
+          <svg viewBox="0 0 20 20" fill="currentColor" style="width:18px;height:18px;"><path fill-rule="evenodd" d="M3 5a1 1 0 000 2h14a1 1 0 100-2H3zm0 4a1 1 0 000 2h8a1 1 0 100-2H3zm0 4a1 1 0 000 2h5a1 1 0 100-2H3z" clip-rule="evenodd"/></svg>
+          Открытый текст
+        </div>
+        <div class="type-option" onclick="closeModal('modal-addq'); showToast('Добавлен вопрос NPS')">
+          <svg viewBox="0 0 20 20" fill="currentColor" style="width:18px;height:18px;"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/></svg>
+          NPS (0–10)
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+  <span id="toast-text"></span>
+</div>
+
+<script>
+  // ─── Auth ───
+  function switchAuthTab(tab) {
+    document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+    document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+    document.getElementById('form-login').classList.toggle('active', tab === 'login');
+    document.getElementById('form-register').classList.toggle('active', tab === 'register');
+  }
+
+  function enterApp() {
+    document.getElementById('auth-overlay').classList.add('hidden');
+  }
+
+  function logout() {
+    document.getElementById('auth-overlay').classList.remove('hidden');
+    // сбросить форму входа
+    switchAuthTab('login');
+  }
+
+  // ─── Navigation ───
+  function navigate(page) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    const map = { dashboard: 0, surveys: 1, create: 2, results: 3, billing: 4, settings: 5 };
+    const items = document.querySelectorAll('.nav-item');
+    if (map[page] !== undefined && items[map[page]]) items[map[page]].classList.add('active');
+    window.scrollTo(0, 0);
+  }
+
+  // ─── AI chat ───
+  const aiReplies = {
+    'Почему отдел разработки недоволен?': 'По данным опроса, разработчики дали среднюю оценку 6.1/10 — на 1.7 ниже среднего. В открытых ответах этого отдела чаще всего встречаются темы: **отсутствие роста** (×14), **технический долг** (×9) и **перегрузка совещаниями** (×8). Динамика отрицательная второй квартал подряд — рекомендую провести 1:1 с тимлидами в течение 2 недель.',
+    'Какова динамика NPS за год?': 'NPS работодателя по кварталам: Q3\'25 → +31, Q4\'25 → +36, Q1\'26 → +38, Q2\'26 → +42. Устойчивый рост +11 п. за год. Основной вклад — увеличение доли промоутеров с 48% до 58%. Если тренд сохранится, к Q4\'26 прогноз составляет около +50.',
+    'Что нужно сделать в первую очередь?': '**Топ-3 действия по соотношению усилие/эффект:**\n1. Провести 1:1 с тимлидами разработки (1–2 недели, высокий приоритет)\n2. Объявить бюджет на обучение на H2\'26 (снимет 41% запросов)\n3. Ввести формат async-daily вместо ежедневных стендапов (быстрая победа)',
+    'Как повысить отклик в следующем опросе?': 'В этом опросе отклик составил 76% — отличный результат. Факторы успеха: напоминание за 3 дня до дедлайна и короткий формат (3 мин). Чтобы выйти на 85%+: добавьте персонализированную тему письма, запустите опрос в понедельник утром, покажите результаты прошлого опроса в приглашении — это повышает доверие.',
+    'Сравни с бенчмарком отрасли': 'Ваши показатели vs. медиана tech-компаний (50–500 чел.):\n• Удовлетворённость: 7.8 vs. 7.1 (+10%)\n• NPS работодателя: +42 vs. +28 (+50%)\n• Отклик: 76% vs. 58% (+31%)\n• Work-life balance: 4.1/5 vs. 3.8/5\n\nКомпания выше медианы по всем ключевым метрикам. Слабая сторона относительно бенчмарка — L&D-инвестиции.',
+  };
+
+  function sendChatMsg(text) {
+    const input = document.getElementById('chat-input');
+    const msg = text || input.value.trim();
+    if (!msg) return;
+    input.value = '';
+
+    const wrap = document.getElementById('chat-messages');
+
+    const userMsg = document.createElement('div');
+    userMsg.className = 'chat-msg user';
+    userMsg.innerHTML = `<div class="chat-avatar user-av">АК</div><div class="chat-bubble">${msg}</div>`;
+    wrap.appendChild(userMsg);
+
+    const thinking = document.createElement('div');
+    thinking.className = 'chat-msg ai';
+    thinking.innerHTML = `<div class="chat-avatar ai-av">✦</div><div class="ai-thinking"><span></span><span></span><span></span></div>`;
+    wrap.appendChild(thinking);
+    wrap.scrollTop = wrap.scrollHeight;
+
+    setTimeout(() => {
+      thinking.remove();
+      const reply = aiReplies[msg] || 'Хороший вопрос! На основе данных опроса: общая картина позитивна, но стоит обратить особое внимание на отдел разработки и запросы по обучению. Уточните вопрос — я найду более точный ответ.';
+      const aiMsg = document.createElement('div');
+      aiMsg.className = 'chat-msg ai';
+      aiMsg.innerHTML = `<div class="chat-avatar ai-av">✦</div><div class="chat-bubble">${reply.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}</div>`;
+      wrap.appendChild(aiMsg);
+      wrap.scrollTop = wrap.scrollHeight;
+    }, 1200);
+  }
+
+  // ─── Results survey picker ───
+  const resultsSurveys = [
+    {
+      name: 'Оценка удовлетворённости сотрудников Q2',
+      status: 'active', statusLabel: 'Активен',
+      date: 'до 30 апр 2026', answers: '214', invited: '280', rate: '76%', rateUp: true, time: '3:12',
+    },
+    {
+      name: 'NPS — Апрель 2026',
+      status: 'active', statusLabel: 'Активен',
+      date: 'до 1 мая 2026', answers: '891', invited: '—', rate: '100%', rateUp: true, time: '1:05',
+    },
+    {
+      name: 'Оценка онбординга — Q1 2026',
+      status: 'closed', statusLabel: 'Завершён',
+      date: '31 мар 2026', answers: '47', invited: '47', rate: '100%', rateUp: false, time: '4:38',
+    },
+    {
+      name: 'Пульс-опрос — Январь 2026',
+      status: 'closed', statusLabel: 'Завершён',
+      date: '31 янв 2026', answers: '88', invited: '112', rate: '79%', rateUp: false, time: '2:51',
+    },
+    {
+      name: 'CSAT после поддержки',
+      status: 'active', statusLabel: 'Активен',
+      date: 'до 15 мая 2026', answers: '1 203', invited: '—', rate: '100%', rateUp: true, time: '0:48',
+    },
+    {
+      name: 'Опрос о корпоративе 2025',
+      status: 'closed', statusLabel: 'Завершён',
+      date: '15 дек 2025', answers: '132', invited: '132', rate: '100%', rateUp: false, time: '2:20',
+    },
+  ];
+
+  function initResultsPicker() {
+    const sel = document.getElementById('results-survey-select');
+    resultsSurveys.forEach((s, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = s.name;
+      sel.appendChild(opt);
+    });
+    selectResultsSurvey(0);
+  }
+
+  function selectResultsSurvey(idx) {
+    const s = resultsSurveys[idx];
+    // topbar title
+    document.querySelector('#page-results .topbar-title').textContent = 'Результаты — ' + s.name;
+    // picker meta
+    document.getElementById('rsp-answers').textContent = s.answers + (s.invited !== '—' ? ' / ' + s.invited : '');
+    document.getElementById('rsp-time').textContent = s.time;
+    document.getElementById('rsp-date').textContent = s.date;
+    const badge = document.getElementById('rsp-status');
+    badge.className = 'status-badge ' + s.status;
+    badge.textContent = s.statusLabel;
+    // stat cards
+    document.getElementById('res-stat-answers').textContent = s.answers;
+    document.getElementById('res-stat-answers-sub').textContent = s.invited !== '—' ? 'из ' + s.invited + ' приглашённых' : 'ответов получено';
+    document.getElementById('res-stat-rate').textContent = s.rate;
+    const rateSub = document.getElementById('res-stat-rate-sub');
+    rateSub.textContent = s.rateUp ? '↑ Выше среднего' : '→ Средний показатель';
+    rateSub.className = 'stat-delta ' + (s.rateUp ? 'up' : '');
+    document.getElementById('res-stat-time').textContent = s.time;
+  }
+
+  initResultsPicker();
+
+  // ─── Settings tabs ───
+  function switchSettings(section, el) {
+    document.querySelectorAll('.settings-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.settings-nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('settings-' + section).classList.add('active');
+    el.classList.add('active');
+  }
+
+  // ─── Billing ───
+  function setBillingPeriod(period) {
+    const isAnnual = period === 'annual';
+    document.getElementById('billing-monthly').style.cssText = isAnnual ? 'padding:5px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;color:var(--gray-500);' : 'padding:5px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:#fff;color:var(--gray-900);box-shadow:0 1px 3px rgba(0,0,0,.1);';
+    document.getElementById('billing-annual').style.cssText = isAnnual ? 'padding:5px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:#fff;color:var(--gray-900);box-shadow:0 1px 3px rgba(0,0,0,.1);' : 'padding:5px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;color:var(--gray-500);';
+    document.getElementById('pro-price').textContent = isAnnual ? '2 392 ₽' : '2 990 ₽';
+    document.getElementById('pro-period').textContent = isAnnual ? 'в месяц · при оплате ежегодно' : 'в месяц · при оплате ежемесячно';
+  }
+
+  function triggerRegenerate() {
+    showToast('AI пересчитывает аналитику...');
+  }
+
+  // ─── AI Create ───
+  let createMode = 'ai';
+
+  function setCreateMode(mode) {
+    createMode = mode;
+    const manualCard = document.getElementById('mode-manual');
+    const aiCard = document.getElementById('mode-ai');
+    const aiPanel = document.getElementById('ai-create-panel');
+    if (mode === 'ai') {
+      aiCard.className = 'mode-card selected-ai';
+      manualCard.className = 'mode-card';
+      aiPanel.classList.remove('hidden');
+    } else {
+      manualCard.className = 'mode-card selected-manual';
+      aiCard.className = 'mode-card';
+      aiPanel.classList.add('hidden');
+    }
+  }
+
+  function setPrompt(btn) {
+    const prompts = {
+      'Пульс-опрос сотрудников': 'Квартальный пульс-опрос для сотрудников. Хотим понять уровень вовлечённости, комфорт в команде и запросы по обучению. Анонимный, дружелюбный тон, около 6–8 вопросов.',
+      'NPS после поддержки': 'Короткий опрос для клиентов после обращения в поддержку. Нужно оценить качество обслуживания, скорость решения и NPS. Не более 3–4 вопросов.',
+      'Оценка онбординга': 'Опрос для новых сотрудников после первых 30 дней. Хотим понять, насколько комфортно прошёл онбординг, чего не хватило и что понравилось.',
+      'Опрос после события': 'Опрос участников после корпоративного мероприятия. Оценка организации, контента и общего впечатления. 5 вопросов, быстро заполнить.',
+      '360° оценка руководителя': 'Анонимная оценка руководителя командой по компетенциям: коммуникация, поддержка, постановка задач, развитие сотрудников.',
+      'Exit interview': 'Опрос для уходящих сотрудников. Причины ухода, что нравилось, что можно улучшить. Анонимный, открытые вопросы приветствуются.',
+    };
+    document.getElementById('ai-prompt-input').value = prompts[btn.textContent] || btn.textContent;
+  }
+
+  const generatedQuestions = [
+    { text: 'Как вы оцениваете своё общее удовлетворение работой прямо сейчас?', type: 'Шкала 1–10', reason: 'Базовый показатель вовлечённости' },
+    { text: 'Насколько вы чувствуете поддержку своего руководителя?', type: 'Шкала 1–10', reason: 'Ключевой фактор удержания' },
+    { text: 'Что из перечисленного вам нравится в вашей работе больше всего?', type: 'Несколько вариантов', reason: 'Выявление сильных сторон' },
+    { text: 'Как вы относитесь к текущему формату работы (офис / удалёнка)?', type: 'Один вариант', reason: 'Актуальная тема для гибкого графика' },
+    { text: 'Достаточно ли у вас возможностей для профессионального роста?', type: 'Шкала 1–5', reason: 'Прямая связь с текучестью' },
+    { text: 'Порекомендовали бы вы компанию как место работы своим знакомым?', type: 'NPS (0–10)', reason: 'Стандартный eNPS-вопрос' },
+    { text: 'Что одно вы бы изменили в компании прямо сейчас?', type: 'Открытый текст', reason: 'Открытые инсайты для руководства' },
+  ];
+
+  function runAiGenerate() {
+    const prompt = document.getElementById('ai-prompt-input').value.trim();
+    if (!prompt) { showToast('Введите описание опроса'); return; }
+
+    document.getElementById('ai-state-input').style.display = 'none';
+    const gen = document.getElementById('ai-state-generating');
+    gen.style.display = 'block';
+
+    const steps = ['gen-step-1','gen-step-2','gen-step-3','gen-step-4'];
+    let cur = 0;
+
+    function advanceStep() {
+      if (cur > 0) {
+        const prev = document.getElementById(steps[cur - 1]);
+        prev.classList.remove('active');
+        prev.classList.add('done');
+      }
+      if (cur < steps.length) {
+        document.getElementById(steps[cur]).classList.add('active');
+        cur++;
+        setTimeout(advanceStep, 700);
+      } else {
+        setTimeout(showAiDone, 400);
+      }
+    }
+    advanceStep();
+  }
+
+  function showAiDone() {
+    document.getElementById('ai-state-generating').style.display = 'none';
+    const done = document.getElementById('ai-state-done');
+    done.style.display = 'block';
+
+    const preview = document.getElementById('ai-questions-preview');
+    preview.innerHTML = '';
+    generatedQuestions.forEach((q, i) => {
+      const el = document.createElement('div');
+      el.className = 'ai-q-item';
+      el.style.animationDelay = (i * 120) + 'ms';
+      el.innerHTML = `
+        <div class="ai-q-num">${i + 1}</div>
+        <div class="ai-q-content">
+          <div class="ai-q-text">${q.text}</div>
+          <div class="ai-q-meta">
+            <span class="ai-q-type">${q.type}</span>
+            <span class="ai-q-reasoning">· ${q.reason}</span>
+          </div>
+        </div>
+        <div class="ai-q-actions">
+          <button class="ai-q-btn" title="Редактировать"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg></button>
+          <button class="ai-q-btn" title="Удалить" onclick="this.closest('.ai-q-item').remove();showToast('Вопрос удалён')"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></button>
+        </div>
+      `;
+      preview.appendChild(el);
+    });
+  }
+
+  function resetAiState() {
+    document.getElementById('ai-state-done').style.display = 'none';
+    document.getElementById('ai-state-generating').style.display = 'none';
+    document.getElementById('ai-state-input').style.display = 'block';
+    ['gen-step-1','gen-step-2','gen-step-3','gen-step-4'].forEach(id => {
+      const el = document.getElementById(id);
+      el.classList.remove('active','done');
+    });
+  }
+
+  function acceptQuestions() {
+    showToast('✦ 7 вопросов добавлены в редактор');
+    document.getElementById('ai-state-done').style.display = 'none';
+    document.getElementById('ai-state-input').style.display = 'block';
+    ['gen-step-1','gen-step-2','gen-step-3','gen-step-4'].forEach(id => {
+      document.getElementById(id).classList.remove('active','done');
+    });
+    setCreateMode('manual');
+    setTimeout(() => document.querySelector('.question-list').scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
+  }
+
+  // Init: AI mode is default
+  setCreateMode('ai');
+
+  // ─── Survey table fill ───
+  const surveys = [
+    { name: 'Оценка удовлетворённости сотрудников Q2', meta: 'Корпоративный · 8 вопросов', type: 'Корпоративный', status: 'active', label: 'Активен', answers: '214 / 280', pct: 76, date: '10 апр 2026' },
+    { name: 'NPS — Апрель 2026', meta: 'Клиентский · 3 вопроса', type: 'Клиентский', status: 'active', label: 'Активен', answers: '891 / —', pct: 100, date: '1 апр 2026' },
+    { name: 'Пульс-опрос: Удалённая работа', meta: 'Корпоративный · 5 вопросов', type: 'Корпоративный', status: 'scheduled', label: 'Запланирован', answers: '0 / 150', pct: 0, date: '18 апр 2026' },
+    { name: 'Оценка онбординга — Q1 2026', meta: 'Корпоративный · 12 вопросов', type: 'Корпоративный', status: 'closed', label: 'Завершён', answers: '47 / 47', pct: 100, date: '1 мар 2026' },
+    { name: 'Опрос о корпоративе 2025', meta: 'Корпоративный · 4 вопроса', type: 'Корпоративный', status: 'closed', label: 'Завершён', answers: '132 / 132', pct: 100, date: '1 дек 2025' },
+    { name: 'Пульс-опрос — Январь 2026', meta: 'Корпоративный · 6 вопросов', type: 'Корпоративный', status: 'closed', label: 'Завершён', answers: '88 / 112', pct: 79, date: '5 янв 2026' },
+    { name: 'CSAT после поддержки', meta: 'Клиентский · 2 вопроса', type: 'Клиентский', status: 'active', label: 'Активен', answers: '1203 / —', pct: 100, date: '15 апр 2026' },
+    { name: 'Черновик: Опрос о льготах', meta: 'Корпоративный · 7 вопросов', type: 'Корпоративный', status: 'draft', label: 'Черновик', answers: '0 / —', pct: 0, date: '20 апр 2026' },
+  ];
+
+  const tbody = document.getElementById('survey-rows');
+  surveys.forEach(s => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <div class="survey-name">${s.name}</div>
+        <div class="survey-meta">${s.meta}</div>
+      </td>
+      <td><span class="chip">${s.type}</span></td>
+      <td><span class="status-badge ${s.status}">${s.label}</span></td>
+      <td>${s.answers}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="progress-bar" style="width:90px"><div class="progress-fill" style="width:${s.pct}%"></div></div>
+          <span style="font-size:12px;color:var(--gray-500)">${s.pct}%</span>
+        </div>
+      </td>
+      <td style="color:var(--gray-500);font-size:13px;">${s.date}</td>
+      <td>
+        <div class="table-actions">
+          <button class="btn btn-secondary btn-sm" onclick="navigate('results')">Результаты</button>
+          <button class="btn btn-ghost btn-sm">⋯</button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // ─── Question toggle ───
+  function toggleQ(header) {
+    const body = header.nextElementSibling;
+    body.classList.toggle('open');
+  }
+
+  // ─── Type picker ───
+  function selectType(el) {
+    el.closest('.type-picker').querySelectorAll('.type-option').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+
+  // ─── Survey navigation ───
+  let currentQ = 2;
+  const totalQ = 5;
+  function surveyNext() {
+    if (currentQ < totalQ) {
+      document.getElementById('sq-' + currentQ).style.display = 'none';
+      currentQ++;
+      document.getElementById('sq-' + currentQ).style.display = 'block';
+      updateSurveyUI();
+    } else {
+      showToast('Ответы отправлены! Спасибо за участие.');
+      setTimeout(() => navigate('results'), 1200);
+    }
+  }
+  function surveyPrev() {
+    if (currentQ > 1) {
+      document.getElementById('sq-' + currentQ).style.display = 'none';
+      currentQ--;
+      document.getElementById('sq-' + currentQ).style.display = 'block';
+      updateSurveyUI();
+    }
+  }
+  function updateSurveyUI() {
+    const pct = Math.round((currentQ / totalQ) * 100);
+    document.getElementById('survey-progress').style.width = pct + '%';
+    document.getElementById('q-cur').textContent = currentQ;
+    document.querySelector('.survey-progress-label').innerHTML = `<span>Вопрос ${currentQ} из ${totalQ}</span><span>${pct}%</span>`;
+    document.getElementById('btn-prev').style.visibility = currentQ > 1 ? 'visible' : 'hidden';
+    document.getElementById('btn-next').textContent = currentQ === totalQ ? 'Завершить ✓' : 'Далее →';
+  }
+  updateSurveyUI();
+
+  // ─── Scale / NPS ───
+  function pickScale(btn, groupId) {
+    document.getElementById(groupId).querySelectorAll('.nps-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+  }
+
+  // ─── Stars ───
+  function pickStar(el, groupId) {
+    const stars = Array.from(document.getElementById(groupId).querySelectorAll('.star-btn'));
+    const idx = stars.indexOf(el);
+    stars.forEach((s, i) => s.classList.toggle('lit', i <= idx));
+  }
+
+  // ─── Modals ───
+  function openPublishModal() { document.getElementById('modal-publish').classList.add('open'); }
+  function openAddQuestion() { document.getElementById('modal-addq').classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+  document.querySelectorAll('.modal-overlay').forEach(o => {
+    o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+  });
+
+  // ─── Toast ───
+  let toastTimer;
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    document.getElementById('toast-text').textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  // ─── Tab switching (cosmetic) ───
+  document.querySelectorAll('.tabs').forEach(tabs => {
+    tabs.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+      });
+    });
+  });
+</script>
+</body>
+</html>

@@ -1,34 +1,34 @@
-from fastapi import FastAPI, status, HTTPException
+from fastapi import APIRouter, status, HTTPException, Request
 import uuid
 from datetime import datetime, timezone
 from src.schemas.poll import (
     PollCreate, PollResponse, PollResultsResponse, OptionResult, PollDetailResponse, PollSummary, VoteResponse,
-    VoteRequest
+    VoteRequest, PollCreatedResponse
 )
 from typing import List
 
-app = FastAPI(
-    title="Poll Application",
-    version="1.0.0",
+router = APIRouter(
+    prefix="/api/v1/polls",  # ✅ Префикс здесь
+    tags=["Polls"],          # ✅ Теги здесь
+    responses={404: {"description": "Not found"}},
 )
 
-# Заглушка: здесь будет SQL / NoSQL база данных
+# Заглушка
 polls_db: dict[str, dict] = {}
 
-
-@app.get("/", tags=["Root"], summary="Корневой эндпоинт",
+@router.get("/", tags=["Root"], summary="Корневой эндпоинт",
          description="Возвращает приветственное сообщение и статус сервиса.")
 async def root():
     return {"message": "Hello from src/api/app.py!"}
 
 
-@app.get("/health", tags=["Health"], summary="Проверка здоровья",
+@router.get("/health", tags=["Health"], summary="Проверка здоровья",
          description="Эндпоинт для проверки доступности сервиса (healthcheck).")
 async def health():
     return {"status": "OK"}
 
 
-@app.post(
+@router.post(
     "/polls",
     response_model=PollResponse,
     status_code=status.HTTP_201_CREATED,
@@ -37,7 +37,7 @@ async def health():
     tags=["Polls"]
 )
 # спринт2: добавить поле location(филиал) в заголовках ?
-async def create_poll(poll: PollCreate):
+async def create_poll(poll: PollCreate, request: Request,):
     poll_id = str(uuid.uuid4())
 
     # Инициализируем вопросы со счётчиками голосов
@@ -65,7 +65,7 @@ async def create_poll(poll: PollCreate):
         return PollCreatedResponse(id=poll_id, title=poll.title, vote_link=vote_link)
 
 
-@app.get("/polls",
+@router.get("/polls",
          response_model=List[PollSummary],
          summary="Получить список опросов",
          description="Возвращает список допустных опросов",
@@ -81,7 +81,7 @@ async def list_polls():
     ]
 
 
-@app.get("/polls/{poll_id}",
+@router.get("/polls/{poll_id}",
          response_model=PollDetailResponse,
          summary="Получить детали опроса",
          description="Возвращает полную информацию об опросе, включая текущие результаты и общее число голосов.",
@@ -117,7 +117,7 @@ async def get_poll_detail(poll_id: str):
     )
 
 
-@app.get("/polls/{poll_id}/results",
+@router.get("/polls/{poll_id}/results",
          response_model=PollResultsResponse,
          summary="Получить результаты опроса",
          description="Возвращает агрегированные результаты голосования с процентами.",
@@ -147,7 +147,7 @@ async def get_poll_results(poll_id: str):
     )
 
 
-@app.post("/polls/{poll_id}/vote",
+@router.post("/polls/{poll_id}/vote",
           response_model=VoteResponse,
           status_code=status.HTTP_200_OK,
           summary="Проголосовать в опросе",

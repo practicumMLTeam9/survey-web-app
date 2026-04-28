@@ -1,11 +1,22 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
 from datetime import datetime
+from typing import List, Optional
+
+class QuestionCreate(BaseModel):
+    question_text: str = Field(..., min_length=1, max_length=300, description="Текст вопроса")
+    options: List[str] = Field(..., min_length=2, max_length=10, description="Варианты ответов (от 2 до 10)")
+    text_answer: Optional[str] = Field(None, max_length=500, description="Поле для текстового ответа (опционально)")
 
 class PollCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=100, description="Название опроса")
-    options: List[str] = Field(..., min_length=2, max_length=10, description="Варианты ответов")
-    description: Optional[str] = Field(None, max_length=500, description="Описание (опционально)")
+    description: Optional[str] = Field(None, max_length=500, description="Описание опроса (опционально)")
+    questions: List[QuestionCreate] = Field(..., min_length=1, max_length=20, description="Список вопросов опроса")
+
+class PollCreatedResponse(BaseModel):
+    id: str = Field(..., description="Уникальный идентификатор опроса")
+    title: str = Field(..., description="Название опроса")
+    vote_link: str = Field(..., description="Ссылка на опрос для голосования")
 
 class OptionResult(BaseModel):
     option: str = Field(..., description="Текст варианта ответа")

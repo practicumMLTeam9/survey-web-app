@@ -8,24 +8,13 @@ from src.schemas.poll import (
 from typing import List
 
 router = APIRouter(
-    prefix="/api/v1/polls",  # ✅ Префикс здесь
+    prefix="/api/v1/poll",  # ✅ Префикс здесь
     tags=["Polls"],          # ✅ Теги здесь
     responses={404: {"description": "Not found"}},
 )
 
 # Заглушка
 polls_db: dict[str, dict] = {}
-
-@router.get("/", tags=["Root"], summary="Корневой эндпоинт",
-         description="Возвращает приветственное сообщение и статус сервиса.")
-async def root():
-    return {"message": "Hello from src/api/app.py!"}
-
-
-@router.get("/health", tags=["Health"], summary="Проверка здоровья",
-         description="Эндпоинт для проверки доступности сервиса (healthcheck).")
-async def health():
-    return {"status": "OK"}
 
 
 @router.post(

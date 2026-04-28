@@ -1,5 +1,5 @@
-from fastapi import FastAPI, status, HTTPException
-from api import polls
+from fastapi import FastAPI
+from api import polls, health
 
 app = FastAPI(
     title="Poll Application",
@@ -7,5 +7,6 @@ app = FastAPI(
 )
 
 app.include_router(polls.router)
+app.include_router(health.router)
 
 

@@ -41,7 +41,7 @@ class Poll(Base):
     status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
-        default=text("'draft'"),
+        default=text("draft"),
         comment='Статус опроса (draft, active, closed)'
     )
     created_at: Mapped[datetime] = mapped_column(
@@ -50,13 +50,12 @@ class Poll(Base):
         server_default=func.now(),
         comment='Дата создания'
     )
-    created_by_user_id: Mapped[int] = mapped_column(
+    created_by_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id"), nullable=True, comment='ID пользователя, создавшего опрос')
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         server_default=func.now(),
-        onupdate=func.now(),  # ???
         comment='Дата последнего обновления'
     )
     published_at: Mapped[datetime] = mapped_column(
@@ -73,6 +72,7 @@ class Poll(Base):
     one_response_only: Mapped[bool] = mapped_column(Boolean, server_default=text("true"), nullable=True,
                                                     comment='Разрешен только один ответ от пользователя')
     # ORM
+    creator: Mapped["User | None"] = relationship(back_populates="polls")
     questions: Mapped[list["Question"]] = relationship(back_populates="poll", cascade="all, delete-orphan")
     submissions: Mapped[list["Submission"]] = relationship(back_populates="poll", cascade="all, delete-orphan")
 

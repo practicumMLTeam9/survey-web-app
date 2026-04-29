@@ -213,28 +213,38 @@ class User(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, comment="Уникальный идентификатор пользователя")
+
     email: Mapped[str] = mapped_column(Text, nullable=False, index=True,
                                        comment="Email пользователя для входа")  # Индекс
     password_hash: Mapped[str] = mapped_column(Text, nullable=False, comment="Хеш пароля пользователя")
+
     created_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         server_default=func.now(),
-        comment="Дата создания аккаунта"
-    )
+        comment="Дата создания аккаунта")
+
     reset_token_hash: Mapped[str | None] = mapped_column(Text, nullable=True, comment="Хеш токена для сброса пароля")
+
     reset_token_expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, comment="Срок действия токена сброса пароля")
+
     first_name: Mapped[str] = mapped_column(Text, nullable=True, comment="Имя пользователя")
+
     last_name: Mapped[str] = mapped_column(Text, nullable=True, comment="Фамилия пользователя")
+
     company_name: Mapped[str] = mapped_column(Text, nullable=True, comment="Название компании пользователя")
+
     position: Mapped[str] = mapped_column(Text, nullable=True, comment="Должность пользователя")
+
     phone: Mapped[str] = mapped_column(Text, nullable=True, comment="Телефон пользователя")
+
     interface_language: Mapped[str] = mapped_column(Text, nullable=True, server_default=text("'ru'"),
                                                     comment="Язык интерфейса пользователя")
     role: Mapped[str] = mapped_column(Text, nullable=True, server_default=text("'user'"),
                                       comment="Роль пользователя в системе")
     avatar_url: Mapped[str] = mapped_column(Text, nullable=True, comment="Ссылка на аватар пользователя")
+
     # ORM
     polls: Mapped[list["Poll"]] = relationship("Poll", back_populates="creator",
                                                cascade="save-update, merge",
@@ -242,7 +252,9 @@ class User(Base):
     subscriptions: Mapped[list["Subscription"]] = relationship("Subscription", back_populates="user",
                                                                cascade="save-update, merge",
                                                                passive_deletes=True)
-    ai_requests: Mapped[list["AIRequest"]] = relationship("AIRequest", )
+    ai_requests: Mapped[list["AiRequest"]] = relationship("AiRequest", back_populates="user",
+                                                          cascade="save-update, merge",
+                                                          passive_deletes=True)
 
 
 class Subscription(Base):
@@ -322,3 +334,37 @@ class AiSummary(Base):
         DateTime(timezone=True), nullable=True, server_default=func.now(), comment="Дата генерации AI-резюме")
     # ORM
     poll: Mapped["Poll"] = relationship("Poll", back_populates="ai_summaries")
+
+
+class AiRequest(Base):
+    __tablename__ = 'ai_requests'
+    __table_args__ = (
+        CheckConstraint(
+            "request_type IN ('generate_poll', 'summary', 'chat')",
+            name="check_ai_request_type"
+        ),
+        {"comment": "Логи AI-запросов для учёта использования AI-функций"})
+
+    id: Mapped[int] = mapped_column(primary_key=True, comment="Уникальный идентификатор AI-запроса")
+
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True, index=True,
+        comment="ID пользователя, который инициировал AI-запрос")
+
+    poll_id: Mapped[int | None] = mapped_column(
+        ForeignKey("polls.id", ondelete="CASCADE"),
+        nullable=True, index=True,
+        comment="ID опроса, связанного с AI-запросом")
+
+    request_type: Mapped[str] = mapped_column(
+        Text, nullable=False,
+        comment="Тип AI-запроса: generate_poll, summary, chat")
+
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, server_default=func.now(),
+        index=True, comment="Дата создания AI-запроса")
+
+    # ORM
+    user: Mapped["User | None"] = relationship("User", back_populates="ai_requests")
+    poll: Mapped["Poll | None"] = relationship("Poll", back_populates="ai_requests")

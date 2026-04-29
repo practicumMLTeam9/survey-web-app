@@ -27,7 +27,7 @@ class QuestionType(PyEnum):
 
     @classmethod
     def types(cls):
-        return [type.value for type in cls]
+        return [question_type.value for question_type in cls]
 
 
 class Poll(Base):
@@ -91,7 +91,7 @@ class Poll(Base):
     target_participants: Mapped[int] = mapped_column(Integer, nullable=True,
                                                      comment="Планируемое или ожидаемое количество участников опроса")
     # ORM
-    сreator: Mapped["User | None"] = relationship("User", back_populates="polls")
+    creator: Mapped["User | None"] = relationship("User", back_populates="polls")
     questions: Mapped[list["Question"]] = relationship(back_populates="poll",
                                                        cascade="all, delete-orphan",
                                                        passive_deletes=True)

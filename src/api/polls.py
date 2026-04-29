@@ -1,11 +1,9 @@
-from fastapi import APIRouter, status, HTTPException, Request
-import uuid
-from datetime import datetime, timezone
-from src.schemas.poll import (
-    PollCreate, PollResponse, PollResultsResponse, OptionResult, PollDetailResponse, PollSummary, VoteResponse,
-    VoteRequest, PollCreatedResponse
-)
-from typing import List
+from fastapi import APIRouter, Depends, Request, status, HTTPException
+from sqlalchemy.orm import Session
+from src.db.session import get_db
+from src.api.auth import get_current_user
+from src.schemas.poll import PollCreate, PollCreatedResponse
+from src.services.poll_service import create_poll_service
 
 router = APIRouter(
     prefix="/api/v1/poll",
@@ -18,40 +16,29 @@ polls_db: dict[str, dict] = {}
 
 
 @router.post(
-    "/polls",
-    response_model=PollResponse,
+    "/",
+    response_model=PollCreatedResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Создать новый опрос",
-    description="Принимает название и вопросы с вариантами ответов, возвращает созданный опрос с уникальным ID.",
-    tags=["Polls"]
+    description="Принимает название и вопросы с вариантами ответов, возвращает ID опроса и ссылку на опрос."
 )
-# спринт2: добавить поле location(филиал) в заголовках ?
-async def create_poll(poll: PollCreate, request: Request,):
-    poll_id = str(uuid.uuid4())
 
-    # Инициализируем вопросы со счётчиками голосов
-    questions_data = []
-    for q in poll.questions:
-        questions_data.append({
-            "question_text": q.question_text,
-            "options": q.options,
-            "text_answer": q.text_answer,
-            "votes": {opt: 0 for opt in q.options}  # Счётчик для каждого варианта
-        })
+async def create_poll(
+    poll_in: PollCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user(scope="access"))  # ← из auth.py
+):
+    """
+    Создает опрос от имени аутентифицированного пользователя.
+    """
+    user_id = current_user["id"]
 
-        # Сохраняем в хранилище
-        polls_db[poll_id] = {
-            "id": poll_id,
-            "title": poll.title,
-            "city": poll.city,
-            "description": poll.description,
-            "created_at": datetime.now(timezone.utc),
-            "questions": questions_data
-        }
-        # Формируем ссылку (относительную или абсолютную)
-        vote_link = f"{request.base_url}polls/{poll_id}"
+    poll_id = create_poll_service(db=db, poll_in=poll_in, user_id=user_id)
 
-        return PollCreatedResponse(id=poll_id, title=poll.title, vote_link=vote_link)
+    vote_link = f"{request.base_url}polls/{poll_id}"
+
+    return PollCreatedResponse(id=poll_id, title=poll_in.title, vote_link=vote_link)
 
 
 @router.get("/polls",

@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, Request, status, HTTPException
+from fastapi import APIRouter, Depends, Request, status, HTTPException, Body
 from sqlalchemy.orm import Session
 from src.db.session import get_db
-from src.api.auth import get_current_user
-from src.schemas.poll import PollCreate, PollCreatedResponse
+from typing import Annotated
+from src.security.security import get_current_user
+from src.schemas.poll import PollCreate, PollCreatedResponse, PollSummary, PollDetailResponse, PollResultsResponse, \
+    OptionResult, VoteResponse, VoteRequest
 from src.services.poll_service import create_poll_service
 
 router = APIRouter(
@@ -10,9 +12,6 @@ router = APIRouter(
     tags=["Polls"],
     responses={404: {"description": "Not found"}},
 )
-
-# Заглушка
-polls_db: dict[str, dict] = {}
 
 
 @router.post(
@@ -24,10 +23,10 @@ polls_db: dict[str, dict] = {}
 )
 
 async def create_poll(
-    poll_in: PollCreate,
+    poll_in: Annotated[PollCreate, Body(title="PollCreate")],
     request: Request,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user(scope="access"))  # ← из auth.py
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Создает опрос от имени аутентифицированного пользователя.
@@ -42,7 +41,7 @@ async def create_poll(
 
 
 @router.get("/polls",
-         response_model=List[PollSummary],
+         response_model=list[PollSummary],
          summary="Получить список опросов",
          description="Возвращает список допустных опросов",
          tags=["Polls"])

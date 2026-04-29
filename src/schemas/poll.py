@@ -1,7 +1,6 @@
 from pydantic import BaseModel, Field, field_validator, model_validator
-from typing import List, Optional, Dict
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 # ─── Вспомогательные схемы ───
 class QuestionOptionCreate(BaseModel):
@@ -12,9 +11,9 @@ class QuestionCreate(BaseModel):
     type: str = Field(..., pattern="^(single_choice|multiple_choice|text|rating)$")
     is_required: Optional[bool] = True
     options: List[str] = Field(..., min_length=2, max_length=10, description="Варианты ответов (от 2 до 10)")
-    position: int = Field(..., ge=0, le=100, description='Порядок отображения вопроса в опросе')
-    # Если позиция может быть не указана (автогенерация на бэкенде):
-    # position: Optional[int] = Field(None, ge=0, le=100, description='...')
+    # позиция может быть не указана (автогенерация на бэкенде):
+    position: Optional[int] = Field(None, ge=0, le=100, description='Порядок отображения вопроса в опросе')
+
     @field_validator('position')
     @classmethod
     def validate_position(cls, v):

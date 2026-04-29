@@ -98,13 +98,15 @@ class Poll(Base):
     submissions: Mapped[list["Submission"]] = relationship(back_populates="poll",
                                                            cascade="all, delete-orphan",
                                                            passive_deletes=True)
-    ai_summaries: Mapped[list["AI Summary"]] = relationship("AI Summary", back_populates="poll",
+    ai_summaries: Mapped[list["AiSummary"]] = relationship("AI Summary", back_populates="poll",
                                                             cascade="all, delete-orphan",
                                                             passive_deletes=True)
     ai_chat_messages: Mapped[list["AiChatMessage"]] = relationship("AiChatMessage", back_populates="poll",
                                                             cascade="all, delete-orphan",
                                                             passive_deletes=True)
-    ai_requests: Mapped[""]
+    ai_requests: Mapped[list["AiRequest"]] = relationship("AiRequest", back_populates="poll",
+                                                          cascade="all, delete-orphan",
+                                                            passive_deletes=True)
 
 
 class Question(Base):

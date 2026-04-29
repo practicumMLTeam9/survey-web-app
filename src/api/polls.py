@@ -8,8 +8,8 @@ from src.schemas.poll import (
 from typing import List
 
 router = APIRouter(
-    prefix="/api/v1/poll",  # ✅ Префикс здесь
-    tags=["Polls"],          # ✅ Теги здесь
+    prefix="/api/v1/poll",
+    tags=["Polls"],
     responses={404: {"description": "Not found"}},
 )
 

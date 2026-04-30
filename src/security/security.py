@@ -4,6 +4,10 @@ from typing import Optional
 from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.ext.asyncio import AsyncSession as Session
+from sqlalchemy import select
+from src.db.async_session import get_db
+from src.db.models import User
 from src.security.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
 import secrets
 import hashlib
@@ -61,12 +65,12 @@ async def get_token(credentials: HTTPAuthorizationCredentials = Depends(security
     return credentials.credentials
 
 
-def get_current_user(db: dict[str, dict], token_type: str = "access"):
+def get_current_user(token_type: str = "access"):
     """Валидация access/refresh токенов.
         Принимает соединение с БД, тип токена и сам токен из заголовка запроса.
         Возвращает данные пользователя из БД
     """
-    async def dependency(access_token: str = Depends(get_token)):
+    async def dependency(db: Session = Depends(get_db), access_token: str = Depends(get_token)):
         credentials_exception = HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Недействительный или просроченный токен"
@@ -78,8 +82,9 @@ def get_current_user(db: dict[str, dict], token_type: str = "access"):
         sub_email = payload.get("sub")
         if sub_email is None:
             raise credentials_exception
-        
-        user = db.get(sub_email)
+
+        result = await db.execute(select(User).where(User.email == sub_email))
+        user = result.scalar_one_or_none()
         if user is None:
             raise credentials_exception
         return user

@@ -1,12 +1,31 @@
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, field_validator
 from datetime import datetime
 from typing import Optional
 
 class UserRegister(BaseModel):
     """Данные для регистрации нового пользователя"""
     email: EmailStr = Field(..., description="E-mail пользователя")
-    password: str = Field(..., min_length=6, max_length=30, description="Пароль")
+    password: str = Field(..., min_length=6, max_length=30, description="Пароль пользователя")
     confirmed_password: str = Field(..., min_length=6, max_length=30, description="Подтверждённый пароль")
+    first_name: Optional[str] = Field(None, description="Имя")
+    last_name: Optional[str] = Field(None, description="Фамилия")
+    company_name: Optional[str] = Field(None, description="Компания")
+    position: Optional[str] = Field(None, description="Должность")
+    phone: Optional[str] = Field(None, description="Телефон")
+    interface_language: Optional[str] = Field("ru", description="Язык интерфейса")
+    avatar_url: Optional[str] = Field(None, description="Ссылка на аватар")
+
+    @field_validator("password")
+    @classmethod
+    def password_not_null(cls, v: str) -> str:
+        """Явная проверка: пароль не None и не пустая строка"""
+        if not v or not v.strip():
+            raise ValueError("Пароль не может быть пустым")
+        if len(v.strip()) < 6:
+            raise ValueError("Пароль должен содержать минимум 6 символов")
+        if len(v) > 30:
+            raise ValueError("Пароль не длиннее 30 символов")
+        return v
 
 class UserLogin(BaseModel):
     """Данные для входа"""
@@ -16,7 +35,19 @@ class UserLogin(BaseModel):
 class UserResponse(BaseModel):
     """Информация о текущем пользователе"""
     email: EmailStr = Field(..., description="E-mail пользователя")
-    created_at: datetime
+    created_at: datetime = Field(..., description="Время регистрации пользователя")
+    id: Optional[int] = Field(..., description="ID пользователя")
+    first_name: Optional[str] = Field(None, description="Имя")
+    last_name: Optional[str] = Field(None, description="Фамилия")
+    company_name: Optional[str] = Field(None, description="Компания")
+    position: Optional[str] = Field(None, description="Должность")
+    phone: Optional[str] = Field(None, description="Телефон")
+    avatar_url: Optional[str] = Field(None, description="Ссылка на аватар")
+    interface_language: Optional[str] = Field("ru", description="Язык интерфейса")
+    role: Optional[str]
+
+    class Config:
+        from_attributes = True 
 
 class AccessToken(BaseModel):
     """Ответ с токеном доступа"""

@@ -1,5 +1,10 @@
 from fastapi import APIRouter, status, HTTPException, Depends, Request, Response, Query
 from datetime import datetime, timezone
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession as Session
+from src.db.async_session import get_db
+from src.db.models import User
 from src.schemas.auth import (
     UserRegister, UserResponse, UserLogin, AuthToken, AccessToken, RefreshToken, ForgotPasswordRequest, ResetPasswordLink,
     ResetPasswordRequest
@@ -25,23 +30,40 @@ users_db: dict[str, dict] = {}
           summary="Зарегистрироваться в системе",
           description="Создаёт нового пользователя в системе.",
           tags=["Authorization"])
-async def register(user: UserRegister):
+async def register(user: UserRegister, db: Session = Depends(get_db)):
     if user.password != user.confirmed_password:
         raise HTTPException(status_code=422, detail="Пароли не совпадают")
-     
-    if user.email in users_db:
-        raise HTTPException(status_code=409, detail="Пользователь с таким email уже существует")
     
     hashed_password = hash_password(user.password)
-    new_user = {
-        "email": user.email,
-        "password_hash": hashed_password,
-        "created_at": datetime.now(timezone.utc),
-    }
-    users_db[new_user["email"]] = new_user
-    return UserResponse(
-        email=new_user["email"], 
-        created_at=new_user["created_at"])
+    new_user = User(
+        email=user.email,
+        password_hash=hashed_password,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        company_name=user.company_name,
+        position=user.position,
+        phone=user.phone,
+        interface_language=user.interface_language,
+        avatar_url=user.avatar_url,
+    )
+    db.add(new_user)
+
+    try:
+        await db.commit()   # сохраняем в БД
+        await db.refresh(new_user)  # получаем id, created_at из БД
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Пользователь с таким email уже существует"
+        )
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка при регистрации пользователя: {str(e)}"     # str(e) для отлдаки
+        )
+    return UserResponse.model_validate(new_user)
 
 
 @router.post("/login",
@@ -53,16 +75,17 @@ async def register(user: UserRegister):
           "use_cookie = False отправляет токен напрямую во фронт в формате JSON.\n\n " \
           "use_cookie = True сохраняет токен в cookie браузера. Не работает со Swagger",
           tags=["Authorization"])
-async def login(user: UserLogin, response: Response, use_cookie: bool = False):
-    user_registered = users_db.get(user.email)
-    if user_registered is None or not verify_password(user.password, user_registered.get("password_hash")):
+async def login(user: UserLogin, response: Response, db: Session = Depends(get_db), use_cookie: bool = False):
+    result = await db.execute(select(User).where(User.email == user.email))
+    user_registered = result.scalar_one_or_none()
+    if user_registered is None or not verify_password(user.password, user_registered.password_hash):
         raise HTTPException(status_code=401, detail="Неверный адрес почты или пароль")
     
-    access = create_access_token(user_data={"sub": user_registered["email"]})
-    refresh = create_refresh_token(user_data={"sub": user_registered["email"]})
+    access = create_access_token(user_data={"sub": user_registered.email})
+    refresh = create_refresh_token(user_data={"sub": user_registered.email})
     if not use_cookie:
-        access_t = AccessToken(access_token=access,user_email=user_registered["email"])
-        refresh_t = RefreshToken(refresh_token=refresh,user_email=user_registered["email"])
+        access_t = AccessToken(access_token=access,user_email=user_registered.email)
+        refresh_t = RefreshToken(refresh_token=refresh,user_email=user_registered.email)
         return AuthToken(
             access_token=access_t,
             refresh_token=refresh_t
@@ -82,7 +105,7 @@ async def login(user: UserLogin, response: Response, use_cookie: bool = False):
             samesite = "lax",
             secure = True
         )
-    return {"message":"Токен загружен в cookie"}
+        return {"message":"Токен загружен в cookie"}
 
 
 @router.get("/me",
@@ -90,11 +113,8 @@ async def login(user: UserLogin, response: Response, use_cookie: bool = False):
           summary="Вернуть данные пользователя",
           description="Возвращает информацию о зарегестрированном пользователе по токену доступа.",
           tags=["Authorization"])
-async def get_me(current_user = Depends(get_current_user(users_db, "access"))):
-    return UserResponse(
-        email = current_user["email"],
-        created_at = current_user["created_at"]
-    )
+async def get_me(current_user = Depends(get_current_user())):
+    return UserResponse.model_validate(current_user)
     
 
 @router.post("/refresh",
@@ -103,11 +123,11 @@ async def get_me(current_user = Depends(get_current_user(users_db, "access"))):
           summary="Обновить токен доступа",
           description="Проверяет токен обновления, возвращает новый токен доступа. Принимает refresh токен",
           tags=["Authorization"])
-async def refresh_access_token(current_user = Depends(get_current_user(users_db, "refresh"))):
-    access = create_access_token(user_data={"sub": current_user["email"]})
+async def refresh_access_token(current_user = Depends(get_current_user(token_type = "refresh"))):
+    access = create_access_token(user_data={"sub": current_user.email})
     return AccessToken(
         access_token=access,
-        user_email=current_user["email"]
+        user_email=current_user.email
     )
 
 
@@ -117,14 +137,20 @@ async def refresh_access_token(current_user = Depends(get_current_user(users_db,
           summary="Запросить восстановление пароля",
           description="Создание одноразовой ссылки для смены пароля.",
           tags=["Authorization"])
-async def forgot_password(request: Request, body: ForgotPasswordRequest):
+async def forgot_password(request: Request, body: ForgotPasswordRequest, db: Session = Depends(get_db)):
     # Генерация одноразового токена
-    user = users_db.get(body.email)  
+    result = await db.execute(select(User).where(User.email == body.email))
+    user = result.scalar_one_or_none()
+
     token_data = create_reset_token()
     # Если пользователь существует — сохраняем хеш и время в БД
     if user:
-        users_db[body.email]["reset_token_hash"] = token_data["token_hash"]
-        users_db[body.email]["reset_token_expires_at"] = token_data["expires_at"]       
+        user.reset_token_hash = token_data["token_hash"]
+        user.reset_token_expires_at = token_data["expires_at"]
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()  
     # Формируем ссылку для сброса
     reset_link = f"{request.base_url}/reset-password?token={token_data['token']}" 
     return ResetPasswordLink(link=reset_link)
@@ -136,27 +162,37 @@ async def forgot_password(request: Request, body: ForgotPasswordRequest):
           description="Проверяет токен восстановления из ссылки, обновляет пароль пользователя.",
           tags=["Authorization"])
 async def reset_password(reset_data: ResetPasswordRequest,
-    reset_token: str = Query(..., description="Токен восстановления")):
+    reset_token: str = Query(..., description="Токен восстановления"), db: Session = Depends(get_db)):
     token_hash = hash_token(reset_token)
     # Поиск пользователя по токену
-    user = None
-    for u in users_db.values():
-        if (u.get("reset_token_hash") == token_hash and 
-            u.get("reset_token_expires_at") and
-            u["reset_token_expires_at"] > datetime.now(timezone.utc)):
-            user = u
-            break
+    now_utc = datetime.now(timezone.utc)
+    result = await db.execute(
+        select(User).where(
+            (User.reset_token_hash == token_hash) &
+            (User.reset_token_expires_at.isnot(None)) &
+            (User.reset_token_expires_at > now_utc)
+        )
+    )
+    user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Недействительный или просроченный токен"
         )
     # Обновление пароля
-    user["password_hash"] = hash_password(reset_data.new_password)
-    users_db[user["email"]]["password_hash"] = user["password_hash"]
+    new_password_hash = hash_password(reset_data.new_password)
+    user.password_hash = new_password_hash
     # Инвалидация токена 
-    users_db[user["email"]]["reset_token_hash"] = None
-    users_db[user["email"]]["reset_token_expires_at"] = None
+    user.reset_token_hash = None
+    user.reset_token_expires_at = None
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка при сохранении нового пароля"
+        )
     return {"message": "Пароль успешно изменён"}
 
 

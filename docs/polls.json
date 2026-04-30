@@ -1,0 +1,267 @@
+{
+  "users": [
+    {
+      "id": "d7a3b2c1-1234-4abc-9def-0123456789ab",
+      "email": "admin@example.com",
+      "password_hash": "$2b$12$LJ3m4ys3GzY5o1qM6bVwC.jK8XfR7nH9pS0tU1vW2xY3zA4bC5dE6fG",
+      "first_name": "Иван",
+      "last_name": "Создателев",
+      "company_name": "Демо-Организация",
+      "position": "HR-менеджер",
+      "phone": "+7 900 123-45-67",
+      "interface_language": "ru",
+      "role": "admin",
+      "avatar_url": null,
+      "created_at": "2025-09-01T12:00:00Z",
+      "reset_token_hash": null,
+      "reset_token_expires_at": null
+    }
+  ],
+  "subscriptions": [
+    {
+      "id": "sub-0001-0000-0000-000000000001",
+      "user_id": "d7a3b2c1-1234-4abc-9def-0123456789ab",
+      "plan": "pro",
+      "status": "active",
+      "started_at": "2025-12-01T00:00:00Z",
+      "expires_at": "2026-12-01T00:00:00Z"
+    }
+  ],
+  "ai_requests": [
+    {
+      "id": "aireq-001-0000-0000-000000000001",
+      "user_id": "d7a3b2c1-1234-4abc-9def-0123456789ab",
+      "poll_id": "a1b2c3d4-1234-4fed-9876-abcdefabcdef",
+      "request_type": "poll_generation",
+      "created_at": "2026-04-05T14:30:00Z"
+    },
+    {
+      "id": "aireq-002-0000-0000-000000000002",
+      "user_id": "d7a3b2c1-1234-4abc-9def-0123456789ab",
+      "poll_id": "f1e2d3c4-5678-4bcd-9efa-234567890abc",
+      "request_type": "summary",
+      "created_at": "2026-04-03T12:00:00Z"
+    }
+  ],
+  "ai_chat_messages": [
+    {
+      "id": "chat-0001-0000-0000-000000000001",
+      "poll_id": "f1e2d3c4-5678-4bcd-9efa-234567890abc",
+      "role": "user",
+      "message_text": "Почему анонимность так важна в опросах?",
+      "created_at": "2026-04-03T12:05:00Z"
+    },
+    {
+      "id": "chat-0002-0000-0000-000000000002",
+      "poll_id": "f1e2d3c4-5678-4bcd-9efa-234567890abc",
+      "role": "assistant",
+      "message_text": "Анонимность повышает честность ответов примерно на 30%, так как участники не боятся последствий.",
+      "created_at": "2026-04-03T12:05:02Z"
+    }
+  ],
+  "polls": [
+    {
+      "id": "f1e2d3c4-5678-4bcd-9efa-234567890abc",
+      "created_by_user_id": "d7a3b2c1-1234-4abc-9def-0123456789ab",
+      "title": "Быстрый опрос: формат обратной связи",
+      "description": "Узнаем, как команде удобнее делиться мнением.",
+      "poll_type": "simple",
+      "status": "published",
+      "is_anonymous": true,
+      "one_response_only": true,
+      "show_progress": false,
+      "notify_on_response": false,
+      "max_participants": 100,
+      "language": "ru",
+      "target_participants": null,
+      "generated_by_ai": false,
+      "ai_generation_prompt": null,
+      "created_at": "2026-04-01T10:00:00Z",
+      "updated_at": "2026-04-01T10:00:00Z",
+      "published_at": "2026-04-01T10:05:00Z",
+      "expires_at": "2026-05-01T23:59:59Z"
+    },
+    {
+      "id": "a1b2c3d4-1234-4fed-9876-abcdefabcdef",
+      "created_by_user_id": "d7a3b2c1-1234-4abc-9def-0123456789ab",
+      "title": "Оценка удовлетворённости и идеи",
+      "description": "Развёрнутый опрос для сбора обратной связи от сотрудников. Включает оценку условий, выбор приоритетов и открытые предложения.",
+      "poll_type": "advanced",
+      "status": "published",
+      "is_anonymous": false,
+      "one_response_only": true,
+      "show_progress": true,
+      "notify_on_response": true,
+      "max_participants": 200,
+      "language": "ru",
+      "target_participants": "managers@example.com, teamleads@example.com",
+      "generated_by_ai": true,
+      "ai_generation_prompt": "Создай опрос для оценки удовлетворённости сотрудников, включающий вопросы о зарплате, условиях труда и предложениях по улучшению.",
+      "created_at": "2026-04-05T14:30:00Z",
+      "updated_at": "2026-04-05T14:35:00Z",
+      "published_at": "2026-04-05T14:40:00Z",
+      "expires_at": "2026-05-15T18:00:00Z"
+    }
+  ],
+  "questions": [
+    {
+      "id": "11111111-1111-1111-1111-111111111101",
+      "poll_id": "f1e2d3c4-5678-4bcd-9efa-234567890abc",
+      "text": "Какой способ получения обратной связи вы предпочитаете?",
+      "type": "single_choice",
+      "is_required": true,
+      "position": 0
+    },
+    {
+      "id": "22222222-2222-2222-2222-222222222201",
+      "poll_id": "a1b2c3d4-1234-4fed-9876-abcdefabcdef",
+      "text": "Оцените общий уровень удовлетворённости текущей зарплатой",
+      "type": "rating",
+      "is_required": true,
+      "position": 0
+    },
+    {
+      "id": "22222222-2222-2222-2222-222222222202",
+      "poll_id": "a1b2c3d4-1234-4fed-9876-abcdefabcdef",
+      "text": "Какие условия для вас наиболее важны? (можно выбрать несколько)",
+      "type": "multiple_choice",
+      "is_required": true,
+      "position": 1
+    },
+    {
+      "id": "22222222-2222-2222-2222-222222222203",
+      "poll_id": "a1b2c3d4-1234-4fed-9876-abcdefabcdef",
+      "text": "Ваше главное предложение по улучшению офиса или процессов",
+      "type": "text",
+      "is_required": false,
+      "position": 2
+    },
+    {
+      "id": "22222222-2222-2222-2222-222222222204",
+      "poll_id": "a1b2c3d4-1234-4fed-9876-abcdefabcdef",
+      "text": "Как часто вы хотели бы участвовать в подобных опросах?",
+      "type": "single_choice",
+      "is_required": true,
+      "position": 3
+    }
+  ],
+  "question_options": [
+    {
+      "id": "33333333-3333-3333-3333-333333333301",
+      "question_id": "11111111-1111-1111-1111-111111111101",
+      "text": "Личная встреча",
+      "position": 0
+    },
+    {
+      "id": "33333333-3333-3333-3333-333333333302",
+      "question_id": "11111111-1111-1111-1111-111111111101",
+      "text": "Электронная почта",
+      "position": 1
+    },
+    {
+      "id": "33333333-3333-3333-3333-333333333303",
+      "question_id": "11111111-1111-1111-1111-111111111101",
+      "text": "Анонимный опрос",
+      "position": 2
+    },
+    {
+      "id": "44444444-4444-4444-4444-444444444401",
+      "question_id": "22222222-2222-2222-2222-222222222202",
+      "text": "Гибкий график",
+      "position": 0
+    },
+    {
+      "id": "44444444-4444-4444-4444-444444444402",
+      "question_id": "22222222-2222-2222-2222-222222222202",
+      "text": "ДМС",
+      "position": 1
+    },
+    {
+      "id": "44444444-4444-4444-4444-444444444403",
+      "question_id": "22222222-2222-2222-2222-222222222202",
+      "text": "Оплата обучения",
+      "position": 2
+    },
+    {
+      "id": "44444444-4444-4444-4444-444444444404",
+      "question_id": "22222222-2222-2222-2222-222222222202",
+      "text": "Комфортное рабочее место",
+      "position": 3
+    },
+    {
+      "id": "55555555-5555-5555-5555-555555555501",
+      "question_id": "22222222-2222-2222-2222-222222222204",
+      "text": "Раз в неделю",
+      "position": 0
+    },
+    {
+      "id": "55555555-5555-5555-5555-555555555502",
+      "question_id": "22222222-2222-2222-2222-222222222204",
+      "text": "Раз в месяц",
+      "position": 1
+    },
+    {
+      "id": "55555555-5555-5555-5555-555555555503",
+      "question_id": "22222222-2222-2222-2222-222222222204",
+      "text": "Раз в квартал",
+      "position": 2
+    }
+  ],
+  "submissions": [
+    {
+      "id": "66666666-6666-6666-6666-666666666601",
+      "poll_id": "f1e2d3c4-5678-4bcd-9efa-234567890abc",
+      "respondent_token": "tok_abc123",
+      "created_at": "2026-04-02T09:15:00Z",
+      "started_at": "2026-04-02T09:15:00Z",
+      "completed_at": "2026-04-02T09:16:30Z"
+    },
+    {
+      "id": "66666666-6666-6666-6666-666666666602",
+      "poll_id": "f1e2d3c4-5678-4bcd-9efa-234567890abc",
+      "respondent_token": "tok_def456",
+      "created_at": "2026-04-02T10:20:00Z",
+      "started_at": "2026-04-02T10:20:00Z",
+      "completed_at": "2026-04-02T10:21:10Z"
+    },
+    {
+      "id": "66666666-6666-6666-6666-666666666603",
+      "poll_id": "f1e2d3c4-5678-4bcd-9efa-234567890abc",
+      "respondent_token": "tok_ghi789",
+      "created_at": "2026-04-03T11:05:00Z",
+      "started_at": "2026-04-03T11:05:00Z",
+      "completed_at": "2026-04-03T11:06:00Z"
+    }
+  ],
+  "answers": [
+    {
+      "id": "77777777-7777-7777-7777-777777777701",
+      "submission_id": "66666666-6666-6666-6666-666666666601",
+      "question_id": "11111111-1111-1111-1111-111111111101",
+      "option_id": "33333333-3333-3333-3333-333333333301",
+      "text_value": null
+    },
+    {
+      "id": "77777777-7777-7777-7777-777777777702",
+      "submission_id": "66666666-6666-6666-6666-666666666602",
+      "question_id": "11111111-1111-1111-1111-111111111101",
+      "option_id": "33333333-3333-3333-3333-333333333303",
+      "text_value": null
+    },
+    {
+      "id": "77777777-7777-7777-7777-777777777703",
+      "submission_id": "66666666-6666-6666-6666-666666666603",
+      "question_id": "11111111-1111-1111-1111-111111111101",
+      "option_id": "33333333-3333-3333-3333-333333333303",
+      "text_value": null
+    }
+  ],
+  "ai_summaries": [
+    {
+      "id": "88888888-8888-8888-8888-888888888801",
+      "poll_id": "f1e2d3c4-5678-4bcd-9efa-234567890abc",
+      "summary_text": "Большинство респондентов (двое из трёх) предпочитают анонимный опрос, один — личную встречу. Комментарий: команда ценит приватность при передаче обратной связи.",
+      "created_at": "2026-04-03T12:00:00Z"
+    }
+  ]
+}

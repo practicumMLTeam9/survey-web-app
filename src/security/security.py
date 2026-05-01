@@ -2,7 +2,7 @@ from passlib.context import CryptContext    # зеркало: pip install -i htt
 from jose import JWTError, jwt              # pip install -i https://mirrors.cloud.tencent.com/pypi/simple python-jose
 from typing import Optional
 from datetime import datetime, timedelta, timezone
-from fastapi import HTTPException, status, Depends
+from fastapi import HTTPException, status, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession as Session
 from sqlalchemy import select
@@ -54,15 +54,29 @@ def decode_token(token: str):
         return None
     
 
-async def get_token(credentials: HTTPAuthorizationCredentials = Depends(security_scheme)):
+async def get_token(request: Request, credentials: HTTPAuthorizationCredentials = Depends(security_scheme), 
+                    use_cookie: bool = False, 
+                    token_type: str = "access"):
     """Извлекает токен из заголовка Authorization: Bearer ..."""
-    if credentials is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Токен не предоставлен",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return credentials.credentials
+    if use_cookie == True: 
+        if token_type == "access":
+            token = request.cookies.get("access_token")
+        elif token_type == "refresh":
+            token = request.cookies.get("refresh_token")
+        if token is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Выполните вход заново"
+            )
+        return token
+    else: 
+        if credentials is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Токен не предоставлен",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return credentials.credentials
 
 
 def get_current_user(token_type: str = "access"):

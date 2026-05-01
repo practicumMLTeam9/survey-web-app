@@ -67,7 +67,6 @@ async def register(user: UserRegister, db: Session = Depends(get_db)):
 
 
 @router.post("/login",
-          response_model=AuthToken,
           status_code=status.HTTP_200_OK,
           summary="Войти в систему",
           description="Принимает логин и пароль пользователя, возвращает JWT-токены для доступа и обновления(получения нового токена доступа).\n\n " \

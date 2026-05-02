@@ -3,12 +3,12 @@ from sqlalchemy.orm import Session
 from src.db.session import get_db
 from typing import Annotated
 from src.security.security import get_current_user
-from src.schemas.poll import PollCreate, PollCreatedResponse, PollSummary, PollDetailResponse, PollResultsResponse, \
+from src.api_schemas.poll import PollCreate, PollCreatedResponse, PollSummary, PollDetailResponse, PollResultsResponse, \
     OptionResult, VoteResponse, VoteRequest
 from src.services.poll_service import create_poll_service
 
 router = APIRouter(
-    prefix="/api/v1/poll",
+    prefix="/api/v1/polls",
     tags=["Polls"],
     responses={404: {"description": "Not found"}},
 )

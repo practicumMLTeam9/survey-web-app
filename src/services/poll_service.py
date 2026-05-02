@@ -1,7 +1,8 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select
 from fastapi import HTTPException, status
-from typing import List, Any
+from typing import List, Any, Optional
 
 from src.db.models import Poll, Question, QuestionOption
 from src.api_schemas.poll import PollCreate
@@ -86,3 +87,19 @@ def create_poll_service(db: Session, poll_in: PollCreate, user_id: int) -> int:
     except Exception:
         db.rollback()
         raise
+
+
+def get_poll_with_details(db: Session, poll_id: int) -> Optional[Poll]:
+    """
+    Загружает опрос с вопросами и вариантами ответов.
+    Вопросы и варианты автоматически сортируются по position на уровне БД.
+    """
+    stmt = (
+        select(Poll)
+        .where(Poll.id == poll_id)
+        .options(
+            selectinload(Poll.questions).order_by(Question.position) # type: ignore[union-attr]
+            .selectinload(Question.options).order_by(QuestionOption.position)
+        )
+    )
+    return db.execute(stmt).scalars().first()

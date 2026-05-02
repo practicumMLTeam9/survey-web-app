@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 from datetime import datetime, timezone
 from typing import List, Optional, Dict
 
@@ -61,6 +61,40 @@ class PollCreatedResponse(BaseModel):
     class Config:
         from_attributes = True  # для совместимости с ORM-объектами, если понадобится
 
+
+class OptionResponse(BaseModel):
+    id: int
+    text: str
+    order_index: int
+    model_config = ConfigDict(from_attributes=True)
+
+class QuestionResponse(BaseModel):
+    id: int
+    text: str
+    type: str
+    is_required: bool
+    position: int
+    options: List[OptionResponse]
+    model_config = ConfigDict(from_attributes=True)
+
+class PollDetailResponse(BaseModel):
+    id: int
+    title: str
+    description: Optional[str] = None
+    status: str
+    created_at: datetime
+    published_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    is_anonymous: Optional[bool] = None
+    one_response_only: Optional[bool] = None
+    poll_type: Optional[str] = None
+    language: Optional[str] = None
+    max_participants: Optional[int] = None
+    show_progress: Optional[bool] = None
+    notify_on_response: Optional[bool] = None
+    questions: List[QuestionResponse]
+    model_config = ConfigDict(from_attributes=True)
+
 class OptionResult(BaseModel):
     option: str = Field(..., description="Текст варианта ответа")
     votes: int = Field(..., description="Количество голосов")
@@ -86,16 +120,6 @@ class PollSummary(BaseModel):
     id: str = Field(..., description="Уникальный идентификатор опроса")
     title: str = Field(..., description="Название опроса")
     created_at: datetime = Field(..., description="Дата и время создания")
-    total_votes: int = Field(..., description="Общее количество голосов")
-
-class PollDetailResponse(BaseModel):
-    """Детальный опрос"""
-    id: str = Field(..., description="Уникальный идентификатор опроса")
-    title: str = Field(..., description="Название опроса")
-    description: Optional[str] = Field(None, description="Описание опроса")
-    options: List[str] = Field(..., description="Список вариантов")
-    created_at: datetime = Field(..., description="Дата и время создания")
-    # results: List[OptionResult] = Field(..., description="Список результатов по вариантам")
     total_votes: int = Field(..., description="Общее количество голосов")
 
 class VoteRequest(BaseModel):

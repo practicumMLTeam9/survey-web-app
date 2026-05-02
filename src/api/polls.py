@@ -1,17 +1,20 @@
-from fastapi import APIRouter, Depends, Request, status, HTTPException, Body
+from fastapi import APIRouter, Depends, Request, status, HTTPException, Body, Path
 from sqlalchemy.orm import Session
 from src.db.session import get_db
 from typing import Annotated
 from src.security.security import get_current_user
 from src.api_schemas.poll import PollCreate, PollCreatedResponse, PollSummary, PollDetailResponse, PollResultsResponse, \
     OptionResult, VoteResponse, VoteRequest
-from src.services.poll_service import create_poll_service
+from src.services.poll_service import create_poll_service, get_poll_with_details
 
 router = APIRouter(
     prefix="/api/v1/polls",
     tags=["Polls"],
     responses={404: {"description": "Not found"}},
 )
+
+# заглушка
+polls_db = {}
 
 
 @router.post(
@@ -21,30 +24,27 @@ router = APIRouter(
     summary="Создать новый опрос",
     description="Принимает название и вопросы с вариантами ответов, возвращает ID опроса и ссылку на опрос."
 )
-
 async def create_poll(
-    poll_in: Annotated[PollCreate, Body(title="PollCreate")],
-    request: Request,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+        poll_in: Annotated[PollCreate, Body(title="PollCreate")],
+        request: Request,
+        db: Session = Depends(get_db),
+        current_user: dict = Depends(get_current_user),
 ):
     """
     Создает опрос от имени аутентифицированного пользователя.
     """
     user_id = current_user["id"]
-
     poll_id = create_poll_service(db=db, poll_in=poll_in, user_id=user_id)
-
     vote_link = f"{request.base_url}polls/{poll_id}"
 
     return PollCreatedResponse(id=poll_id, title=poll_in.title, vote_link=vote_link)
 
 
-@router.get("/polls",
-         response_model=list[PollSummary],
-         summary="Получить список опросов",
-         description="Возвращает список допустных опросов",
-         tags=["Polls"])
+@router.get("/",
+            response_model=list[PollSummary],
+            summary="Получить список опросов",
+            description="Возвращает список допустных опросов",
+            tags=["Polls"])
 async def list_polls():
     if not polls_db:
         return []
@@ -56,47 +56,29 @@ async def list_polls():
     ]
 
 
-@router.get("/polls/{poll_id}",
-         response_model=PollDetailResponse,
-         summary="Получить детали опроса",
-         description="Возвращает полную информацию об опросе, включая текущие результаты и общее число голосов.",
-         tags=["Polls"])
-async def get_poll_detail(poll_id: str):
-    """Получить детальный опрос"""
-    if poll_id not in polls_db:
-        raise HTTPException(status_code=404, detail="Опрос не найден")
-
-    poll_data = polls_db[poll_id]
-    votes = poll_data["votes"]
-    total_votes = sum(votes.values())
-
-    # Вычисляем results, так как модель PollDetailResponse требует это поле
-    # results = []
-    # for option, count in votes.items():
-    #     percentage = (count / total_votes * 100) if total_votes > 0 else 0.0
-    #     results.append(OptionResult(
-    #         option=option,
-    #         votes=count,
-    #         percentage=round(percentage, 2)
-    #     ))
-
-    poll_data = polls_db[poll_id]
-    return PollDetailResponse(
-        id=poll_data["id"],
-        title=poll_data["title"],
-        description=poll_data["description"],
-        options=poll_data["options"],
-        created_at=poll_data["created_at"],
-        # results=results,
-        total_votes=total_votes
-    )
+@router.get("/{poll_id}",
+            response_model=PollDetailResponse,
+            summary="Получить детали опроса",
+            description="Возвращает полную структуру опроса с вопросами и вариантами, отсортированными по порядку.")
+async def get_poll(poll_id: int = Path(..., ge=1, description="Уникальный идентификатор опроса"),
+                   db: Session = Depends(get_db)):
+    poll = get_poll_with_details(db, poll_id)
+    if not poll:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Опрос не найден"
+        )
+    # if poll.status == "draft":
+    #     raise HTTPException(status_code=403, detail="Доступ к черновику ограничен")
+    #
+    return poll
 
 
-@router.get("/polls/{poll_id}/results",
-         response_model=PollResultsResponse,
-         summary="Получить результаты опроса",
-         description="Возвращает агрегированные результаты голосования с процентами.",
-         tags=["Results"])
+@router.get("/{poll_id}/results",
+            response_model=PollResultsResponse,
+            summary="Получить результаты опроса",
+            description="Возвращает агрегированные результаты голосования с процентами.",
+            tags=["Results"])
 async def get_poll_results(poll_id: str):
     if poll_id not in polls_db:
         raise HTTPException(status_code=404, detail="Опрос не найден")
@@ -122,12 +104,12 @@ async def get_poll_results(poll_id: str):
     )
 
 
-@router.post("/polls/{poll_id}/vote",
-          response_model=VoteResponse,
-          status_code=status.HTTP_200_OK,
-          summary="Проголосовать в опросе",
-          description="Принимает выбранный вариант и увеличивает счётчик голосов. Возвращает обновлённое общее число голосов.",
-          tags=["Voting"])
+@router.post("/{poll_id}/vote",
+             response_model=VoteResponse,
+             status_code=status.HTTP_200_OK,
+             summary="Проголосовать в опросе",
+             description="Принимает выбранный вариант и увеличивает счётчик голосов. Возвращает обновлённое общее число голосов.",
+             tags=["Voting"])
 async def vote_poll(poll_id: str, vote: VoteRequest):
     """Проголосовать в опросе"""
     if poll_id not in polls_db:

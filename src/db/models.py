@@ -62,7 +62,8 @@ class Poll(Base):
                                                      comment="Планируемое или ожидаемое количество участников опроса")
     # ORM
     creator: Mapped["User | None"] = relationship("User", back_populates="polls")
-    questions: Mapped[list["Question"]] = relationship(back_populates="poll",
+    questions: Mapped[list["Question"]] = relationship("Question", back_populates="poll",
+                                                       order_by="Question.position",
                                                        cascade="all, delete-orphan",
                                                        passive_deletes=True)
     submissions: Mapped[list["Submission"]] = relationship(back_populates="poll",
@@ -103,6 +104,7 @@ class Question(Base):
     poll: Mapped["Poll"] = relationship("Poll", back_populates="questions")
     options: Mapped[list["QuestionOption"]] = relationship("QuestionOption", back_populates="question",
                                                            cascade="all, delete-orphan",
+                                                           order_by="QuestionOption.position",
                                                            passive_deletes=True)
     answers: Mapped[list["Answer"]] = relationship("Answer", back_populates="question",
                                                    cascade="all, delete-orphan",

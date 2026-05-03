@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, EmailStr, field_validator
+from pydantic import BaseModel, Field, EmailStr, field_validator, ConfigDict
 from datetime import datetime
 from typing import Optional
 
@@ -26,6 +26,8 @@ class UserRegister(BaseModel):
         if len(v) > 30:
             raise ValueError("Пароль не длиннее 30 символов")
         return v
+
+    model_config = ConfigDict(from_attributes=True)
 
 class UserLogin(BaseModel):
     """Данные для входа"""

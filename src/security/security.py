@@ -14,7 +14,10 @@ import hashlib
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-security_scheme = HTTPBearer(auto_error=False)
+security_scheme = HTTPBearer(
+    auto_error=False,
+    scheme_name="BearerAuth"  # ← это имя появится в Swagger
+)
 
 def hash_password(password):
     """Хеширование пароля"""

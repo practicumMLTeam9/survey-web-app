@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, Request, status, HTTPException, Body, Path
-from sqlalchemy.orm import Session
-from src.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.db.models import User
 from src.db.async_session import get_db as get_assync_db
 from typing import Annotated
-from src.security.security import get_current_user, generate_fingerprint
+from src.security.security import get_current_user, generate_fingerprint, security_scheme
 from src.api_schemas.poll import PollCreate, PollCreatedResponse, PollSummary, PollDetailResponse, PollResultsResponse, \
     OptionResult, VoteResponse, VoteRequest
 from src.services.poll_service import create_poll_service, get_poll_with_details, vote_poll_service
@@ -12,6 +12,7 @@ from src.services.poll_service import create_poll_service, get_poll_with_details
 router = APIRouter(
     prefix="/api/v1/polls",
     tags=["Polls"],
+    dependencies=[Depends(security_scheme)],  # ← глобальная проверка для всех методов в роутере
     responses={404: {"description": "Not found"}},
 )
 
@@ -29,14 +30,13 @@ polls_db = {}
 async def create_poll(
         poll_in: Annotated[PollCreate, Body(title="PollCreate")],
         request: Request,
-        db: Session = Depends(get_db),
-        current_user: dict = Depends(get_current_user),
-):
+        current_user: User = Depends(get_current_user()),
+        db: AsyncSession = Depends(get_assync_db)):
     """
     Создает опрос от имени аутентифицированного пользователя.
     """
     user_id = current_user.id
-    poll_id = create_poll_service(db=db, poll_in=poll_in, user_id=user_id)
+    poll_id = await create_poll_service(db=db, poll_in=poll_in, user_id=user_id)
     vote_link = f"{request.base_url}polls/{poll_id}"
 
     return PollCreatedResponse(id=poll_id, title=poll_in.title, vote_link=vote_link)
@@ -63,8 +63,8 @@ async def list_polls():
             summary="Получить детали опроса",
             description="Возвращает полную структуру опроса с вопросами и вариантами, отсортированными по порядку.")
 async def get_poll(poll_id: int = Path(..., ge=1, description="Уникальный идентификатор опроса"),
-                   db: Session = Depends(get_db)):
-    poll = get_poll_with_details(db, poll_id)
+                   db: AsyncSession = Depends(get_assync_db)):
+    poll = await get_poll_with_details(db, poll_id)
     if not poll:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -65,7 +65,7 @@ class PollCreatedResponse(BaseModel):
 class OptionResponse(BaseModel):
     id: int
     text: str
-    order_index: int
+    position: int
     model_config = ConfigDict(from_attributes=True)
 
 class QuestionResponse(BaseModel):
@@ -93,6 +93,7 @@ class PollDetailResponse(BaseModel):
     show_progress: Optional[bool] = None
     notify_on_response: Optional[bool] = None
     questions: List[QuestionResponse]
+
     model_config = ConfigDict(from_attributes=True)
 
 class OptionResult(BaseModel):

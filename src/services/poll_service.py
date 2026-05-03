@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select, and_
 from fastapi import HTTPException, status
@@ -29,7 +29,7 @@ def _resolve_positions(items: List[Any]) -> List[int]:
     return positions
 
 
-def create_poll_service(db: Session, poll_in: PollCreate, user_id: int) -> int:
+async def create_poll_service(db: AsyncSession, poll_in: PollCreate, user_id: int) -> int:
     """
     Создаёт опрос с вопросами и вариантами ответов в одной транзакции.
     Возвращает ID созданного опроса.
@@ -43,14 +43,12 @@ def create_poll_service(db: Session, poll_in: PollCreate, user_id: int) -> int:
     )
 
     # 2. Опциональные поля: применяем ТОЛЬКО явно переданные клиентом.
-    #    Поля, оставшиеся unset, НЕ попадут в SQL INSERT.
-    #    PostgreSQL самостоятельно подставит значения из DEFAULT или запишет NULL.
     for field_name, value in poll_in.model_dump(exclude={"questions"}, exclude_none=True).items():
         if hasattr(poll, field_name):
             setattr(poll, field_name, value)
 
     db.add(poll)
-    db.flush()  # Фиксируем poll.id для вложенных сущностей
+    await db.flush()  # Фиксируем poll.id для вложенных сущностей
 
     # 3. Вопросы с нормализацией позиций
     q_positions = _resolve_positions(poll_in.questions)
@@ -63,7 +61,7 @@ def create_poll_service(db: Session, poll_in: PollCreate, user_id: int) -> int:
             is_required=q_in.is_required
         )
         db.add(question)
-        db.flush()  # Фиксируем question.id
+        await db.flush()  # Фиксируем question.id
 
         # 4. Варианты ответов (только для choice-типов)
         if q_in.type in ("single_choice", "multiple_choice") and q_in.options:
@@ -77,21 +75,21 @@ def create_poll_service(db: Session, poll_in: PollCreate, user_id: int) -> int:
                 db.add(option)
 
     try:
-        db.commit()
-        db.refresh(poll)  # Синхронизируем объект с БД (на случай серверных триггеров/дефолтов)
+        await db.commit()
+        await db.refresh(poll)  # Синхронизируем объект с БД (на случай серверных триггеров/дефолтов)
         return poll.id
     except IntegrityError:
-        db.rollback()
+        await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Ошибка валидации данных опроса: нарушены ограничения БД"
         )
     except Exception:
-        db.rollback()
+        await db.rollback()
         raise
 
 
-def get_poll_with_details(db: Session, poll_id: int) -> Optional[Poll]:
+async def get_poll_with_details(db: AsyncSession, poll_id: int) -> Optional[Poll]:
     """
     Загружает опрос с вопросами и вариантами ответов.
     Вопросы и варианты автоматически сортируются по position на уровне БД.
@@ -100,11 +98,11 @@ def get_poll_with_details(db: Session, poll_id: int) -> Optional[Poll]:
         select(Poll)
         .where(Poll.id == poll_id)
         .options(
-            selectinload(Poll.questions).order_by(Question.position) # type: ignore[union-attr]
-            .selectinload(Question.options).order_by(QuestionOption.position)
+            selectinload(Poll.questions).selectinload(Question.options)
         )
     )
-    return db.execute(stmt).scalars().first()
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
 
 
 async def vote_poll_service(poll_id: int, 

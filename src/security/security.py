@@ -120,3 +120,14 @@ def create_reset_token():
         "token_hash": token_hash,  
         "expires_at": reset_expires_at
     }
+
+
+def generate_fingerprint(request: Request):
+    """Генерация уникального отпечатка пользователя"""
+    user_agent = request.headers.get("user-agent", "")
+    accept_language = request.headers.get("accept-language", "")
+    ip_address = request.client.host
+    # Комбинируем параметры
+    fingerprint_data = f"{user_agent}_{accept_language}_{ip_address}"
+    # Создаем хеш
+    return hashlib.sha256(fingerprint_data.encode()).hexdigest()

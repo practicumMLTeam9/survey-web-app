@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, Request, status, HTTPException, Body, Path
 from sqlalchemy.orm import Session
 from src.db.session import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
+from src.db.async_session import get_db as get_assync_db
 from typing import Annotated
-from src.security.security import get_current_user
+from src.security.security import get_current_user, generate_fingerprint
 from src.api_schemas.poll import PollCreate, PollCreatedResponse, PollSummary, PollDetailResponse, PollResultsResponse, \
     OptionResult, VoteResponse, VoteRequest
-from src.services.poll_service import create_poll_service, get_poll_with_details
+from src.services.poll_service import create_poll_service, get_poll_with_details, vote_poll_service
 
 router = APIRouter(
     prefix="/api/v1/polls",
@@ -33,7 +35,7 @@ async def create_poll(
     """
     Создает опрос от имени аутентифицированного пользователя.
     """
-    user_id = current_user["id"]
+    user_id = current_user.id
     poll_id = create_poll_service(db=db, poll_in=poll_in, user_id=user_id)
     vote_link = f"{request.base_url}polls/{poll_id}"
 
@@ -110,23 +112,13 @@ async def get_poll_results(poll_id: str):
              summary="Проголосовать в опросе",
              description="Принимает выбранный вариант и увеличивает счётчик голосов. Возвращает обновлённое общее число голосов.",
              tags=["Voting"])
-async def vote_poll(poll_id: str, vote: VoteRequest):
+async def vote_poll(poll_id: int, 
+                    vote: VoteRequest, 
+                    request: Request, 
+                    db: AsyncSession = Depends(get_assync_db)):
     """Проголосовать в опросе"""
-    if poll_id not in polls_db:
-        raise HTTPException(status_code=404, detail="Опрос не найден")
-
-    poll_data = polls_db[poll_id]
-    if vote.option not in poll_data["options"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Недопустимый вариант. Доступные: {', '.join(poll_data['options'])}"
-        )
-
-    # Обновляем счётчик в памяти
-    poll_data["votes"][vote.option] += 1
-    total_votes = sum(poll_data["votes"].values())
-
+    respondent_token = Depends(generate_fingerprint(request))
+    answers = await vote_poll_service(poll_id, vote, respondent_token, db)
     return VoteResponse(
-        poll_id=poll_id, voted_option=vote.option,
-        total_votes=total_votes, message="Голос успешно учтён"
+        poll_id=poll_id, answers_confirmed=answers, message="Голос успешно учтён"
     )

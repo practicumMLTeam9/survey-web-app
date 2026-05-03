@@ -20,9 +20,6 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-# Заглушка: здесь будет SQL база данных (таблица users)
-users_db: dict[str, dict] = {}
-
 
 @router.post("/register",
           response_model=UserResponse,

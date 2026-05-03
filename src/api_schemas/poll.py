@@ -122,13 +122,19 @@ class PollSummary(BaseModel):
     created_at: datetime = Field(..., description="Дата и время создания")
     total_votes: int = Field(..., description="Общее количество голосов")
 
+class AnswerRequest(BaseModel):
+    """Ответ на вопрос"""
+    question_id: int = Field(..., description="ID вопроса")
+    option_id: int = Field(..., description="ID варианта ответа")
+    text_value: str = Field(..., description="Текст")
+
 class VoteRequest(BaseModel):
     """Тело запроса для голосования"""
-    option: str = Field(..., min_length=1, max_length=100, description="Выбранный вариант ответа")
+    answers: List[AnswerRequest] = Field(..., description="Полученные ответы от пользователя")
+    started_time: datetime = Field(..., description="Дата начала опроса")
 
 class VoteResponse(BaseModel):
     """Ответ после успешного голосования"""
     poll_id: str = Field(..., description="ID опроса")
-    voted_option: str = Field(..., description="Выбранный вариант")
-    total_votes: int = Field(..., description="Общее количество голосов после обновления")
+    answers_confirmed: List[AnswerRequest] = Field(..., description="Потвержденные ответы от пользователя")
     message: str = Field(..., description="Статусное сообщение")

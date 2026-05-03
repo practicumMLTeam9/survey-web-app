@@ -1,11 +1,13 @@
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from fastapi import HTTPException, status
 from typing import List, Any, Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import datetime, timezone
 
-from src.db.models import Poll, Question, QuestionOption
-from src.api_schemas.poll import PollCreate
+from src.db.models import Poll, Question, QuestionOption, Submission, Answer
+from src.api_schemas.poll import PollCreate, VoteRequest
 
 
 def _resolve_positions(items: List[Any]) -> List[int]:
@@ -103,3 +105,93 @@ def get_poll_with_details(db: Session, poll_id: int) -> Optional[Poll]:
         )
     )
     return db.execute(stmt).scalars().first()
+
+
+async def vote_poll_service(poll_id: int, 
+                    vote: VoteRequest,
+                    respondent_token: str, 
+                    db: AsyncSession):
+    completed_time = datetime.now(timezone.utc)
+    """Проверка существования и активности опроса"""
+    query = select(Poll).where(
+        and_(Poll.id == poll_id, Poll.status == 'active')
+    )
+    result_poll = await db.execute(query)
+    poll = result_poll.scalar_one_or_none()
+    if not poll:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Опрос не найден или не активен"
+        )
+    """Проверка существования вопроса в опросе"""
+    for question in vote:
+        query = select(Question).where(
+            and_(
+                Question.id == question.question_id,
+                Question.poll_id == poll_id
+            )
+        )
+        result_question = await db.execute(query)
+        question = result_question.scalar_one_or_none()   
+        if not question:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Вопрос не найден в указанном опросе"
+            )
+    """Проверка существования варианта ответа"""
+    for answer in vote:
+        query = select(QuestionOption).where(
+            and_(
+                QuestionOption.id == answer.option_id,
+                QuestionOption.question_id == answer.question_id
+            )
+        )
+        result_answer = await db.execute(query)
+        option = result_answer.scalar_one_or_none()
+        if not option:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Вариант ответа не найден или не принадлежит указанному вопросу"
+            )
+    """Проверка, голосовал ли уже пользователь в этом опросе"""
+    query = select(Submission).where(
+        and_(
+            Submission.poll_id == poll_id,
+            Submission.respondent_token == respondent_token
+        )
+    )
+    existing_submission = await db.execute(query)
+    if existing_submission:
+            # Пользователь уже голосовал - отклоняем голос
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Вы уже участвовали в этом опросе. Повторное голосование невозможно."
+            )
+    answers=[]
+    submission = Submission(
+            poll_id=poll_id,
+            respondent_token=respondent_token,
+            started_at=vote.started_time,
+            completed_at=completed_time 
+        )
+    db.add(submission)
+    await db.flush()  # Получаем submission.id
+    # Создаем ответ пользователя
+    for answer in vote:
+        answer = Answer(
+            submission_id=submission.id,
+            question_id=answer.question_id,
+            option_id=answer.option_id,
+            text_value=answer.text_value
+        )
+        db.add(answer)
+        answers.append(answer)
+    try:
+        await db.commit()   # сохраняем в БД
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка при сохранении ответа: {str(e)}"     # str(e) для отлдаки
+        )
+    return answers

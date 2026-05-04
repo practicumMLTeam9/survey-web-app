@@ -2,7 +2,7 @@ from passlib.context import CryptContext    # зеркало: pip install -i htt
 from jose import JWTError, jwt              # pip install -i https://mirrors.cloud.tencent.com/pypi/simple python-jose
 from typing import Optional
 from datetime import datetime, timedelta, timezone
-from fastapi import HTTPException, status, Depends, Request
+from fastapi import HTTPException, status, Depends, Request, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession as Session
 from sqlalchemy import select
@@ -131,6 +131,20 @@ def generate_fingerprint(request: Request):
     accept_language = request.headers.get("accept-language", "")
     ip_address = request.client.host
     # Комбинируем параметры
-    fingerprint_data = f"{user_agent}_{accept_language}_{ip_address}"
+    fingerprint_data = "_".join([
+        user_agent[:100],  # ограничиваем длину
+        accept_language[:50],
+        ip_address,
+        secrets.token_hex(8) 
+    ])
     # Создаем хеш
-    return hashlib.sha256(fingerprint_data.encode()).hexdigest()
+    return hash_token(fingerprint_data)
+
+
+def get_respondent_token(request: Request, response: Response):
+    respondent_token = request.cookies.get("respondent_token")
+    if respondent_token is None:
+        respondent_token = generate_fingerprint(request)
+        response.set_cookie(key="respondent_token", value=respondent_token,
+                            httponly=True, samesite="lax", secure=True)
+    return respondent_token

@@ -7,7 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 
 from src.db.models import Poll, Question, QuestionOption, Submission, Answer
-from src.api_schemas.poll import PollCreate, VoteRequest
+from src.api_schemas.poll import PollCreate, VoteRequest, AnswerRequest
+from collections import defaultdict
 
 
 def _resolve_positions(items: List[Any]) -> List[int]:
@@ -109,73 +110,111 @@ async def vote_poll_service(poll_id: int,
                     vote: VoteRequest,
                     respondent_token: str, 
                     db: AsyncSession):
-    completed_time = datetime.now(timezone.utc)
+    completed_time = datetime.now(timezone.utc).replace(tzinfo=None)
     """Проверка существования и активности опроса"""
-    query = select(Poll).where(
-        and_(Poll.id == poll_id, Poll.status == 'active')
+    poll_query = select(Poll).where(
+        # and_(Poll.id == poll_id, Poll.status == 'active')
+        Poll.id == poll_id
     )
-    result_poll = await db.execute(query)
+    result_poll = await db.execute(poll_query)
     poll = result_poll.scalar_one_or_none()
     if not poll:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Опрос не найден или не активен"
         )
-    """Проверка существования вопроса в опросе"""
-    for question in vote:
-        query = select(Question).where(
+    """Проверка истечения времени для ответа"""
+    if poll.expires_at and poll.expires_at < completed_time:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Время для прохождения опроса истекло"
+        )
+    """Проверка существования вопросов и корректности числа ответов на один вопрос"""
+    answers_list = vote.answers
+    checked_questions = set()
+    answers_by_question = defaultdict(list)
+    # Сначала группируем ответы по вопросам
+    for answer in answers_list:
+        answers_by_question[answer.question_id].append(answer)
+    # Проверяем каждый вопрос
+    for question_id, answers in answers_by_question.items():
+        if question_id in checked_questions:
+            continue    # если вопрос уже проверен - пропускаем
+        question_query = select(Question).where(
             and_(
-                Question.id == question.question_id,
+                Question.id == question_id,
                 Question.poll_id == poll_id
             )
         )
-        result_question = await db.execute(query)
+        result_question = await db.execute(question_query)
         question = result_question.scalar_one_or_none()   
         if not question:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Вопрос не найден в указанном опросе"
+                detail=f"Вопрос id:'{question_id}' не найден в опросе"
+            )
+        # Проверка для single_choice: не более одного ответа
+        if question.type == "single_choice" and len(answers) > 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"На вопрос '{question.position}.{question.text}' (single_choice) передано {len(answers)} ответа. Допустим только один."
+            )
+        checked_questions.add(question_id)
+    """Проверка на наличие обязательных ответов"""
+    # Получаем список вопросов из опроса
+    questions_query = select(Question).where(
+            Question.poll_id == poll_id
+    )
+    result_questions = await db.execute(questions_query)
+    questions = result_questions.scalars().all()
+    for question in questions:
+        if question.is_required and question.id not in answers_by_question:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Не получен ответ на обязательный вопрос: '{question.position}.{question.text}' "
             )
     """Проверка существования варианта ответа"""
-    for answer in vote:
-        query = select(QuestionOption).where(
+    for answer in answers_list:
+        answer_query = select(QuestionOption).where(
             and_(
                 QuestionOption.id == answer.option_id,
                 QuestionOption.question_id == answer.question_id
             )
         )
-        result_answer = await db.execute(query)
+        result_answer = await db.execute(answer_query)
         option = result_answer.scalar_one_or_none()
         if not option:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Вариант ответа не найден или не принадлежит указанному вопросу"
+                detail=f"Вариант ответа id:'{answer.option_id}' не найден или не принадлежит указанному вопросу"
             )
     """Проверка, голосовал ли уже пользователь в этом опросе"""
-    query = select(Submission).where(
-        and_(
-            Submission.poll_id == poll_id,
-            Submission.respondent_token == respondent_token
-        )
-    )
-    existing_submission = await db.execute(query)
-    if existing_submission:
-            # Пользователь уже голосовал - отклоняем голос
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Вы уже участвовали в этом опросе. Повторное голосование невозможно."
+    if poll.one_response_only == True:
+        submission_query = select(Submission).where(
+            and_(
+                Submission.poll_id == poll_id,
+                Submission.respondent_token == respondent_token
             )
-    answers=[]
+        )
+        result_submission = await db.execute(submission_query)
+        existing_submission = result_submission.scalar_one_or_none()
+        if existing_submission:
+                # Пользователь уже голосовал - отклоняем голос
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Вы уже участвовали в этом опросе. Повторное голосование невозможно."
+                )
     submission = Submission(
             poll_id=poll_id,
             respondent_token=respondent_token,
-            started_at=vote.started_time,
+            started_at=vote.started_time.replace(tzinfo=None),
             completed_at=completed_time 
         )
     db.add(submission)
     await db.flush()  # Получаем submission.id
     # Создаем ответ пользователя
-    for answer in vote:
+    answers=[]
+    for answer in answers_list:
         answer = Answer(
             submission_id=submission.id,
             question_id=answer.question_id,
@@ -183,7 +222,8 @@ async def vote_poll_service(poll_id: int,
             text_value=answer.text_value
         )
         db.add(answer)
-        answers.append(answer)
+        added_answer = AnswerRequest.model_validate(answer)
+        answers.append(added_answer)
     try:
         await db.commit()   # сохраняем в БД
     except Exception as e:
@@ -193,3 +233,19 @@ async def vote_poll_service(poll_id: int,
             detail=f"Ошибка при сохранении ответа: {str(e)}"     # str(e) для отлдаки
         )
     return answers
+
+
+# def get_poll_results(poll_id: int, 
+#                     user_id: int, 
+#                     db: AsyncSession):
+#     query = select(Poll).where(
+#         and_(Poll.id == poll_id, Poll.creator == user_id)
+#     )
+#     result_poll = await db.execute(query)
+#     poll = result_poll.scalar_one_or_none()
+#     if poll is None:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail="Опрос не найден или не активен"
+#         )
+    

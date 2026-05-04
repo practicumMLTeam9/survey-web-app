@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, Request, status, HTTPException, Body, Path
+from fastapi import APIRouter, Depends, Request, Response, status, HTTPException, Body, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.models import User
 from src.db.async_session import get_db as get_assync_db
 from typing import Annotated
-from src.security.security import get_current_user, generate_fingerprint, security_scheme
+from src.security.security import get_current_user, get_respondent_token, security_scheme
 from src.api_schemas.poll import PollCreate, PollCreatedResponse, PollSummary, PollDetailResponse, PollResultsResponse, \
     OptionResult, VoteResponse, VoteRequest
 from src.services.poll_service import create_poll_service, get_poll_with_details, vote_poll_service
@@ -81,9 +81,11 @@ async def get_poll(poll_id: int = Path(..., ge=1, description="Уникальн�
             summary="Получить результаты опроса",
             description="Возвращает агрегированные результаты голосования с процентами.",
             tags=["Results"])
-async def get_poll_results(poll_id: str):
-    if poll_id not in polls_db:
-        raise HTTPException(status_code=404, detail="Опрос не найден")
+async def get_results(poll_id: int, 
+                           current_user: dict = Depends(get_current_user), 
+                           db: AsyncSession = Depends(get_assync_db)):
+    user_id = current_user.id
+    
     poll_data = polls_db[poll_id]
     votes = poll_data["votes"]
     total_votes = sum(votes.values())
@@ -115,9 +117,10 @@ async def get_poll_results(poll_id: str):
 async def vote_poll(poll_id: int, 
                     vote: VoteRequest, 
                     request: Request, 
+                    response: Response,
                     db: AsyncSession = Depends(get_assync_db)):
     """Проголосовать в опросе"""
-    respondent_token = Depends(generate_fingerprint(request))
+    respondent_token = get_respondent_token(request, response)
     answers = await vote_poll_service(poll_id, vote, respondent_token, db)
     return VoteResponse(
         poll_id=poll_id, answers_confirmed=answers, message="Голос успешно учтён"

@@ -107,7 +107,7 @@ class PollResponse(BaseModel):
     options: List[str] = Field(..., description="Список вариантов")
     description: Optional[str] = Field(None, description="Описание опроса")
     created_at: datetime = Field(..., description="Дата и время создания")
-    votes: Dict[str, int] = Field(..., description="Словарь с подсчётом голосов")
+    votes: List[OptionResult] = Field(..., description="Словарь с подсчётом голосов")
 
 class PollResultsResponse(BaseModel):
     id: str = Field(..., description="Уникальный идентификатор опроса")
@@ -128,6 +128,9 @@ class AnswerRequest(BaseModel):
     question_id: int = Field(..., description="ID вопроса")
     option_id: int = Field(..., description="ID варианта ответа")
     text_value: str = Field(..., description="Текст")
+    
+    class Config:
+        from_attributes = True
 
 class VoteRequest(BaseModel):
     """Тело запроса для голосования"""
@@ -136,6 +139,6 @@ class VoteRequest(BaseModel):
 
 class VoteResponse(BaseModel):
     """Ответ после успешного голосования"""
-    poll_id: str = Field(..., description="ID опроса")
+    poll_id: int = Field(..., description="ID опроса")
     answers_confirmed: List[AnswerRequest] = Field(..., description="Потвержденные ответы от пользователя")
     message: str = Field(..., description="Статусное сообщение")

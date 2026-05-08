@@ -120,8 +120,11 @@ class PollSummary(BaseModel):
     """Краткая информация для списка опросов"""
     id: str = Field(..., description="Уникальный идентификатор опроса")
     title: str = Field(..., description="Название опроса")
+    status: str = Field(..., description="Статус опроса")
     created_at: datetime = Field(..., description="Дата и время создания")
+    expires_at: datetime = Field(..., description="Дата окончания опроса")
     total_votes: int = Field(..., description="Общее количество голосов")
+
 
 class AnswerRequest(BaseModel):
     """Ответ на вопрос"""

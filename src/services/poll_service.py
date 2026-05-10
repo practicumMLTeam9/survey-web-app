@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 
 from src.db.models import Poll, Question, QuestionOption, Submission, Answer
-from src.api_schemas.poll import PollCreate, VoteRequest, AnswerRequest, PollSummary, PollStatusUpdate
+from src.api_schemas.poll import PollCreate, VoteRequest, AnswerRequest, PollSummary, PollStatusUpdate, OptionResult, PollResponse
 from collections import defaultdict
 
 
@@ -314,17 +314,53 @@ async def update_poll_status_service(
         total_votes=total_votes
     )
 
-# def get_poll_results(poll_id: int,
-#                     user_id: int, 
-#                     db: AsyncSession):
-#     query = select(Poll).where(
-#         and_(Poll.id == poll_id, Poll.creator == user_id)
-#     )
-#     result_poll = await db.execute(query)
-#     poll = result_poll.scalar_one_or_none()
-#     if poll is None:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND,
-#             detail="Опрос не найден или не активен"
-#         )
-    
+
+def get_poll_results(poll_id: int, 
+                    user_id: int, 
+                    db: AsyncSession):
+    """Проверка существования опроса"""
+    poll_query = select(Poll).where(
+        and_(Poll.id == poll_id, Poll.creator == user_id)
+    )
+    result_poll = await db.execute(poll_query)
+    poll = result_poll.scalar_one_or_none()
+    if poll is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Опрос не найден или не активен"
+        )
+    """Общий подсчёт голосов"""
+    total_votes_query = select(func.count(Submission.id)).where(
+        Submission.poll_id == poll_id
+    )
+    total_votes = (await db.execute(total_votes_query)).scalar_one_or_none()
+    if total_votes is None:
+        total_votes = 0
+    """Подсчёт голосов по вариантам ответа"""
+    votes_query = (
+        select(QuestionOption.text, func.count(Answer.id))
+        .join(Answer, QuestionOption.id == Answer.option_id)
+        .join(Question, QuestionOption.question_id == Question.id)
+        .where(Question.poll_id == poll_id)
+        .group_by(QuestionOption.id, QuestionOption.text)
+    )  
+    votes_results = await db.execute(votes_query)
+    votes_data = [(text, count) for text, count in votes_results.all()]
+    options_list = [text for text, count in votes_data]
+    results_list = []
+    for text, count in votes_data:
+        option_result = OptionResult(
+            option=text,
+            votes=count,
+            percentage=round(count / total_votes * 100, 2) if total_votes > 0 else 0.0
+        )
+        results_list.append(option_result)
+    results_response = PollResponse(
+        id = poll.id,
+        title = poll.title,
+        options = options_list,
+        description = poll.description,
+        created_at = poll.created_at,
+        votes = results_list
+    )
+    return results_response

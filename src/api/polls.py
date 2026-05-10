@@ -9,7 +9,7 @@ from typing import Annotated
 from src.security.security import get_current_user, get_respondent_token, security_scheme
 from src.api_schemas.poll import PollCreate, PollCreatedResponse, PollSummary, PollDetailResponse, PollResultsResponse, \
     OptionResult, VoteResponse, VoteRequest, PollStatusUpdate
-from src.services.poll_service import create_poll_service, get_poll_with_details, vote_poll_service, get_list_polls
+from src.services.poll_service import create_poll_service, get_poll_with_details, vote_poll_service, get_list_polls, get_poll_results
 
 router = APIRouter(
     prefix="/api/v1/polls",
@@ -87,26 +87,13 @@ async def get_results(poll_id: int,
                            current_user: dict = Depends(get_current_user), 
                            db: AsyncSession = Depends(get_assync_db)):
     user_id = current_user.id
-    
-    poll_data = polls_db[poll_id]
-    votes = poll_data["votes"]
-    total_votes = sum(votes.values())
-
-    results = []
-    for option, count in votes.items():
-        # Защита от ZeroDivisionError, если ещё никто не голосовал
-        percentage = (count / total_votes * 100) if total_votes > 0 else 0.0
-        results.append(OptionResult(
-            option=option,
-            votes=count,
-            percentage=round(percentage, 2)
-        ))
+    results_data = get_poll_results(poll_id, user_id, db)
     return PollResultsResponse(
-        id=poll_data["id"],
-        title=poll_data["title"],
-        results=results,
-        total_votes=total_votes,
-        created_at=poll_data["created_at"]
+        id=results_data.id,
+        title=results_data.title,
+        results=results_data.votes,
+        total_votes=results_data.votes,
+        created_at=results_data.created_at
     )
 
 

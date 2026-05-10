@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, Request, Response, status, HTTPException, Body, Path
+from src.utils.external_urls import get_external_vote_url, get_frontend_vote_url
 from sqlalchemy.ext.asyncio import AsyncSession
+
 
 from src.db.models import User
 from src.db.async_session import get_db as get_assync_db
@@ -29,7 +31,6 @@ polls_db = {}
 )
 async def create_poll(
         poll_in: Annotated[PollCreate, Body(title="PollCreate")],
-        request: Request,
         current_user: User = Depends(get_current_user()),
         db: AsyncSession = Depends(get_assync_db)):
     """
@@ -37,9 +38,12 @@ async def create_poll(
     """
     user_id = current_user.id
     poll_id = await create_poll_service(db=db, poll_in=poll_in, user_id=user_id)
-    vote_link = f"{request.base_url}polls/{poll_id}"
+    external_vote_link = get_frontend_vote_url(poll_id)
 
-    return PollCreatedResponse(id=poll_id, title=poll_in.title, vote_link=vote_link)
+    return PollCreatedResponse(id=poll_id,
+                               title=poll_in.title,
+                               vote_link=external_vote_link,
+                               status=poll_in.status)
 
 
 @router.get("/",

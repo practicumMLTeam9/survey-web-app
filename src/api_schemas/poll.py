@@ -29,6 +29,7 @@ class PollCreate(BaseModel):
     description: Optional[str] = Field(None, max_length=2000, description="Описание опроса")
     questions: list[QuestionCreate] = Field(..., min_length=1, max_length=50)
     # Опциональные настройки (будут использованы дефолты модели, если не переданы)
+    status: Optional[str] = Field(default='draft', pattern='^(draft|active|closed)$')
     expires_at: Optional[datetime] = Field(None, description="Дата окончания опроса") # default null
     is_anonymous: Optional[bool] = None         # default true
     one_response_only: Optional[bool] = None    # default true
@@ -56,6 +57,7 @@ class PollCreate(BaseModel):
 class PollCreatedResponse(BaseModel):
     id: int = Field(..., description="Уникальный идентификатор опроса")
     title: str = Field(..., description="Название опроса")
+    status: str = Field(..., description="Статус опроса")
     vote_link: str = Field(..., description="Ссылка на опрос для голосования")
 
     class Config:

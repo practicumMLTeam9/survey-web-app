@@ -3,7 +3,6 @@ from sqlalchemy import text, Integer, DateTime, Text, ForeignKey, func, UniqueCo
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from datetime import datetime
 from sqlalchemy.orm import DeclarativeBase
-from enum import Enum as PyEnum
 
 
 class Base(DeclarativeBase): pass

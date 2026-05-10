@@ -1,13 +1,13 @@
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from fastapi import HTTPException, status
 from typing import List, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 
 from src.db.models import Poll, Question, QuestionOption, Submission, Answer
-from src.api_schemas.poll import PollCreate, VoteRequest, AnswerRequest
+from src.api_schemas.poll import PollCreate, VoteRequest, AnswerRequest, PollSummary
 from collections import defaultdict
 
 
@@ -233,6 +233,41 @@ async def vote_poll_service(poll_id: int,
             detail=f"Ошибка при сохранении ответа: {str(e)}"     # str(e) для отлдаки
         )
     return answers
+
+
+async def get_list_polls(db: AsyncSession, user_id: int) -> list[PollSummary]:
+    """
+    Возвращает список опросов пользователя с подсчитанным количеством голосов.
+    Использует один запрос с LEFT JOIN + COUNT для избежания N+1 проблемы.
+    """
+    stmt = (
+        select(
+            Poll.id,
+            Poll.title,
+            Poll.status,
+            Poll.created_at,
+            Poll.expires_at,
+            func.count(Submission.id).label("total_votes")
+        )
+        .outerjoin(Submission, Poll.id == Submission.poll_id)
+        .where(Poll.created_by_user_id == user_id)
+        .group_by(Poll.id)  # Postgres автоматически включает остальные поля, если id — PK
+        .order_by(Poll.created_at.desc())
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+    return [
+        PollSummary(
+            id=str(row.id),
+            title=row.title,
+            status=row.status,
+            created_at=row.created_at,
+            expires_at=row.expires_at,
+            total_votes=row.total_votes
+        )
+        for row in rows
+    ]
 
 
 # def get_poll_results(poll_id: int, 

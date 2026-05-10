@@ -9,7 +9,7 @@ from typing import Annotated
 from src.security.security import get_current_user, get_respondent_token, security_scheme
 from src.api_schemas.poll import PollCreate, PollCreatedResponse, PollSummary, PollDetailResponse, PollResultsResponse, \
     OptionResult, VoteResponse, VoteRequest
-from src.services.poll_service import create_poll_service, get_poll_with_details, vote_poll_service
+from src.services.poll_service import create_poll_service, get_poll_with_details, vote_poll_service, get_list_polls
 
 router = APIRouter(
     prefix="/api/v1/polls",
@@ -48,18 +48,16 @@ async def create_poll(
 
 @router.get("/",
             response_model=list[PollSummary],
-            summary="Получить список опросов",
-            description="Возвращает список допустных опросов",
+            summary="Получить список опросов пользователя",
+            description="Возвращает список опросов пользователя, отсортированный по дате создания опроса(сначала последние)",
             tags=["Polls"])
-async def list_polls():
-    if not polls_db:
-        return []
-    return [
-        PollSummary(
-            id=p["id"], title=p["title"], created_at=p["created_at"],
-            total_votes=sum(p["votes"].values())
-        ) for p in polls_db.values()
-    ]
+async def list_polls(
+        current_user: User = Depends(get_current_user()),
+        db: AsyncSession = Depends(get_assync_db)):
+
+    user_id = current_user.id
+    return await get_list_polls(db=db, user_id=user_id)
+
 
 
 @router.get("/{poll_id}",

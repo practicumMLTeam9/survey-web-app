@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 
 from src.db.models import Poll, Question, QuestionOption, Submission, Answer
-from src.api_schemas.poll import PollCreate, VoteRequest, AnswerRequest, PollSummary
+from src.api_schemas.poll import PollCreate, VoteRequest, AnswerRequest, PollSummary, PollStatusUpdate
 from collections import defaultdict
 
 
@@ -270,7 +270,51 @@ async def get_list_polls(db: AsyncSession, user_id: int) -> list[PollSummary]:
     ]
 
 
-# def get_poll_results(poll_id: int, 
+async def update_poll_status_service(
+    db: AsyncSession,
+    poll_id: int,
+    user_id: int,
+    status_in: PollStatusUpdate
+) -> PollSummary:
+    """
+        Обновляет статус опроса. Проверяет права доступа и возвращает обновлённые данные.
+        """
+    # Находим опрос и проверяем, что он принадлежит текущему пользователю
+    stmt = select(Poll).where(Poll.id == poll_id, Poll.created_by_user_id == user_id)
+    result = await db.execute(stmt)
+    poll = result.scalar_one_or_none()
+
+    if not poll:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Опрос не найден или у вас нет прав на его изменение"
+        )
+
+    if poll.status == "closed" and status_in.status != "closed":
+        raise HTTPException(400, detail="Нельзя изменить статус закрытого опроса")
+    if poll.status == "active" and status_in.status == "draft":
+        raise HTTPException(400, detail="Нельзя вернуть активный опрос в черновик")
+
+    # Обновляем статус
+    poll.status = status_in.status
+    await db.commit()
+    await db.refresh(poll)
+
+    # Считаем актуальное количество голосов (один быстрый запрос)
+    count_stmt = select(func.count(Submission.id)).where(Submission.poll_id == poll.id)
+    count_result = await db.execute(count_stmt)
+    total_votes = count_result.scalar() or 0
+
+    return PollSummary(
+        id=str(poll.id),
+        title=poll.title,
+        status=poll.status,
+        created_at=poll.created_at,
+        expires_at=poll.expires_at,
+        total_votes=total_votes
+    )
+
+# def get_poll_results(poll_id: int,
 #                     user_id: int, 
 #                     db: AsyncSession):
 #     query = select(Poll).where(

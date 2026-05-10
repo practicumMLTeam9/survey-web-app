@@ -8,7 +8,7 @@ from src.db.async_session import get_db as get_assync_db
 from typing import Annotated
 from src.security.security import get_current_user, get_respondent_token, security_scheme
 from src.api_schemas.poll import PollCreate, PollCreatedResponse, PollSummary, PollDetailResponse, PollResultsResponse, \
-    OptionResult, VoteResponse, VoteRequest
+    OptionResult, VoteResponse, VoteRequest, PollStatusUpdate
 from src.services.poll_service import create_poll_service, get_poll_with_details, vote_poll_service, get_list_polls
 
 router = APIRouter(
@@ -127,3 +127,20 @@ async def vote_poll(poll_id: int,
     return VoteResponse(
         poll_id=poll_id, answers_confirmed=answers, message="Голос успешно учтён"
     )
+
+
+@router.patch(
+    "/{poll_id}/status",
+    response_model=PollSummary,
+    summary="Обновить статус опроса",
+    description="Изменяет статус опроса (draft → active → closed). Доступно только создателю.",
+    tags=["Polls"]
+)
+async def update_poll_status(
+    poll_id: int = Path(..., ge=1, description="Уникальный идентификатор опроса"),
+    status_in: PollStatusUpdate = Body(..., description="Новый статус"),
+    current_user: User = Depends(get_current_user()),
+    db: AsyncSession = Depends(get_assync_db)
+):
+    user_id = current_user.id
+    return await update_poll_status(db, poll_id, user_id, status_in)

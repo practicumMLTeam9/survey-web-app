@@ -113,8 +113,7 @@ async def vote_poll_service(poll_id: int,
     completed_time = datetime.now(timezone.utc).replace(tzinfo=None)
     """Проверка существования и активности опроса"""
     poll_query = select(Poll).where(
-        # and_(Poll.id == poll_id, Poll.status == 'active')
-        Poll.id == poll_id
+        and_(Poll.id == poll_id, Poll.status == 'active')
     )
     result_poll = await db.execute(poll_query)
     poll = result_poll.scalar_one_or_none()
@@ -159,6 +158,15 @@ async def vote_poll_service(poll_id: int,
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"На вопрос '{question.position}.{question.text}' (single_choice) передано {len(answers)} ответа. Допустим только один."
             )
+        if question.type == "multiple_choice":
+            # Собираем все option_id из ответов на этот вопрос
+            option_ids = [answer.option_id for answer in answers]
+            # Проверяем на дубликаты ответов
+            if len(option_ids) != len(set(option_ids)):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"На вопрос '{question.position}.{question.text}' (multiple_choice) обнаружены дубликаты вариантов ответов. Каждый вариант можно выбрать только один раз."
+                )
         checked_questions.add(question_id)
     """Проверка на наличие обязательных ответов"""
     # Получаем список вопросов из опроса
@@ -315,12 +323,12 @@ async def update_poll_status_service(
     )
 
 
-def get_poll_results(poll_id: int, 
+async def get_poll_results(poll_id: int, 
                     user_id: int, 
                     db: AsyncSession):
     """Проверка существования опроса"""
     poll_query = select(Poll).where(
-        and_(Poll.id == poll_id, Poll.creator == user_id)
+        and_(Poll.id == poll_id, Poll.created_by_user_id == user_id)
     )
     result_poll = await db.execute(poll_query)
     poll = result_poll.scalar_one_or_none()
@@ -363,4 +371,4 @@ def get_poll_results(poll_id: int,
         created_at = poll.created_at,
         votes = results_list
     )
-    return results_response
+    return results_response, total_votes

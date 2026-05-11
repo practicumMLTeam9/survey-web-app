@@ -114,17 +114,27 @@ async def get_me(current_user = Depends(get_current_user())):
     
 
 @router.post("/refresh",
-          response_model=AccessToken,
           status_code=status.HTTP_202_ACCEPTED,
           summary="Обновить токен доступа",
           description="Проверяет токен обновления, возвращает новый токен доступа. Принимает refresh токен",
           tags=["Authorization"])
-async def refresh_access_token(current_user = Depends(get_current_user(token_type = "refresh"))):
+async def refresh_access_token(response: Response, current_user = Depends(get_current_user(token_type = "refresh")),
+                               use_cookie: bool = False):
     access = create_access_token(user_data={"sub": current_user.email})
-    return AccessToken(
+    if not use_cookie:
+        return AccessToken(
         access_token=access,
         user_email=current_user.email
     )
+    else:
+        response.set_cookie(
+            key = "access_token",
+            value = access,
+            httponly = True,
+            samesite = "lax",
+            secure = True
+        )
+        return {"message":"Токен загружен в cookie"}
 
 
 @router.post("/forgot-password",

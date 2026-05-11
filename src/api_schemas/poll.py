@@ -112,7 +112,7 @@ class OptionResult(BaseModel):
 
 
 class PollResponse(BaseModel):
-    id: str = Field(..., description="Уникальный идентификатор опроса")
+    id: int = Field(..., description="Уникальный идентификатор опроса")
     title: str = Field(..., description="Название опроса")
     options: List[str] = Field(..., description="Список вариантов")
     description: Optional[str] = Field(None, description="Описание опроса")
@@ -121,7 +121,7 @@ class PollResponse(BaseModel):
 
 
 class PollResultsResponse(BaseModel):
-    id: str = Field(..., description="Уникальный идентификатор опроса")
+    id: int = Field(..., description="Уникальный идентификатор опроса")
     title: str = Field(..., description="Название опроса")
     results: List[OptionResult] = Field(..., description="Список результатов по вариантам")
     total_votes: int = Field(..., description="Общее количество голосов")
@@ -142,7 +142,7 @@ class AnswerRequest(BaseModel):
     """Ответ на вопрос"""
     question_id: int = Field(..., description="ID вопроса")
     option_id: int = Field(..., description="ID варианта ответа")
-    text_value: str = Field(..., description="Текст")
+    text_value: Optional[str] = Field(..., description="Текст")
 
     class Config:
         from_attributes = True

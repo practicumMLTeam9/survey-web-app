@@ -58,7 +58,7 @@ def decode_token(token: str):
     
 
 async def get_token(request: Request, credentials: HTTPAuthorizationCredentials = Depends(security_scheme), 
-                    use_cookie: bool = False, 
+                    use_cookie: bool = True, 
                     token_type: str = "access"):
     """Извлекает токен из заголовка Authorization: Bearer ..."""
     if use_cookie == True: 
@@ -146,5 +146,25 @@ def get_respondent_token(request: Request, response: Response):
     if respondent_token is None:
         respondent_token = generate_fingerprint(request)
         response.set_cookie(key="respondent_token", value=respondent_token,
-                            httponly=True, samesite="lax", secure=True)
+                            httponly=True, samesite="lax", secure=True, max_age=365*24*60*60)
     return respondent_token
+
+
+def set_cookies(response: Response, access: str, refresh: str):
+    response.set_cookie(
+        key = "access_token",
+        value = access,
+        httponly = True,
+        samesite = "lax",
+        secure = True,
+        max_age = ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    )
+    response.set_cookie(
+        key = "refresh_token",
+        value = refresh,
+        httponly = True,
+        samesite = "lax",
+        secure = True,
+        max_age = REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+    )
+    return 

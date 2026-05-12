@@ -9,7 +9,8 @@ from typing import Annotated
 from src.security.security import get_current_user, get_respondent_token, security_scheme
 from src.api_schemas.poll import PollCreate, PollCreatedResponse, PollSummary, PollDetailResponse, PollResultsResponse, \
     OptionResult, VoteResponse, VoteRequest, PollStatusUpdate
-from src.services.poll_service import create_poll_service, get_poll_with_details, vote_poll_service, get_list_polls, get_poll_results
+from src.services.poll_service import create_poll_service, get_poll_with_details, vote_poll_service, get_list_polls, get_poll_results, start_vote_service
+
 
 router = APIRouter(
     prefix="/api/v1/polls",
@@ -87,21 +88,15 @@ async def get_results(poll_id: int,
                            current_user: dict = Depends(get_current_user()), 
                            db: AsyncSession = Depends(get_assync_db)):
     user_id = current_user.id
-    results_data, votes = await get_poll_results(poll_id, user_id, db)
-    return PollResultsResponse(
-        id=results_data.id,
-        title=results_data.title,
-        results=results_data.votes,
-        total_votes=votes,
-        created_at=results_data.created_at
-    )
+    results_data = await get_poll_results(poll_id, user_id, db)
+    return results_data
 
 
 @router.post("/{poll_id}/vote",
              response_model=VoteResponse,
              status_code=status.HTTP_200_OK,
              summary="Проголосовать в опросе",
-             description="Принимает выбранный вариант и увеличивает счётчик голосов. Возвращает обновлённое общее число голосов.",
+             description="Принимает выбранный вариант и создаёт новый голос в таблице Answers.",
              tags=["Voting"])
 async def vote_poll(poll_id: int, 
                     vote: VoteRequest, 
@@ -110,10 +105,26 @@ async def vote_poll(poll_id: int,
                     db: AsyncSession = Depends(get_assync_db)):
     """Проголосовать в опросе"""
     respondent_token = get_respondent_token(request, response)
-    answers = await vote_poll_service(poll_id, vote, respondent_token, db)
+    async with db.begin():
+        answers = await vote_poll_service(poll_id, vote, respondent_token, db)
     return VoteResponse(
         poll_id=poll_id, answers_confirmed=answers, message="Голос успешно учтён"
     )
+
+
+@router.post("/{poll_id}/vote/start",
+             status_code=status.HTTP_200_OK,
+             summary="Начать прохождение опроса",
+             description="Сохраняет факт начала прохождения опроса. Создаёт запись в таблице Submissions с временем начала и respondent_token",
+             tags=["Voting"])
+async def start_vote(poll_id: int, 
+                    request: Request, 
+                    response: Response,
+                    db: AsyncSession = Depends(get_assync_db)):
+    """Начать прохождение опроса"""
+    respondent_token = get_respondent_token(request, response)
+    start_result = await start_vote_service(poll_id, respondent_token, db)
+    return start_result
 
 
 @router.patch(

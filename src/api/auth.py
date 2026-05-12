@@ -11,7 +11,7 @@ from src.api_schemas.auth import (
 )
 from src.security.security import (
     hash_password, verify_password, create_access_token, create_refresh_token, get_current_user, create_reset_token,
-    hash_token
+    hash_token, set_cookies
 )
 
 router = APIRouter(
@@ -71,7 +71,7 @@ async def register(user: UserRegister, db: Session = Depends(get_db)):
           "use_cookie = False отправляет токен напрямую во фронт в формате JSON.\n\n " \
           "use_cookie = True сохраняет токен в cookie браузера. Не работает со Swagger",
           tags=["Authorization"])
-async def login(user: UserLogin, response: Response, db: Session = Depends(get_db), use_cookie: bool = False):
+async def login(user: UserLogin, response: Response, db: Session = Depends(get_db), use_cookie: bool = True):
     result = await db.execute(select(User).where(User.email == user.email))
     user_registered = result.scalar_one_or_none()
     if user_registered is None or not verify_password(user.password, user_registered.password_hash):
@@ -87,20 +87,7 @@ async def login(user: UserLogin, response: Response, db: Session = Depends(get_d
             refresh_token=refresh_t
         )
     else:
-        response.set_cookie(
-            key = "access_token",
-            value = access,
-            httponly = True,
-            samesite = "lax",
-            secure = True
-        )
-        response.set_cookie(
-            key = "refresh_token",
-            value = refresh,
-            httponly = True,
-            samesite = "lax",
-            secure = True
-        )
+        set_cookies(response, access, refresh)
         return {"message":"Токен загружен в cookie"}
 
 
@@ -119,7 +106,7 @@ async def get_me(current_user = Depends(get_current_user())):
           description="Проверяет токен обновления, возвращает новый токен доступа. Принимает refresh токен",
           tags=["Authorization"])
 async def refresh_access_token(response: Response, current_user = Depends(get_current_user(token_type = "refresh")),
-                               use_cookie: bool = False):
+                               use_cookie: bool = True):
     access = create_access_token(user_data={"sub": current_user.email})
     if not use_cookie:
         return AccessToken(

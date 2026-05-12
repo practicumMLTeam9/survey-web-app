@@ -1,13 +1,13 @@
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_, func, cast, Integer
 from fastapi import HTTPException, status
 from typing import List, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 
 from src.db.models import Poll, Question, QuestionOption, Submission, Answer
-from src.api_schemas.poll import PollCreate, VoteRequest, AnswerRequest, PollSummary, PollStatusUpdate, OptionResult, PollResponse
+from src.api_schemas.poll import PollCreate, VoteRequest, AnswerRequest, PollSummary, PollStatusUpdate, OptionResult, PollResultsResponse, AverageValue
 from collections import defaultdict
 
 
@@ -106,11 +106,10 @@ async def get_poll_with_details(db: AsyncSession, poll_id: int) -> Optional[Poll
     return result.scalar_one_or_none()
 
 
-async def vote_poll_service(poll_id: int, 
-                    vote: VoteRequest,
-                    respondent_token: str, 
+async def start_vote_service(poll_id: int,
+                             respondent_token: str, 
                     db: AsyncSession):
-    completed_time = datetime.now(timezone.utc).replace(tzinfo=None)
+    started_time = datetime.now(timezone.utc).replace(tzinfo=None)
     """Проверка существования и активности опроса"""
     poll_query = select(Poll).where(
         and_(Poll.id == poll_id, Poll.status == 'active')
@@ -120,7 +119,55 @@ async def vote_poll_service(poll_id: int,
     if not poll:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Опрос не найден или не активен"
+            detail="Опрос не найден или не активен/достигнут лимит участников"
+        )
+    """Проверка, начал ли уже пользователь прохождение опроса"""
+    existing_submission_query = select(Submission).where(
+        and_(
+            Submission.poll_id == poll_id,
+            Submission.respondent_token == respondent_token
+        )
+    )
+    result_sub = await db.execute(existing_submission_query)
+    existing_submission = result_sub.scalar_one_or_none()
+    if existing_submission:
+        # Если запись уже есть, просто возвращаем статус
+        return {"status": "already_started"}
+    # Создание новой записи о начале
+    new_submission = Submission(
+        poll_id=poll_id,
+        respondent_token=respondent_token,
+        started_at=started_time,
+        completed_at=None # Явно указываем, что опрос не завершен
+    )
+    db.add(new_submission)
+    try:
+        await db.commit()
+        await db.refresh(new_submission)
+        return {"started_at": new_submission.started_at}
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка при начале прохождения опроса: {str(e)}"
+        )
+
+
+async def vote_poll_service(poll_id: int, 
+                    vote: VoteRequest,
+                    respondent_token: str, 
+                    db: AsyncSession):
+    completed_time = datetime.now(timezone.utc).replace(tzinfo=None)
+    """Проверка существования и активности опроса"""
+    poll_query = select(Poll).where(
+        and_(Poll.id == poll_id, Poll.status == 'active')
+    ).with_for_update()
+    result_poll = await db.execute(poll_query)
+    poll = result_poll.scalar_one_or_none()
+    if not poll:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Опрос не найден или не активен/достигнут лимит участников"
         )
     """Проверка истечения времени для ответа"""
     if poll.expires_at and poll.expires_at < completed_time:
@@ -128,6 +175,43 @@ async def vote_poll_service(poll_id: int,
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Время для прохождения опроса истекло"
         )
+    """Проверка, голосовал ли уже пользователь в этом опросе
+    Логика:
+    1. Если completed_at IS NULL -> Разрешаем (пользователь начал, но не финишировал).
+    2. Если completed_at IS NOT NULL -> Запрещаем (уже проголосовал).
+    """
+    if poll.one_response_only == True:
+        submission_query = select(Submission).where(
+            and_(
+                Submission.poll_id == poll_id,
+                Submission.respondent_token == respondent_token,
+                Submission.completed_at.isnot(None)
+            )
+        )
+        result_submission = await db.execute(submission_query)
+        existing_submission = result_submission.scalar_one_or_none()
+        if existing_submission:
+                # Пользователь уже голосовал - отклоняем голос
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Вы уже участвовали в этом опросе. Повторное голосование невозможно."
+                )
+    sub_query = select(Submission).where(
+            and_(
+                Submission.poll_id == poll_id,
+                Submission.respondent_token == respondent_token,
+                Submission.completed_at.is_(None) # Ищем только незавершенные
+            )
+        ).order_by(Submission.started_at.desc()) # Берем самую свежую попытку
+    result_sub = await db.execute(sub_query)
+    sub = result_sub.scalar_one_or_none()
+    if sub is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Прохождение опроса не начато"
+        )
+    sub.completed_at = completed_time
+    await db.flush()
     """Проверка существования вопросов и корректности числа ответов на один вопрос"""
     answers_list = vote.answers
     checked_questions = set()
@@ -153,11 +237,12 @@ async def vote_poll_service(poll_id: int,
                 detail=f"Вопрос id:'{question_id}' не найден в опросе"
             )
         # Проверка для single_choice: не более одного ответа
-        if question.type == "single_choice" and len(answers) > 1:
+        if  question.type in ("single_choice", "scale") and len(answers) > 1:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"На вопрос '{question.position}.{question.text}' (single_choice) передано {len(answers)} ответа. Допустим только один."
             )
+        # Проверка для multiple_choice: не более одного голоса за один из вариантов ответа
         if question.type == "multiple_choice":
             # Собираем все option_id из ответов на этот вопрос
             option_ids = [answer.option_id for answer in answers]
@@ -196,35 +281,11 @@ async def vote_poll_service(poll_id: int,
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Вариант ответа id:'{answer.option_id}' не найден или не принадлежит указанному вопросу"
             )
-    """Проверка, голосовал ли уже пользователь в этом опросе"""
-    if poll.one_response_only == True:
-        submission_query = select(Submission).where(
-            and_(
-                Submission.poll_id == poll_id,
-                Submission.respondent_token == respondent_token
-            )
-        )
-        result_submission = await db.execute(submission_query)
-        existing_submission = result_submission.scalar_one_or_none()
-        if existing_submission:
-                # Пользователь уже голосовал - отклоняем голос
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Вы уже участвовали в этом опросе. Повторное голосование невозможно."
-                )
-    submission = Submission(
-            poll_id=poll_id,
-            respondent_token=respondent_token,
-            started_at=vote.started_time.replace(tzinfo=None),
-            completed_at=completed_time 
-        )
-    db.add(submission)
-    await db.flush()  # Получаем submission.id
     # Создаем ответ пользователя
     answers=[]
     for answer in answers_list:
         answer = Answer(
-            submission_id=submission.id,
+            submission_id=sub.id,
             question_id=answer.question_id,
             option_id=answer.option_id,
             text_value=answer.text_value
@@ -232,6 +293,14 @@ async def vote_poll_service(poll_id: int,
         db.add(answer)
         added_answer = AnswerRequest.model_validate(answer)
         answers.append(added_answer)
+    """Проверка на соответствие максимальному числу участников"""
+    if poll.max_participants is not None:
+        count_res = await db.execute(
+            select(func.count(Submission.id)).where(Submission.poll_id == poll_id,Submission.completed_at.isnot(None))
+        )
+        current_count = count_res.scalar() or 0
+        if current_count >= poll.max_participants:
+            poll.status = "closed"  # закрываем опрос, чтобы не превысить лимит участников
     try:
         await db.commit()   # сохраняем в БД
     except Exception as e:
@@ -339,36 +408,95 @@ async def get_poll_results(poll_id: int,
         )
     """Общий подсчёт голосов"""
     total_votes_query = select(func.count(Submission.id)).where(
-        Submission.poll_id == poll_id
+        Submission.poll_id == poll_id,Submission.completed_at.isnot(None)
     )
     total_votes = (await db.execute(total_votes_query)).scalar_one_or_none()
     if total_votes is None:
         total_votes = 0
     """Подсчёт голосов по вариантам ответа"""
     votes_query = (
-        select(QuestionOption.text, func.count(Answer.id))
+        select(QuestionOption.question_id, QuestionOption.text, QuestionOption.position, func.count(Answer.id))
         .join(Answer, QuestionOption.id == Answer.option_id)
         .join(Question, QuestionOption.question_id == Question.id)
         .where(Question.poll_id == poll_id)
-        .group_by(QuestionOption.id, QuestionOption.text)
+        .group_by(QuestionOption.id, QuestionOption.question_id, QuestionOption.text, QuestionOption.position)
     )  
     votes_results = await db.execute(votes_query)
-    votes_data = [(text, count) for text, count in votes_results.all()]
-    options_list = [text for text, count in votes_data]
-    results_list = []
-    for text, count in votes_data:
+    """Подсчёт среднего времени прохождения опроса"""
+    avg_time_query = select(
+        func.avg(Submission.completed_at - Submission.started_at)
+    ).where(
+        and_(
+            Submission.poll_id == poll_id,
+            Submission.started_at.isnot(None),
+            Submission.completed_at.isnot(None)
+        )
+    )
+    avg_time_result = await db.execute(avg_time_query)
+    avg_completion_time = avg_time_result.scalar_one_or_none()
+    avg_completion_time_seconds = (
+        avg_completion_time.total_seconds() if avg_completion_time else 0.0
+    )
+    """Подсчёт отклика на опрос"""
+    total_submissions_query = select(func.count(Submission.id)).where( 
+        Submission.poll_id == poll_id
+    )
+    total_submissions = (await db.execute(total_submissions_query)).scalar_one_or_none() or 0
+    response_rate_val = round(total_votes / total_submissions * 100, 2) if total_submissions > 0 else 0.0
+    """Информация о вопросах для вывода"""
+    questions_query = select(Question.id, Question.position, Question.text, Question.type).where(Question.poll_id == poll_id)
+    questions_result = await db.execute(questions_query)
+    questions_map = {q.id: (q.position, q.text, q.type) for q in questions_result.all()}
+    """Сохранение числа ответов по вариантам"""
+    votes_data = [(question_id, option_text, option_pos, count) for question_id, option_text, option_pos, count in votes_results.all()]
+    options_list = [option_text for question_id, option_text, option_pos, count in votes_data]
+    results_list = []   
+    for question_id, option_text, option_pos, count in votes_data:  # Сохраняем результаты по вариантам
+        question_pos, question_text, _ = questions_map[question_id]
         option_result = OptionResult(
-            option=text,
+            question=question_text,
+            question_position=question_pos,
+            option_position=option_pos,
+            option=option_text,
             votes=count,
             percentage=round(count / total_votes * 100, 2) if total_votes > 0 else 0.0
         )
         results_list.append(option_result)
-    results_response = PollResponse(
+    """Подсчёт среднего значения для опросов с типом scale"""
+    avg_res_list = []
+    if any(q[2] == 'scale' for q in questions_map.values()):
+        rating_avg_query = (
+        select(
+            Question.id.label('question_id'),
+            func.avg(QuestionOption.text.cast(Integer)).label('avg_rating')
+        )
+        .join(QuestionOption, Question.id == QuestionOption.question_id)
+        .join(Answer, QuestionOption.id == Answer.option_id)
+        .where(
+            Question.poll_id == poll_id,
+            Question.type == 'scale'
+        )
+        .group_by(Question.id)
+        )
+        rating_results = await db.execute(rating_avg_query)
+        for q_id, avg_val in rating_results:
+            if avg_val is not None:
+                q_pos, q_text, _ = questions_map[q_id]
+                avg_res_list.append(AverageValue(
+                    question=q_text,
+                    question_position=q_pos,
+                    avg_value=round(float(avg_val), 2),
+                ))
+    results_response = PollResultsResponse(
         id = poll.id,
         title = poll.title,
         options = options_list,
         description = poll.description,
         created_at = poll.created_at,
-        votes = results_list
+        total_votes = total_votes,
+        votes = results_list,
+        avg_values = avg_res_list,
+        response_rate = response_rate_val,
+        avg_completion_time = avg_completion_time_seconds
     )
-    return results_response, total_votes
+    return results_response

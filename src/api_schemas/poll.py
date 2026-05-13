@@ -145,7 +145,7 @@ class PollResultsResponse(BaseModel):
 
 class PollSummary(BaseModel):
     """Краткая информация для списка опросов"""
-    id: str = Field(..., description="Уникальный идентификатор опроса")
+    id: int = Field(..., description="Уникальный идентификатор опроса")
     title: str = Field(..., description="Название опроса")
     status: str = Field(..., description="Статус опроса")
     created_at: datetime = Field(..., description="Дата и время создания")

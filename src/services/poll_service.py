@@ -7,7 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 
 from src.db.models import Poll, Question, QuestionOption, Submission, Answer
-from src.api_schemas.poll import PollCreate, VoteRequest, AnswerRequest, PollSummary, PollStatusUpdate, OptionResult, PollResultsResponse, AverageValue
+from src.api_schemas.poll import PollCreate, VoteRequest, AnswerRequest, PollSummary, PollStatusUpdate, OptionResult, \
+    PollResultsResponse, AverageValue
 from collections import defaultdict
 
 
@@ -107,8 +108,8 @@ async def get_poll_with_details(db: AsyncSession, poll_id: int) -> Optional[Poll
 
 
 async def start_vote_service(poll_id: int,
-                             respondent_token: str, 
-                    db: AsyncSession):
+                             respondent_token: str,
+                             db: AsyncSession):
     started_time = datetime.now(timezone.utc).replace(tzinfo=None)
     """Проверка существования и активности опроса"""
     poll_query = select(Poll).where(
@@ -138,7 +139,7 @@ async def start_vote_service(poll_id: int,
         poll_id=poll_id,
         respondent_token=respondent_token,
         started_at=started_time,
-        completed_at=None # Явно указываем, что опрос не завершен
+        completed_at=None  # Явно указываем, что опрос не завершен
     )
     db.add(new_submission)
     try:
@@ -153,10 +154,10 @@ async def start_vote_service(poll_id: int,
         )
 
 
-async def vote_poll_service(poll_id: int, 
-                    vote: VoteRequest,
-                    respondent_token: str, 
-                    db: AsyncSession):
+async def vote_poll_service(poll_id: int,
+                            vote: VoteRequest,
+                            respondent_token: str,
+                            db: AsyncSession):
     completed_time = datetime.now(timezone.utc).replace(tzinfo=None)
     """Проверка существования и активности опроса"""
     poll_query = select(Poll).where(
@@ -191,18 +192,18 @@ async def vote_poll_service(poll_id: int,
         result_submission = await db.execute(submission_query)
         existing_submission = result_submission.scalar_one_or_none()
         if existing_submission:
-                # Пользователь уже голосовал - отклоняем голос
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Вы уже участвовали в этом опросе. Повторное голосование невозможно."
-                )
-    sub_query = select(Submission).where(
-            and_(
-                Submission.poll_id == poll_id,
-                Submission.respondent_token == respondent_token,
-                Submission.completed_at.is_(None) # Ищем только незавершенные
+            # Пользователь уже голосовал - отклоняем голос
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Вы уже участвовали в этом опросе. Повторное голосование невозможно."
             )
-        ).order_by(Submission.started_at.desc()) # Берем самую свежую попытку
+    sub_query = select(Submission).where(
+        and_(
+            Submission.poll_id == poll_id,
+            Submission.respondent_token == respondent_token,
+            Submission.completed_at.is_(None)  # Ищем только незавершенные
+        )
+    ).order_by(Submission.started_at.desc())  # Берем самую свежую попытку
     result_sub = await db.execute(sub_query)
     sub = result_sub.scalar_one_or_none()
     if sub is None:
@@ -222,7 +223,7 @@ async def vote_poll_service(poll_id: int,
     # Проверяем каждый вопрос
     for question_id, answers in answers_by_question.items():
         if question_id in checked_questions:
-            continue    # если вопрос уже проверен - пропускаем
+            continue  # если вопрос уже проверен - пропускаем
         question_query = select(Question).where(
             and_(
                 Question.id == question_id,
@@ -230,14 +231,14 @@ async def vote_poll_service(poll_id: int,
             )
         )
         result_question = await db.execute(question_query)
-        question = result_question.scalar_one_or_none()   
+        question = result_question.scalar_one_or_none()
         if not question:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Вопрос id:'{question_id}' не найден в опросе"
             )
         # Проверка для single_choice: не более одного ответа
-        if  question.type in ("single_choice", "scale") and len(answers) > 1:
+        if question.type in ("single_choice", "scale") and len(answers) > 1:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"На вопрос '{question.position}.{question.text}' (single_choice) передано {len(answers)} ответа. Допустим только один."
@@ -256,7 +257,7 @@ async def vote_poll_service(poll_id: int,
     """Проверка на наличие обязательных ответов"""
     # Получаем список вопросов из опроса
     questions_query = select(Question).where(
-            Question.poll_id == poll_id
+        Question.poll_id == poll_id
     )
     result_questions = await db.execute(questions_query)
     questions = result_questions.scalars().all()
@@ -282,7 +283,7 @@ async def vote_poll_service(poll_id: int,
                 detail=f"Вариант ответа id:'{answer.option_id}' не найден или не принадлежит указанному вопросу"
             )
     # Создаем ответ пользователя
-    answers=[]
+    answers = []
     for answer in answers_list:
         answer = Answer(
             submission_id=sub.id,
@@ -296,25 +297,25 @@ async def vote_poll_service(poll_id: int,
     """Проверка на соответствие максимальному числу участников"""
     if poll.max_participants is not None:
         count_res = await db.execute(
-            select(func.count(Submission.id)).where(Submission.poll_id == poll_id,Submission.completed_at.isnot(None))
+            select(func.count(Submission.id)).where(Submission.poll_id == poll_id, Submission.completed_at.isnot(None))
         )
         current_count = count_res.scalar() or 0
         if current_count >= poll.max_participants:
             poll.status = "closed"  # закрываем опрос, чтобы не превысить лимит участников
     try:
-        await db.commit()   # сохраняем в БД
+        await db.commit()  # сохраняем в БД
     except Exception as e:
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Ошибка при сохранении ответа: {str(e)}"     # str(e) для отлдаки
+            detail=f"Ошибка при сохранении ответа: {str(e)}"  # str(e) для отлдаки
         )
     return answers
 
 
 async def get_list_polls(db: AsyncSession, user_id: int) -> list[PollSummary]:
     """
-    Возвращает список опросов пользователя с подсчитанным количеством голосов.
+    Возвращает список опросов пользователя с подсчитанным количеством завершённых голосов.
     Использует один запрос с LEFT JOIN + COUNT для избежания N+1 проблемы.
     """
     stmt = (
@@ -324,7 +325,9 @@ async def get_list_polls(db: AsyncSession, user_id: int) -> list[PollSummary]:
             Poll.status,
             Poll.created_at,
             Poll.expires_at,
-            func.count(Submission.id).label("total_votes")
+            func.count(Submission.id).filter(
+                Submission.completed_at.isnot(None)
+            ).label("total_votes")
         )
         .outerjoin(Submission, Poll.id == Submission.poll_id)
         .where(Poll.created_by_user_id == user_id)
@@ -336,22 +339,21 @@ async def get_list_polls(db: AsyncSession, user_id: int) -> list[PollSummary]:
     rows = result.all()
     return [
         PollSummary(
-            id=str(row.id),
+            id=row.id,
             title=row.title,
             status=row.status,
             created_at=row.created_at,
             expires_at=row.expires_at,
             total_votes=row.total_votes
         )
-        for row in rows
-    ]
+        for row in rows]
 
 
 async def update_poll_status_service(
-    db: AsyncSession,
-    poll_id: int,
-    user_id: int,
-    status_in: PollStatusUpdate
+        db: AsyncSession,
+        poll_id: int,
+        user_id: int,
+        status_in: PollStatusUpdate
 ) -> PollSummary:
     """
         Обновляет статус опроса. Проверяет права доступа и возвращает обновлённые данные.
@@ -378,12 +380,14 @@ async def update_poll_status_service(
     await db.refresh(poll)
 
     # Считаем актуальное количество голосов (один быстрый запрос)
-    count_stmt = select(func.count(Submission.id)).where(Submission.poll_id == poll.id)
+    count_stmt = select(func.count(Submission.id)).where(
+        Submission.poll_id == poll_id, Submission.completed_at.isnot(None)
+    )
     count_result = await db.execute(count_stmt)
     total_votes = count_result.scalar() or 0
 
     return PollSummary(
-        id=str(poll.id),
+        id=poll.id,
         title=poll.title,
         status=poll.status,
         created_at=poll.created_at,
@@ -392,9 +396,9 @@ async def update_poll_status_service(
     )
 
 
-async def get_poll_results(poll_id: int, 
-                    user_id: int, 
-                    db: AsyncSession):
+async def get_poll_results(poll_id: int,
+                           user_id: int,
+                           db: AsyncSession):
     """Проверка существования опроса"""
     poll_query = select(Poll).where(
         and_(Poll.id == poll_id, Poll.created_by_user_id == user_id)
@@ -408,7 +412,7 @@ async def get_poll_results(poll_id: int,
         )
     """Общий подсчёт голосов"""
     total_votes_query = select(func.count(Submission.id)).where(
-        Submission.poll_id == poll_id,Submission.completed_at.isnot(None)
+        Submission.poll_id == poll_id, Submission.completed_at.isnot(None)
     )
     total_votes = (await db.execute(total_votes_query)).scalar_one_or_none()
     if total_votes is None:
@@ -420,7 +424,7 @@ async def get_poll_results(poll_id: int,
         .join(Question, QuestionOption.question_id == Question.id)
         .where(Question.poll_id == poll_id)
         .group_by(QuestionOption.id, QuestionOption.question_id, QuestionOption.text, QuestionOption.position)
-    )  
+    )
     votes_results = await db.execute(votes_query)
     """Подсчёт среднего времени прохождения опроса"""
     avg_time_query = select(
@@ -438,19 +442,21 @@ async def get_poll_results(poll_id: int,
         avg_completion_time.total_seconds() if avg_completion_time else 0.0
     )
     """Подсчёт отклика на опрос"""
-    total_submissions_query = select(func.count(Submission.id)).where( 
+    total_submissions_query = select(func.count(Submission.id)).where(
         Submission.poll_id == poll_id
     )
     total_submissions = (await db.execute(total_submissions_query)).scalar_one_or_none() or 0
     response_rate_val = round(total_votes / total_submissions * 100, 2) if total_submissions > 0 else 0.0
     """Информация о вопросах для вывода"""
-    questions_query = select(Question.id, Question.position, Question.text, Question.type).where(Question.poll_id == poll_id)
+    questions_query = select(Question.id, Question.position, Question.text, Question.type).where(
+        Question.poll_id == poll_id)
     questions_result = await db.execute(questions_query)
     questions_map = {q.id: (q.position, q.text, q.type) for q in questions_result.all()}
     """Сохранение числа ответов по вариантам"""
-    votes_data = [(question_id, option_text, option_pos, count) for question_id, option_text, option_pos, count in votes_results.all()]
+    votes_data = [(question_id, option_text, option_pos, count) for question_id, option_text, option_pos, count in
+                  votes_results.all()]
     options_list = [option_text for question_id, option_text, option_pos, count in votes_data]
-    results_list = []   
+    results_list = []
     for question_id, option_text, option_pos, count in votes_data:  # Сохраняем результаты по вариантам
         question_pos, question_text, _ = questions_map[question_id]
         option_result = OptionResult(
@@ -466,17 +472,17 @@ async def get_poll_results(poll_id: int,
     avg_res_list = []
     if any(q[2] == 'scale' for q in questions_map.values()):
         rating_avg_query = (
-        select(
-            Question.id.label('question_id'),
-            func.avg(QuestionOption.text.cast(Integer)).label('avg_rating')
-        )
-        .join(QuestionOption, Question.id == QuestionOption.question_id)
-        .join(Answer, QuestionOption.id == Answer.option_id)
-        .where(
-            Question.poll_id == poll_id,
-            Question.type == 'scale'
-        )
-        .group_by(Question.id)
+            select(
+                Question.id.label('question_id'),
+                func.avg(QuestionOption.text.cast(Integer)).label('avg_rating')
+            )
+            .join(QuestionOption, Question.id == QuestionOption.question_id)
+            .join(Answer, QuestionOption.id == Answer.option_id)
+            .where(
+                Question.poll_id == poll_id,
+                Question.type == 'scale'
+            )
+            .group_by(Question.id)
         )
         rating_results = await db.execute(rating_avg_query)
         for q_id, avg_val in rating_results:
@@ -488,15 +494,15 @@ async def get_poll_results(poll_id: int,
                     avg_value=round(float(avg_val), 2),
                 ))
     results_response = PollResultsResponse(
-        id = poll.id,
-        title = poll.title,
-        options = options_list,
-        description = poll.description,
-        created_at = poll.created_at,
-        total_votes = total_votes,
-        votes = results_list,
-        avg_values = avg_res_list,
-        response_rate = response_rate_val,
-        avg_completion_time = avg_completion_time_seconds
+        id=poll.id,
+        title=poll.title,
+        options=options_list,
+        description=poll.description,
+        created_at=poll.created_at,
+        total_votes=total_votes,
+        votes=results_list,
+        avg_values=avg_res_list,
+        response_rate=response_rate_val,
+        avg_completion_time=avg_completion_time_seconds
     )
     return results_response

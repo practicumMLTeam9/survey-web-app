@@ -7,24 +7,27 @@ from typing import List, Optional, Literal
 class QuestionOptionCreate(BaseModel):
     text: str = Field(..., min_length=1, max_length=500,
                       description="Текст варианта ответа")  # позиция вопроса в опросе может быть не указана. Если не у всех вопросов указана или указана неверно, то генерация на бэкенде
-    position: Optional[int] = Field(None, ge=0, le=100, description='Порядок отображения варианта ответа')
+    position: Optional[int] = Field(None, ge=1, le=100, description='Порядок отображения варианта ответа')
 
 
 class QuestionCreate(BaseModel):
     text: str = Field(..., min_length=1, max_length=1000, description="Текст вопроса")
     type: str = Field(..., pattern="^(single_choice|multiple_choice|text|scale)$")
-    is_required: Optional[bool] = True
+    is_required: Optional[bool] = None
     options: Optional[List[QuestionOptionCreate]] = Field(None, min_length=2, max_length=10,
                                                           description="Варианты ответов (от 2 до 10)")
     # позиция вопроса в опросе может быть не указана. Если не у всех вопросов указана или указана неверно, то генерация на бэкенде
     position: Optional[int] = Field(None, ge=1, le=100, description='Порядок отображения вопроса в опросе (1,2,3, ...')
 
-    @field_validator('position')
-    @classmethod
-    def validate_position(cls, v):
-        if v is not None and v < 0:
-            raise ValueError('Позиция не может быть отрицательной')
-        return v
+    @model_validator(mode="after")
+    def validate_options_consistency(self) -> "QuestionCreate":
+        choice_types = ("single_choice", "multiple_choice")
+        no_options_types = ("text",)
+        if self.type in no_options_types and self.options is not None:
+            raise ValueError("Варианты не поддерживаются для текстового вопроса")
+        if self.type in choice_types and self.options is None:
+            raise ValueError("Для выбора вариантов необходимо указать варианты ответов")
+        return self
 
 
 class PollCreate(BaseModel):

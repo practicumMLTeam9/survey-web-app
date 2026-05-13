@@ -9,7 +9,7 @@ from typing import Annotated
 from src.security.security import get_current_user, get_respondent_token, security_scheme
 from src.api_schemas.poll import PollCreate, PollCreatedResponse, PollSummary, PollDetailResponse, PollResultsResponse, \
     OptionResult, VoteResponse, VoteRequest, PollStatusUpdate
-from src.services.poll_service import create_poll_service, get_poll_with_details, vote_poll_service, get_list_polls, get_poll_results, start_vote_service
+from src.services.poll_service import create_poll, get_poll_with_details, vote_poll_service, get_list_polls, get_poll_results, start_vote_service
 
 
 router = APIRouter(
@@ -38,7 +38,7 @@ async def create_poll(
     Создает опрос от имени аутентифицированного пользователя.
     """
     user_id = current_user.id
-    poll_id = await create_poll_service(db=db, poll_in=poll_in, user_id=user_id)
+    poll_id = await create_poll(db=db, poll_in=poll_in, user_id=user_id)
     external_vote_link = get_frontend_vote_url(poll_id)
 
     return PollCreatedResponse(id=poll_id,

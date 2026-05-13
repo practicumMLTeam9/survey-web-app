@@ -31,7 +31,7 @@ def _resolve_positions(items: List[Any]) -> List[int]:
     return positions
 
 
-async def create_poll_service(db: AsyncSession, poll_in: PollCreate, user_id: int) -> int:
+async def create_poll(db: AsyncSession, poll_in: PollCreate, user_id: int) -> int:
     """
     Создаёт опрос с вопросами и вариантами ответов в одной транзакции.
     Возвращает ID созданного опроса.
@@ -40,8 +40,7 @@ async def create_poll_service(db: AsyncSession, poll_in: PollCreate, user_id: in
     poll = Poll(
         title=poll_in.title,
         description=poll_in.description,
-        created_by_user_id=user_id,
-        status="draft"
+        created_by_user_id=user_id
     )
 
     # 2. Опциональные поля: применяем ТОЛЬКО явно переданные клиентом.
@@ -49,21 +48,28 @@ async def create_poll_service(db: AsyncSession, poll_in: PollCreate, user_id: in
         if hasattr(poll, field_name):
             setattr(poll, field_name, value)
 
+    # Автозаполнение даты публикации, если клиент сразу ставит active
+    if poll.status == "active" and poll.published_at is None:
+        poll.published_at = datetime.now(timezone.utc).replace(tzinfo=None)
+
     db.add(poll)
     await db.flush()  # Фиксируем poll.id для вложенных сущностей
 
     # 3. Вопросы с нормализацией позиций
     q_positions = _resolve_positions(poll_in.questions)
     for q_in, q_pos in zip(poll_in.questions, q_positions):
-        question = Question(
-            poll_id=poll.id,
-            text=q_in.text,
-            type=q_in.type,
-            position=q_pos,
-            is_required=q_in.is_required
-        )
+        q_kwargs = {
+            "poll_id": poll.id,
+            "text": q_in.text,
+            "type": q_in.type,
+            "position": q_pos,
+        }
+        if q_in.is_required is not None:
+            q_kwargs["is_required"] = q_in.is_required
+
+        question = Question(**q_kwargs)
         db.add(question)
-        await db.flush()  # Фиксируем question.id
+        await db.flush()
 
         # 4. Варианты ответов (только для choice-типов)
         if q_in.type in ("single_choice", "multiple_choice") and q_in.options:

@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from src.db.models import Poll, Question, QuestionOption, Submission, Answer
 from src.api_schemas.poll import PollCreate, VoteRequest, AnswerRequest, PollSummary, PollStatusUpdate, OptionResult, \
-    PollResultsResponse, AverageValue
+    PollResultsResponse, AverageValue, QuestionOptionCreate
 from collections import defaultdict
 
 
@@ -58,29 +58,36 @@ async def create_poll(db: AsyncSession, poll_in: PollCreate, user_id: int) -> in
     # 3. Вопросы с нормализацией позиций
     q_positions = _resolve_positions(poll_in.questions)
     for q_in, q_pos in zip(poll_in.questions, q_positions):
-        q_kwargs = {
-            "poll_id": poll.id,
-            "text": q_in.text,
-            "type": q_in.type,
-            "position": q_pos,
-        }
+        question = Question(
+            poll_id=poll.id,
+            text=q_in.text,
+            type=q_in.type,
+            position=q_pos
+        )
+        # is_required: только если клиент явно передал, иначе БД применит DEFAULT false()
         if q_in.is_required is not None:
-            q_kwargs["is_required"] = q_in.is_required
+            question.is_required = q_in.is_required
 
-        question = Question(**q_kwargs)
         db.add(question)
         await db.flush()
 
-        # 4. Варианты ответов (только для choice-типов)
-        if q_in.type in ("single_choice", "multiple_choice") and q_in.options:
-            o_positions = _resolve_positions(q_in.options)
-            for o_in, o_pos in zip(q_in.options, o_positions):
-                option = QuestionOption(
-                    question_id=question.id,
-                    text=o_in.text,
-                    position=o_pos
-                )
-                db.add(option)
+        # 4. Обработка вариантов (single_choice, multiple_choice, scale)
+        types_with_options = ("single_choice", "multiple_choice", "scale")
+        if q_in.type in types_with_options:
+            options = list(q_in.options or [])
+
+            # Автогенерация шкалы 1..5, если фронт не передал варианты
+            if not options and q_in.type == "scale":
+                options = [QuestionOptionCreate(text=str(i)) for i in range(1, 6)]
+
+            if options:
+                o_positions = _resolve_positions(options)
+                for o_in, o_pos in zip(options, o_positions):
+                    db.add(QuestionOption(
+                        question_id=question.id,
+                        text=o_in.text,
+                        position=o_pos
+                    ))
 
     try:
         await db.commit()

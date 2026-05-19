@@ -7,6 +7,7 @@ import { getPollResults } from "../services/results"
 import CreatePoll from "./CreatePoll"
 import Settings from "./Settings"
 import Subscription from "./Subscription"
+import Results from "./Results"
 
 export default function Dashboard() {
     const [page, setPage] = useState("dashboard")
@@ -537,153 +538,15 @@ export default function Dashboard() {
                 {page === "subscription" && <Subscription />}
                 {page === "settings" && <Settings />}
                 {page === "results" && (
-                    <div className="page active">
-
-                        <div className="topbar">
-
-                            <div className="topbar-title">
-                                Результаты
-
-                                {
-                                    selectedPoll &&
-                                    ` — ${selectedPoll.title}`
-                                }
-                            </div>
-
-                        </div>
-
-                        <div style={{ padding: "28px" }}>
-                            <div className="filter-bar">
-                                <select
-                                    className="filter-select"
-                                    value={selectedPoll?.id || ""}
-                                    onChange={(e) => {
-                                        const poll = surveys.find(
-                                            p => String(p.id) === e.target.value
-                                        )
-
-                                        if (poll) {
-                                            openResults(poll)
-                                        }
-                                    }}
-                                >
-                                    <option value="">Выберите опрос</option>
-
-                                    {surveys.map((poll) => (
-                                        <option key={poll.id} value={poll.id}>
-                                            {poll.title}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="stats-grid">
-
-                                <div className="stat-card">
-                                    <div className="stat-label">
-                                        Всего ответов
-                                    </div>
-
-                                    <div className="stat-value">
-                                        {selectedResults?.total_responses || 0}
-                                    </div>
-                                </div>
-
-                                <div className="stat-card">
-                                    <div className="stat-label">
-                                        Процент завершения
-                                    </div>
-
-                                    <div className="stat-value">
-                                        —
-                                    </div>
-                                </div>
-
-                                <div className="stat-card">
-                                    <div className="stat-label">
-                                        Среднее время
-                                    </div>
-
-                                    <div className="stat-value">
-                                        —
-                                    </div>
-                                </div>
-
-                            </div>
-
-                            <div
-                                className="survey-table"
-                                style={{
-                                    marginTop: "24px"
-                                }}
-                            >
-
-                                {
-
-                                    !selectedResults ? (
-
-                                        <div className="empty-state">
-
-                                            <div className="empty-icon">
-                                                📊
-                                            </div>
-
-                                            <div className="empty-title">
-                                                Пока нет результатов
-                                            </div>
-
-                                            <div className="empty-text">
-                                                Когда пользователи начнут отвечать —
-                                                здесь появится аналитика
-                                            </div>
-
-                                            <button
-                                                className="btn btn-primary"
-                                                onClick={() =>
-                                                    setPage("surveys")
-                                                }
-                                            >
-
-                                                К списку опросов
-
-                                            </button>
-
-                                        </div>
-
-                                    ) : (
-
-                                        <div
-                                            style={{
-                                                padding: "24px"
-                                            }}
-                                        >
-
-                                            <pre
-                                                style={{
-                                                    whiteSpace: "pre-wrap"
-                                                }}
-                                            >
-
-                                                {
-                                                    JSON.stringify(
-                                                        selectedResults,
-                                                        null,
-                                                        2
-                                                    )
-                                                }
-
-                                            </pre>
-
-                                        </div>
-
-                                    )
-
-                                }
-
-                            </div>
-
-                        </div>
-
-                    </div>
+                    <Results
+                        surveys={surveys}
+                        selectedPoll={selectedPoll}
+                        selectedResults={selectedResults}
+                        openResults={openResults}
+                        getStatusText={getStatusText}
+                        formatDate={formatDate}
+                        setPage={setPage}
+                    />
                 )}
             </main>
         </>

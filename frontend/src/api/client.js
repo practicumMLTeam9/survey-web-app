@@ -21,7 +21,13 @@ export async function apiRequest(path, options = {}) {
     const data = await response.json().catch(() => null)
 
     if (!response.ok) {
-        throw new Error(data?.detail || "Ошибка запроса")
+        console.log("API ERROR:", data)
+
+        const message = Array.isArray(data?.detail)
+            ? data.detail.map((e) => `${e.loc?.join(".")}: ${e.msg}`).join("\n")
+            : data?.detail || "Ошибка запроса"
+
+        throw new Error(message)
     }
 
     return data

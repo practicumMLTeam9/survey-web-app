@@ -14,30 +14,7 @@ export default function CreatePoll() {
     const [pollType, setPollType] = useState("corporate")
     const [language, setLanguage] = useState("ru")
 
-    const [questions, setQuestions] = useState([
-        {
-            id: 1,
-            text: "Как вы оцениваете своё общее удовлетворение от работы?",
-            type: "single",
-            typeLabel: "Один вариант",
-            options: [
-                "Вариант 1",
-                "Вариант 2"
-            ]
-        },
-        {
-            id: 2,
-            text: "Что вам больше всего нравится в вашей работе?",
-            type: "multiple",
-            typeLabel: "Несколько",
-        },
-        {
-            id: 3,
-            text: "Что можно улучшить в компании?",
-            type: "text",
-            typeLabel: "Текст",
-        },
-    ])
+    const [questions, setQuestions] = useState([])
 
     const [activeQuestionId, setActiveQuestionId] = useState(1)
 
@@ -48,9 +25,11 @@ export default function CreatePoll() {
             ...questions,
             {
                 id: newId,
-                text: "Новый вопрос",
+                text: "",
                 type: "single",
                 typeLabel: "Один вариант",
+                options: ["", ""],
+                allowOwnAnswer: false,
             },
         ])
 
@@ -98,7 +77,7 @@ export default function CreatePoll() {
                         typeLabel,
                         options:
                             type === "single" || type === "multiple"
-                                ? (q.options?.length ? q.options : ["Вариант 1"])
+                                ? (q.options?.length >= 2 ? q.options : ["", ""])
                                 : [],
                         allowOwnAnswer: q.allowOwnAnswer || false,
                     }
@@ -130,7 +109,7 @@ export default function CreatePoll() {
                         ...q,
                         options: [
                             ...(q.options || []),
-                            `Вариант ${(q.options || []).length + 1}`
+                            ""
                         ]
                     }
                     : q
@@ -152,37 +131,63 @@ export default function CreatePoll() {
     }
 
     const handlePublish = async () => {
+        const invalidQuestion = questions.find(q => !q.text.trim())
+
+        if (invalidQuestion) {
+            alert("Заполните текст всех вопросов")
+            return
+        }
+        const invalidOptions = questions.find(q =>
+            (q.type === "single" || q.type === "multiple") &&
+            (q.options.filter(o => o.trim()).length < 2)
+        )
+
+        if (invalidOptions) {
+            alert("Для вопросов с вариантами нужно минимум 2 варианта ответа")
+            return
+        }
+        if (!pollTitle.trim()) {
+            alert("Введите название опроса")
+            return
+        }
+
+        if (!questions.length) {
+            alert("Добавьте хотя бы один вопрос")
+            return
+        }
+
         const payload = {
             title: pollTitle,
             description: pollDescription,
-            status: "active",
-            expires_at: null,
+            status: "draft",
+            poll_type: pollType,
+            language: language,
             is_anonymous: true,
             one_response_only: true,
-            poll_type: "corporate",
-            language: "ru",
             max_participants: unlimited ? null : Number(participants),
             show_progress: showProgress,
-            notify_on_response: false,
-            generated_by_ai: createMode === "ai",
-            ai_generation_prompt: "",
-            target_participants: 0,
-            questions: questions.map((q, index) => ({
-                text: q.text,
-                type:
-                    q.type === "single" ? "single_choice" :
-                        q.type === "multiple" ? "multiple_choice" :
-                            q.type,
-                is_required: true,
-                position: index + 1,
-                options:
-                    q.type === "single" || q.type === "multiple"
-                        ? q.options.map((option, optionIndex) => ({
+            questions: questions.map((q, index) => {
+                const questionPayload = {
+                    text: q.text,
+                    type:
+                        q.type === "single" ? "single_choice" :
+                            q.type === "multiple" ? "multiple_choice" :
+                                q.type,
+                    is_required: true,
+                    position: index + 1,
+                }
+
+                if (q.type === "single" || q.type === "multiple") {
+                    questionPayload.options = (q.options || [])
+                        .filter(option => option.trim())
+                        .map((option, optionIndex) => ({
                             text: option,
                             position: optionIndex + 1,
                         }))
-                        : [],
-            })),
+                }
+
+                return questionPayload
+            }),
         }
 
         try {
@@ -347,18 +352,26 @@ export default function CreatePoll() {
                                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                                     <div className="form-group" style={{ marginBottom: 0 }}>
                                         <label className="form-label">Тип опроса</label>
-                                        <select className="form-select">
-                                            <option>Корпоративный</option>
-                                            <option>Клиентский</option>
-                                            <option>Публичный</option>
+                                        <select
+                                            className="form-select"
+                                            value={pollType}
+                                            onChange={(e) => setPollType(e.target.value)}
+                                        >
+                                            <option value="corporate">Корпоративный</option>
+                                            <option value="client">Клиентский</option>
+                                            <option value="public">Публичный</option>
                                         </select>
                                     </div>
 
                                     <div className="form-group" style={{ marginBottom: 0 }}>
                                         <label className="form-label">Язык</label>
-                                        <select className="form-select">
-                                            <option>Русский</option>
-                                            <option>English</option>
+                                        <select
+                                            className="form-select"
+                                            value={language}
+                                            onChange={(e) => setLanguage(e.target.value)}
+                                        >
+                                            <option value="ru">Русский</option>
+                                            <option value="en">English</option>
                                         </select>
                                     </div>
                                 </div>
@@ -544,10 +557,6 @@ export default function CreatePoll() {
                                 <div className="add-question-bar" onClick={addQuestion}>
                                     <span className="aq-label">Добавить вопрос</span>
                                 </div>
-
-                                <div className="add-question-bar">
-                                    <span className="aq-label">Добавить вопрос</span>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -613,56 +622,6 @@ export default function CreatePoll() {
                                 />
                             </div>
 
-                        </div>
-                    </div>
-                </div>
-
-                <div className="section-header" style={{ marginTop: "28px", marginBottom: "16px" }}>
-                    <div className="section-title">Предпросмотр опроса</div>
-                    <span style={{ fontSize: "13px", color: "var(--gray-400)" }}>
-                        Так видят опрос участники
-                    </span>
-                </div>
-
-                <div style={{ background: "var(--gray-100)", borderRadius: "var(--radius)", padding: "28px" }}>
-                    <div className="survey-shell">
-                        <div className="survey-hero">
-                            <div className="survey-company">TechCorp · Корпоративный опрос</div>
-                            <div className="survey-title-big">Оценка удовлетворённости сотрудников Q2</div>
-                            <div className="survey-desc">
-                                Помогите нам стать лучше — пройдите короткий опрос о вашем опыте работы. Это займёт около 3 минут.
-                            </div>
-                        </div>
-
-                        <div className="survey-progress-wrap">
-                            <div className="survey-progress-label">
-                                <span>Вопрос 2 из 5</span>
-                                <span>40%</span>
-                            </div>
-                            <div className="progress-bar">
-                                <div className="progress-fill" style={{ width: "40%" }}></div>
-                            </div>
-                        </div>
-
-                        <div className="survey-body">
-                            <div className="sq-block">
-                                <div className="sq-label">
-                                    Что вам больше всего нравится в вашей работе?<span className="sq-required">*</span>
-                                </div>
-
-                                <div className="sq-hint">Можно выбрать несколько вариантов</div>
-
-                                <div className="check-option">Интересные задачи</div>
-                                <div className="check-option selected">Команда и коллеги</div>
-                                <div className="check-option">Гибкий график</div>
-                                <div className="check-option selected">Возможности роста</div>
-                            </div>
-
-                            <div className="survey-footer">
-                                <button className="btn btn-secondary">← Назад</button>
-                                <div style={{ fontSize: "12px", color: "var(--gray-400)" }}>Вопрос 2 из 5</div>
-                                <button className="btn btn-primary">Далее →</button>
-                            </div>
                         </div>
                     </div>
                 </div>

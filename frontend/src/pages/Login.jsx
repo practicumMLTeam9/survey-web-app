@@ -167,7 +167,7 @@ export default function Login() {
                     </div>
 
                     {error && <div style={{ color: "red", marginBottom: 12 }}>{error}</div>}
-                    
+
                     <form
                         className={`auth-form ${tab === "login" ? "active" : ""}`}
                         onSubmit={handleLoginSubmit}

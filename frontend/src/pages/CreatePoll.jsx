@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { createPoll } from "../api/polls"
 
 export default function CreatePoll() {
     const [createMode, setCreateMode] = useState("ai")
@@ -7,6 +8,11 @@ export default function CreatePoll() {
     const [unlimited, setUnlimited] = useState(false)
 
     const [showProgress, setShowProgress] = useState(true)
+
+    const [pollTitle, setPollTitle] = useState("")
+    const [pollDescription, setPollDescription] = useState("")
+    const [pollType, setPollType] = useState("corporate")
+    const [language, setLanguage] = useState("ru")
 
     const [questions, setQuestions] = useState([
         {
@@ -144,6 +150,48 @@ export default function CreatePoll() {
             )
         )
     }
+
+    const handlePublish = async () => {
+        const payload = {
+            title: pollTitle,
+            description: pollDescription,
+            status: "active",
+            expires_at: null,
+            is_anonymous: true,
+            one_response_only: true,
+            poll_type: "corporate",
+            language: "ru",
+            max_participants: unlimited ? null : Number(participants),
+            show_progress: showProgress,
+            notify_on_response: false,
+            generated_by_ai: createMode === "ai",
+            ai_generation_prompt: "",
+            target_participants: 0,
+            questions: questions.map((q, index) => ({
+                text: q.text,
+                type:
+                    q.type === "single" ? "single_choice" :
+                        q.type === "multiple" ? "multiple_choice" :
+                            q.type,
+                is_required: true,
+                position: index + 1,
+                options:
+                    q.type === "single" || q.type === "multiple"
+                        ? q.options.map((option, optionIndex) => ({
+                            text: option,
+                            position: optionIndex + 1,
+                        }))
+                        : [],
+            })),
+        }
+
+        try {
+            await createPoll(payload)
+            alert("Опрос создан")
+        } catch (err) {
+            alert(err.message)
+        }
+    }
     return (
         <div className="page active">
             <div className="topbar">
@@ -152,7 +200,10 @@ export default function CreatePoll() {
                 <div className="topbar-actions">
                     <button className="btn btn-secondary">Сохранить черновик</button>
 
-                    <button className="btn btn-primary">
+                    <button
+                        className="btn btn-primary"
+                        onClick={handlePublish}
+                    >
                         <svg viewBox="0 0 20 20" fill="currentColor">
                             <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />
                         </svg>
@@ -275,12 +326,22 @@ export default function CreatePoll() {
                             <div className="card-body">
                                 <div className="form-group">
                                     <label className="form-label">Название опроса</label>
-                                    <input className="form-input" placeholder="Оценка удовлетворённости сотрудников Q2" />
+                                    <input
+                                        className="form-input"
+                                        value={pollTitle}
+                                        onChange={(e) => setPollTitle(e.target.value)}
+                                        placeholder="Оценка удовлетворённости сотрудников Q2"
+                                    />
                                 </div>
 
                                 <div className="form-group">
                                     <label className="form-label">Описание <span>(необязательно)</span></label>
-                                    <textarea className="form-textarea" placeholder="Помогите нам стать лучше — пройдите короткий опрос о вашем опыте работы. Это займёт около 3 минут." />
+                                    <textarea
+                                        className="form-textarea"
+                                        value={pollDescription}
+                                        onChange={(e) => setPollDescription(e.target.value)}
+                                        placeholder="Помогите нам стать лучше — пройдите короткий опрос о вашем опыте работы. Это займёт около 3 минут."
+                                    />
                                 </div>
 
                                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
@@ -516,19 +577,27 @@ export default function CreatePoll() {
 
                                 </div>
 
-                                <label className="unlimited-check">
+                                <div className="setting-toggle-row">
 
-                                    <input
-                                        type="checkbox"
-                                        checked={unlimited}
-                                        onChange={() =>
+                                    <div>
+                                        <div className="settings-label">
+                                            Без ограничений
+                                        </div>
+
+                                        <div className="settings-hint">
+                                            Отключить лимит участников
+                                        </div>
+
+                                    </div>
+
+                                    <div
+                                        className={`toggle ${unlimited ? "on" : ""}`}
+                                        onClick={() =>
                                             setUnlimited(!unlimited)
                                         }
                                     />
 
-                                    Без ограничений
-
-                                </label>
+                                </div>
                             </div>
 
                             <div className="setting-toggle-row">

@@ -1,4 +1,8 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
+
+import { getMe, logoutUser } from "../api/auth"
+import { getMyPolls } from "../api/polls"
 import CreatePoll from "./CreatePoll"
 import Settings from "./Settings"
 import Subscription from "./Subscription"
@@ -7,24 +11,56 @@ export default function Dashboard() {
     const [page, setPage] = useState("dashboard")
     const [surveyTab, setSurveyTab] = useState("all")
 
-    const surveys = [
-        ["Оценка удовлетворённости сотрудников Q2", "Корпоративный · 8 вопросов", "Корпоративный", "active", "Активен", "214 / 280", "76%", "10 апр 2026"],
-        ["NPS — Апрель 2026", "Клиентский · 3 вопроса", "Клиентский", "active", "Активен", "891 / —", "100%", "1 апр 2026"],
-        ["Пульс-опрос: Удалённая работа", "Корпоративный · 5 вопросов", "Корпоративный", "scheduled", "Запланирован", "0 / 150", "0%", "18 апр 2026"],
-        ["Оценка онбординга — Q1 2026", "Корпоративный · 12 вопросов", "Корпоративный", "closed", "Завершён", "47 / 47", "100%", "1 мар 2026"],
-        ["Опрос о корпоративе 2025", "Корпоративный · 4 вопроса", "Корпоративный", "closed", "Завершён", "132 / 132", "100%", "1 дек 2025"],
-        ["Пульс-опрос — Январь 2026", "Корпоративный · 6 вопросов", "Корпоративный", "closed", "Завершён", "88 / 112", "79%", "5 янв 2026"],
-        ["CSAT после поддержки", "Клиентский · 2 вопроса", "Клиентский", "active", "Активен", "1203 / —", "100%", "15 апр 2026"],
-        ["Черновик: Опрос о льготах", "Корпоративный · 7 вопросов", "Корпоративный", "draft", "Черновик", "0 / —", "0%", "20 апр 2026"],
-    ]
+    const navigate = useNavigate()
+
+    const [user, setUser] = useState(null)
+    const [surveys, setSurveys] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState("")
+
+    useEffect(() => {
+        async function loadData() {
+            try {
+                const me = await getMe()
+                const polls = await getMyPolls()
+
+                setUser(me)
+                setSurveys(polls)
+            } catch (err) {
+                setError(err.message)
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        loadData()
+    }, [])
 
     const filteredSurveys = surveys.filter((poll) => {
         if (surveyTab === "all") return true
-        if (surveyTab === "active") return poll[3] === "active"
-        if (surveyTab === "draft") return poll[3] === "draft"
-        if (surveyTab === "closed") return poll[3] === "closed"
+        if (surveyTab === "active") return poll.status === "active"
+        if (surveyTab === "draft") return poll.status === "draft"
+        if (surveyTab === "closed") return poll.status === "closed"
         return true
     })
+
+    const totalPolls = surveys.length
+    const activePolls = surveys.filter(p => p.status === "active").length
+    const draftPolls = surveys.filter(p => p.status === "draft").length
+    const closedPolls = surveys.filter(p => p.status === "closed").length
+    const totalVotes = surveys.reduce((sum, p) => sum + (p.total_votes || 0), 0)
+
+    const getStatusText = (status) => {
+        if (status === "active") return "Активен"
+        if (status === "draft") return "Черновик"
+        if (status === "closed") return "Завершён"
+        return status
+    }
+
+    const formatDate = (date) => {
+        if (!date) return "—"
+        return new Date(date).toLocaleDateString("ru-RU")
+    }
 
     return (
         <>
@@ -61,7 +97,7 @@ export default function Dashboard() {
                                 <path fillRule="evenodd" d="M3 5a1 1 0 000 2h14a1 1 0 100-2H3zm0 4a1 1 0 000 2h14a1 1 0 100-2H3zm0 4a1 1 0 000 2h8a1 1 0 100-2H3z" clipRule="evenodd" />
                             </svg>
                             Опросы
-                            <span className="nav-badge">4</span>
+                            <span className="nav-badge">{totalPolls}</span>
                         </div>
 
                         <div
@@ -110,14 +146,28 @@ export default function Dashboard() {
 
                 <div className="sidebar-bottom">
                     <div className="user-card">
-                        <div className="avatar">АК</div>
+                        <div className="avatar">
+                            {(user?.first_name?.[0] || user?.email?.[0] || "?").toUpperCase()}
+                        </div>
                         <div className="user-info">
-                            <div className="user-name">Алексей Козлов</div>
-                            <div className="user-role">Администратор</div>
+                            <div className="user-name">
+                                {user?.first_name || user?.email || "Пользователь"}
+                            </div>
+
+                            <div className="user-role">
+                                {user?.role || "Пользователь"}
+                            </div>
                         </div>
                     </div>
 
-                    <div className="nav-item" style={{ marginTop: "8px" }}>
+                    <div
+                        className="nav-item"
+                        style={{ marginTop: "8px" }}
+                        onClick={() => {
+                            logoutUser()
+                            navigate("/login")
+                        }}
+                    >
                         <svg viewBox="0 0 20 20" fill="currentColor">
                             <path
                                 fillRule="evenodd"
@@ -136,7 +186,10 @@ export default function Dashboard() {
                         <div className="topbar">
                             <div className="topbar-title">Дашборд</div>
                             <div className="topbar-actions">
-                                <button className="btn btn-primary">
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={() => setPage("create")}
+                                >
                                     <svg viewBox="0 0 20 20" fill="currentColor">
                                         <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
                                     </svg>
@@ -154,8 +207,8 @@ export default function Dashboard() {
                                         </svg>
                                     </div>
                                     <div className="stat-label">Всего опросов</div>
-                                    <div className="stat-value">12</div>
-                                    <div className="stat-delta up">↑ 3 за месяц</div>
+                                    <div className="stat-value">{totalPolls}</div>
+                                    <div className="stat-delta">из данных API</div>
                                 </div>
 
                                 <div className="stat-card">
@@ -165,8 +218,8 @@ export default function Dashboard() {
                                         </svg>
                                     </div>
                                     <div className="stat-label">Ответов получено</div>
-                                    <div className="stat-value">1 842</div>
-                                    <div className="stat-delta up">↑ 12% к прошлому мес.</div>
+                                    <div className="stat-value">{totalVotes}</div>
+                                    <div className="stat-delta">из данных API</div>
                                 </div>
 
                                 <div className="stat-card">
@@ -176,8 +229,8 @@ export default function Dashboard() {
                                         </svg>
                                     </div>
                                     <div className="stat-label">Активных опросов</div>
-                                    <div className="stat-value">3</div>
-                                    <div className="stat-delta">из 12 всего</div>
+                                    <div className="stat-value">{activePolls}</div>
+                                    <div className="stat-delta">из данных API</div>
                                 </div>
 
                                 <div className="stat-card">
@@ -187,8 +240,8 @@ export default function Dashboard() {
                                         </svg>
                                     </div>
                                     <div className="stat-label">Средний отклик</div>
-                                    <div className="stat-value">68%</div>
-                                    <div className="stat-delta up">↑ 5% к прошлому мес.</div>
+                                    <div className="stat-value">—</div>
+                                    <div className="stat-delta">нет в списке API</div>
                                 </div>
                             </div>
 
@@ -216,38 +269,30 @@ export default function Dashboard() {
                                     </thead>
 
                                     <tbody>
-                                        {[
-                                            ["Оценка удовлетворённости сотрудников Q2", "Корпоративный · 8 вопросов", "Активен", "active", "214 / 280", "76%", "30 апр 2026"],
-                                            ["NPS — Апрель 2026", "Клиентский · 3 вопроса", "Активен", "active", "891 / —", "100%", "1 мая 2026"],
-                                            ["Пульс-опрос: Удалённая работа", "Корпоративный · 5 вопросов", "Запланирован", "scheduled", "0 / 150", "0%", "15 мая 2026"],
-                                            ["Оценка онбординга — Q1 2026", "Корпоративный · 12 вопросов", "Завершён", "closed", "47 / 47", "100%", "31 мар 2026"],
-                                        ].map((poll) => (
-                                            <tr key={poll[0]}>
+                                        {surveys.slice(0, 4).map((poll) => (
+                                            <tr key={poll.id}>
                                                 <td>
-                                                    <div className="survey-name">{poll[0]}</div>
-                                                    <div className="survey-meta">{poll[1]}</div>
+                                                    <div className="survey-name">{poll.title}</div>
+                                                    <div className="survey-meta">Опрос</div>
                                                 </td>
+
                                                 <td>
-                                                    <span className={`status-badge ${poll[3]}`}>{poll[2]}</span>
+                                                    <span className={`status-badge ${poll.status}`}>
+                                                        {getStatusText(poll.status)}
+                                                    </span>
                                                 </td>
-                                                <td>{poll[4]}</td>
-                                                <td>
-                                                    <div className="progress-bar" style={{ width: "120px" }}>
-                                                        <div
-                                                            className="progress-fill"
-                                                            style={{
-                                                                width: poll[5],
-                                                                background: poll[0].includes("NPS") ? "var(--success)" : "var(--brand)",
-                                                            }}
-                                                        ></div>
-                                                    </div>
+
+                                                <td>{poll.total_votes || 0}</td>
+
+                                                <td>—</td>
+
+                                                <td style={{ color: "var(--gray-500)" }}>
+                                                    {formatDate(poll.expires_at)}
                                                 </td>
-                                                <td style={{ color: "var(--gray-500)" }}>{poll[6]}</td>
+
                                                 <td>
                                                     <div className="table-actions">
-                                                        <button className="btn btn-secondary btn-sm">
-                                                            {poll[3] === "scheduled" ? "Редактировать" : "Результаты"}
-                                                        </button>
+                                                        <button className="btn btn-secondary btn-sm">Результаты</button>
                                                         <button className="btn btn-ghost btn-sm">⋯</button>
                                                     </div>
                                                 </td>
@@ -265,7 +310,10 @@ export default function Dashboard() {
                         <div className="topbar">
                             <div className="topbar-title">Все опросы</div>
                             <div className="topbar-actions">
-                                <button className="btn btn-primary">
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={() => setPage("create")}
+                                >
                                     <svg viewBox="0 0 20 20" fill="currentColor">
                                         <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
                                     </svg>
@@ -277,19 +325,19 @@ export default function Dashboard() {
                         <div style={{ padding: "28px" }}>
                             <div className="tabs">
                                 <div onClick={() => setSurveyTab("all")} className={`tab ${surveyTab === "all" ? "active" : ""}`}>
-                                    Все (12)
+                                    Все ({totalPolls})
                                 </div>
 
                                 <div onClick={() => setSurveyTab("active")} className={`tab ${surveyTab === "active" ? "active" : ""}`}>
-                                    Активные (3)
+                                    Активные ({activePolls})
                                 </div>
 
                                 <div onClick={() => setSurveyTab("draft")} className={`tab ${surveyTab === "draft" ? "active" : ""}`}>
-                                    Черновики (2)
+                                    Черновики ({draftPolls})
                                 </div>
 
                                 <div onClick={() => setSurveyTab("closed")} className={`tab ${surveyTab === "closed" ? "active" : ""}`}>
-                                    Завершённые (7)
+                                    Завершённые ({closedPolls})
                                 </div>
                             </div>
 
@@ -330,43 +378,24 @@ export default function Dashboard() {
 
                                     <tbody>
                                         {filteredSurveys.map((poll) => (
-                                            <tr key={poll[0]}>
+                                            <tr key={poll.id}>
                                                 <td>
-                                                    <div className="survey-name">{poll[0]}</div>
-                                                    <div className="survey-meta">{poll[1]}</div>
+                                                    <div className="survey-name">{poll.title}</div>
+                                                    <div className="survey-meta">Опрос</div>
                                                 </td>
-
                                                 <td>
-                                                    <span className="chip">{poll[2]}</span>
+                                                    <span className={`status-badge ${poll.status}`}>
+                                                        {getStatusText(poll.status)}
+                                                    </span>
                                                 </td>
-
+                                                <td>{poll.total_votes || 0}</td>
+                                                <td>—</td>
+                                                <td style={{ color: "var(--gray-500)" }}>
+                                                    {formatDate(poll.expires_at)}
+                                                </td>
                                                 <td>
-                                                    <span className={`status-badge ${poll[3]}`}>{poll[4]}</span>
+                                                    <span className="chip">—</span>
                                                 </td>
-
-                                                <td>{poll[5]}</td>
-
-                                                <td>
-                                                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                                        <div className="progress-bar" style={{ width: "90px" }}>
-                                                            <div
-                                                                className="progress-fill"
-                                                                style={{
-                                                                    width: poll[6],
-                                                                    background: poll[0].includes("NPS") || poll[0].includes("CSAT")
-                                                                        ? "var(--success)"
-                                                                        : "var(--brand)",
-                                                                }}
-                                                            />
-                                                        </div>
-                                                        <span style={{ fontSize: "12px", color: "var(--gray-500)" }}>
-                                                            {poll[6]}
-                                                        </span>
-                                                    </div>
-                                                </td>
-
-                                                <td style={{ color: "var(--gray-500)" }}>{poll[7]}</td>
-
                                                 <td>
                                                     <div className="table-actions">
                                                         <button className="btn btn-secondary btn-sm">Результаты</button>

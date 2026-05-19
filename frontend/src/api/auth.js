@@ -1,37 +1,23 @@
-const API_URL = "http://127.0.0.1:8000"
+import { apiRequest } from "./client"
 
-export async function loginUser(data) {
-  const response = await fetch(`${API_URL}/api/v1/auth/login`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
-  })
-
-  const result = await response.json()
-
-  if (!response.ok) {
-    throw new Error(result.detail || "Ошибка входа")
-  }
-
-  return result
+export function loginUser(data) {
+    return apiRequest("/api/v1/auth/login?use_cookie=false", {
+        method: "POST",
+        body: JSON.stringify(data),
+    })
 }
 
-export async function registerUser(data) {
-  const response = await fetch(`${API_URL}/api/v1/auth/register`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
-  })
+export function registerUser(data) {
+    return apiRequest("/api/v1/auth/register", {
+        method: "POST",
+        body: JSON.stringify(data),
+    })
+}
 
-  const result = await response.json()
+export function getMe() {
+    return apiRequest("/api/v1/auth/me?use_cookie=false&token_type=access")
+}
 
-  if (!response.ok) {
-    throw new Error(result.detail || "Ошибка регистрации")
-  }
-
-  return result
+export function logoutUser() {
+    localStorage.clear()
 }

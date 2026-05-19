@@ -1,16 +1,16 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Request, Response, status, HTTPException, Body, Path
-from src.utils.external_urls import get_external_vote_url, get_frontend_vote_url
 from sqlalchemy.ext.asyncio import AsyncSession
 
-
-from src.db.models import User
-from src.db.async_session import get_db as get_assync_db
-from typing import Annotated
-from src.security.security import get_current_user, get_respondent_token, security_scheme
 from src.api_schemas.poll import PollCreate, PollCreatedResponse, PollSummary, PollDetailResponse, PollResultsResponse, \
-    OptionResult, VoteResponse, VoteRequest, PollStatusUpdate
-from src.services.poll_service import create_poll_service, get_poll_with_details, vote_poll_service, get_list_polls, get_poll_results, start_vote_service
-
+    VoteResponse, VoteRequest, PollStatusUpdate
+from src.db.async_session import get_db as get_assync_db
+from src.db.models import User
+from src.security.security import get_current_user, get_respondent_token, security_scheme
+from src.services.poll_service import create_poll_service, get_poll_with_details, vote_poll_service, get_list_polls, \
+    get_poll_results, start_vote_service
+from src.utils.external_urls import get_frontend_vote_url
 
 router = APIRouter(
     prefix="/api/v1/polls",

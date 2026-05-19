@@ -31,7 +31,7 @@ def _resolve_positions(items: List[Any]) -> List[int]:
     return positions
 
 
-async def create_poll(db: AsyncSession, poll_in: PollCreate, user_id: int) -> int:
+async def create_poll_service(db: AsyncSession, poll_in: PollCreate, user_id: int) -> int:
     """
     Создаёт опрос с вопросами и вариантами ответов в одной транзакции.
     Возвращает ID созданного опроса.
@@ -254,7 +254,7 @@ async def vote_poll_service(poll_id: int,
         if question.type in ("single_choice", "scale") and len(answers) > 1:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"На вопрос '{question.position}.{question.text}' (single_choice) передано {len(answers)} ответа. Допустим только один."
+                detail=f"На вопрос '{question.position}.{question.text}' (single_choice/scale) передано {len(answers)} ответа. Допустим только один."
             )
         # Проверка для multiple_choice: не более одного голоса за один из вариантов ответа
         if question.type == "multiple_choice":
@@ -431,14 +431,22 @@ async def get_poll_results(poll_id: int,
     if total_votes is None:
         total_votes = 0
     """Подсчёт голосов по вариантам ответа"""
-    votes_query = (
+    votes_opt_query = (
         select(QuestionOption.question_id, QuestionOption.text, QuestionOption.position, func.count(Answer.id))
-        .join(Answer, QuestionOption.id == Answer.option_id)
+        .outerjoin(Answer, QuestionOption.id == Answer.option_id)
         .join(Question, QuestionOption.question_id == Question.id)
         .where(Question.poll_id == poll_id)
         .group_by(QuestionOption.id, QuestionOption.question_id, QuestionOption.text, QuestionOption.position)
     )
-    votes_results = await db.execute(votes_query)
+    votes_opt_results = await db.execute(votes_opt_query)   # число ответов по вариантам
+    votes_q_query = (
+        select(Question.id, func.count(func.distinct((Submission.id))).label("q_count"))
+        .outerjoin(Answer, Question.id == Answer.question_id)
+        .join(Submission, Answer.submission_id == Submission.id)
+        .where(Question.poll_id == poll_id)
+        .group_by(Question.id)
+    )   
+    votes_q_results = await db.execute(votes_q_query)   # число ответов по вопросу
     """Подсчёт среднего времени прохождения опроса"""
     avg_time_query = select(
         func.avg(Submission.completed_at - Submission.started_at)
@@ -467,18 +475,20 @@ async def get_poll_results(poll_id: int,
     questions_map = {q.id: (q.position, q.text, q.type) for q in questions_result.all()}
     """Сохранение числа ответов по вариантам"""
     votes_data = [(question_id, option_text, option_pos, count) for question_id, option_text, option_pos, count in
-                  votes_results.all()]
+                  votes_opt_results.all()]
     options_list = [option_text for question_id, option_text, option_pos, count in votes_data]
+    votes_q_data = {q.id: q.q_count for q in votes_q_results.all()}
     results_list = []
     for question_id, option_text, option_pos, count in votes_data:  # Сохраняем результаты по вариантам
         question_pos, question_text, _ = questions_map[question_id]
+        q_count = votes_q_data[question_id]
         option_result = OptionResult(
             question=question_text,
             question_position=question_pos,
             option_position=option_pos,
             option=option_text,
             votes=count,
-            percentage=round(count / total_votes * 100, 2) if total_votes > 0 else 0.0
+            percentage=round(count / q_count * 100, 2) if q_count > 0 else 0.0
         )
         results_list.append(option_result)
     """Подсчёт среднего значения для опросов с типом scale"""

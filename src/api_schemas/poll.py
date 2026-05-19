@@ -121,7 +121,7 @@ class AverageValue(BaseModel):
     question: str = Field(..., description="Текст вопроса")
     question_position: int = Field(..., description="Позиция вопроса")
     option: str = Field(default="Средний рейтинг", description="Текст метрики")
-    avg_value: int = Field(..., description="Среднее значение")
+    avg_value: float = Field(..., description="Среднее значение")
 
 
 class PollResponse(BaseModel):

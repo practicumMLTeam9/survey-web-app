@@ -16,9 +16,8 @@ export default function Dashboard() {
 
     const [user, setUser] = useState(null)
     const [surveys, setSurveys] = useState([])
-    const [selectedResults,
-        setSelectedResults] =
-        useState(null)
+    const [selectedResults, setSelectedResults] = useState(null)
+    const [selectedPoll, setSelectedPoll] = useState(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState("")
 
@@ -82,6 +81,19 @@ export default function Dashboard() {
         )
     }
 
+    const openResults = async (poll) => {
+        setSelectedPoll(poll)
+
+        try {
+            const data = await getPollResults(poll.id)
+            setSelectedResults(data)
+        } catch {
+            setSelectedResults(null)
+        }
+
+        setPage("results")
+    }
+
     return (
         <>
             <aside className="sidebar">
@@ -130,7 +142,20 @@ export default function Dashboard() {
                             Создать опрос
                         </div>
 
-                        <div className="nav-item">
+                        <div
+                            onClick={async () => {
+
+                                if (surveys.length) {
+                                    await openResults(surveys[0])
+                                } else {
+                                    setSelectedPoll(null)
+                                    setSelectedResults(null)
+                                    setPage("results")
+                                }
+
+                            }}
+                            className={`nav-item ${page === "results" ? "active" : ""}`}
+                        >
                             <svg viewBox="0 0 20 20" fill="currentColor">
                                 <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
                             </svg>
@@ -485,41 +510,9 @@ export default function Dashboard() {
                                                     <div className="table-actions">
                                                         <button
                                                             className="btn btn-secondary btn-sm"
-
-                                                            onClick={async () => {
-
-                                                                try {
-
-                                                                    const data =
-                                                                        await getPollResults(
-                                                                            poll.id
-                                                                        )
-
-                                                                    console.log(data)
-
-                                                                    setSelectedResults(
-                                                                        data
-                                                                    )
-
-                                                                    setPage(
-                                                                        "results"
-                                                                    )
-
-                                                                }
-
-                                                                catch {
-
-                                                                    alert(
-                                                                        "Пока нет результатов"
-                                                                    )
-
-                                                                }
-
-                                                            }}
+                                                            onClick={() => openResults(poll)}
                                                         >
-
                                                             Результаты
-
                                                         </button>
                                                         <button className="btn btn-ghost btn-sm">⋯</button>
                                                     </div>
@@ -543,31 +536,155 @@ export default function Dashboard() {
                 )}
                 {page === "subscription" && <Subscription />}
                 {page === "settings" && <Settings />}
-                {
-                    page === "results" && (
+                {page === "results" && (
+                    <div className="page active">
 
-                        <div className="results-page">
+                        <div className="topbar">
 
-                            <h2>
+                            <div className="topbar-title">
                                 Результаты
-                            </h2>
-
-                            <pre>
 
                                 {
-                                    JSON.stringify(
-                                        selectedResults,
-                                        null,
-                                        2
-                                    )
+                                    selectedPoll &&
+                                    ` — ${selectedPoll.title}`
                                 }
-
-                            </pre>
+                            </div>
 
                         </div>
 
-                    )
-                }
+                        <div style={{ padding: "28px" }}>
+                            <div className="filter-bar">
+                                <select
+                                    className="filter-select"
+                                    value={selectedPoll?.id || ""}
+                                    onChange={(e) => {
+                                        const poll = surveys.find(
+                                            p => String(p.id) === e.target.value
+                                        )
+
+                                        if (poll) {
+                                            openResults(poll)
+                                        }
+                                    }}
+                                >
+                                    <option value="">Выберите опрос</option>
+
+                                    {surveys.map((poll) => (
+                                        <option key={poll.id} value={poll.id}>
+                                            {poll.title}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="stats-grid">
+
+                                <div className="stat-card">
+                                    <div className="stat-label">
+                                        Всего ответов
+                                    </div>
+
+                                    <div className="stat-value">
+                                        {selectedResults?.total_responses || 0}
+                                    </div>
+                                </div>
+
+                                <div className="stat-card">
+                                    <div className="stat-label">
+                                        Процент завершения
+                                    </div>
+
+                                    <div className="stat-value">
+                                        —
+                                    </div>
+                                </div>
+
+                                <div className="stat-card">
+                                    <div className="stat-label">
+                                        Среднее время
+                                    </div>
+
+                                    <div className="stat-value">
+                                        —
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <div
+                                className="survey-table"
+                                style={{
+                                    marginTop: "24px"
+                                }}
+                            >
+
+                                {
+
+                                    !selectedResults ? (
+
+                                        <div className="empty-state">
+
+                                            <div className="empty-icon">
+                                                📊
+                                            </div>
+
+                                            <div className="empty-title">
+                                                Пока нет результатов
+                                            </div>
+
+                                            <div className="empty-text">
+                                                Когда пользователи начнут отвечать —
+                                                здесь появится аналитика
+                                            </div>
+
+                                            <button
+                                                className="btn btn-primary"
+                                                onClick={() =>
+                                                    setPage("surveys")
+                                                }
+                                            >
+
+                                                К списку опросов
+
+                                            </button>
+
+                                        </div>
+
+                                    ) : (
+
+                                        <div
+                                            style={{
+                                                padding: "24px"
+                                            }}
+                                        >
+
+                                            <pre
+                                                style={{
+                                                    whiteSpace: "pre-wrap"
+                                                }}
+                                            >
+
+                                                {
+                                                    JSON.stringify(
+                                                        selectedResults,
+                                                        null,
+                                                        2
+                                                    )
+                                                }
+
+                                            </pre>
+
+                                        </div>
+
+                                    )
+
+                                }
+
+                            </div>
+
+                        </div>
+
+                    </div>
+                )}
             </main>
         </>
     )

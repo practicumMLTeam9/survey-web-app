@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { createPoll } from "../api/polls"
 
-export default function CreatePoll() {
+export default function CreatePoll({ onCreated }) {
     const [createMode, setCreateMode] = useState("ai")
     const [participants, setParticipants] = useState(280)
 
@@ -26,9 +26,9 @@ export default function CreatePoll() {
             {
                 id: newId,
                 text: "",
-                type: "single",
+                type: "single_choice",
                 typeLabel: "Один вариант",
-                options: ["", ""],
+                options: [""],
                 allowOwnAnswer: false,
             },
         ])
@@ -76,7 +76,7 @@ export default function CreatePoll() {
                         type,
                         typeLabel,
                         options:
-                            type === "single" || type === "multiple"
+                            type === "single_choice" || type === "multiple_choice"
                                 ? (q.options?.length >= 2 ? q.options : ["", ""])
                                 : [],
                         allowOwnAnswer: q.allowOwnAnswer || false,
@@ -130,7 +130,7 @@ export default function CreatePoll() {
         )
     }
 
-    const handlePublish = async () => {
+    const handlePublish = async (status = "active") => {
         const invalidQuestion = questions.find(q => !q.text.trim())
 
         if (invalidQuestion) {
@@ -138,7 +138,7 @@ export default function CreatePoll() {
             return
         }
         const invalidOptions = questions.find(q =>
-            (q.type === "single" || q.type === "multiple") &&
+            (q.type === "single_choice" || q.type === "multiple_choice") &&
             (q.options.filter(o => o.trim()).length < 2)
         )
 
@@ -159,7 +159,7 @@ export default function CreatePoll() {
         const payload = {
             title: pollTitle,
             description: pollDescription,
-            status: "draft",
+            status,
             poll_type: pollType,
             language: language,
             is_anonymous: true,
@@ -169,15 +169,12 @@ export default function CreatePoll() {
             questions: questions.map((q, index) => {
                 const questionPayload = {
                     text: q.text,
-                    type:
-                        q.type === "single" ? "single_choice" :
-                            q.type === "multiple" ? "multiple_choice" :
-                                q.type,
+                    type: q.type,
                     is_required: true,
                     position: index + 1,
                 }
 
-                if (q.type === "single" || q.type === "multiple") {
+                if (q.type === "single_choice" || q.type === "multiple_choice") {
                     questionPayload.options = (q.options || [])
                         .filter(option => option.trim())
                         .map((option, optionIndex) => ({
@@ -192,6 +189,15 @@ export default function CreatePoll() {
 
         try {
             await createPoll(payload)
+
+            setPollTitle("")
+            setPollDescription("")
+            setQuestions([])
+
+            if (onCreated) {
+                await onCreated()
+            }
+
             alert("Опрос создан")
         } catch (err) {
             alert(err.message)
@@ -203,11 +209,15 @@ export default function CreatePoll() {
                 <div className="topbar-title">Создать опрос</div>
 
                 <div className="topbar-actions">
-                    <button className="btn btn-secondary">Сохранить черновик</button>
-
+                    <button
+                        className="btn btn-secondary"
+                        onClick={() => handlePublish("draft")}
+                    >
+                        Сохранить черновик
+                    </button>
                     <button
                         className="btn btn-primary"
-                        onClick={handlePublish}
+                        onClick={() => handlePublish("active")}
                     >
                         <svg viewBox="0 0 20 20" fill="currentColor">
                             <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />
@@ -414,15 +424,15 @@ export default function CreatePoll() {
 
                                                         <div className="type-picker">
                                                             <div
-                                                                className={`type-option ${question.type === "single" ? "selected" : ""}`}
-                                                                onClick={() => updateQuestionType(question.id, "single", "Один вариант")}
+                                                                className={`type-option ${question.type === "single_choice" ? "selected" : ""}`}
+                                                                onClick={() => updateQuestionType(question.id, "single_choice", "Один вариант")}
                                                             >
                                                                 Один вариант
                                                             </div>
 
                                                             <div
-                                                                className={`type-option ${question.type === "multiple" ? "selected" : ""}`}
-                                                                onClick={() => updateQuestionType(question.id, "multiple", "Несколько")}
+                                                                className={`type-option ${question.type === "multiple_choice" ? "selected" : ""}`}
+                                                                onClick={() => updateQuestionType(question.id, "multiple_choice", "Несколько")}
                                                             >
                                                                 Несколько
                                                             </div>
@@ -441,8 +451,8 @@ export default function CreatePoll() {
                                                                 Текст
                                                             </div>
                                                         </div>
-                                                        {(question.type === "single" ||
-                                                            question.type === "multiple") && (
+                                                        {(question.type === "single_choice" ||
+                                                            question.type === "multiple_choice") && (
 
                                                                 <div className="options-block">
 

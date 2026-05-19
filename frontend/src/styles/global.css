@@ -2371,3 +2371,30 @@ select {
 
     opacity: .8;
 }
+
+.empty-state {
+    padding: 60px 20px;
+    text-align: center;
+}
+
+.empty-icon {
+    font-size: 40px;
+    margin-bottom: 14px;
+}
+
+.empty-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.empty-text {
+    color: var(--gray-500);
+    margin-bottom: 20px;
+}
+
+.stat-delta.muted {
+    color: #98a2b3;
+    font-size: 13px;
+    margin-top: 8px;
+}

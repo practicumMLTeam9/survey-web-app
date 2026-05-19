@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 
 import { getMe, logoutUser } from "../api/auth"
 import { getMyPolls } from "../api/polls"
+import { getPollResults } from "../services/results"
 import CreatePoll from "./CreatePoll"
 import Settings from "./Settings"
 import Subscription from "./Subscription"
@@ -15,6 +16,9 @@ export default function Dashboard() {
 
     const [user, setUser] = useState(null)
     const [surveys, setSurveys] = useState([])
+    const [selectedResults,
+        setSelectedResults] =
+        useState(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState("")
 
@@ -60,6 +64,22 @@ export default function Dashboard() {
     const formatDate = (date) => {
         if (!date) return "—"
         return new Date(date).toLocaleDateString("ru-RU")
+    }
+
+    if (loading) {
+        return (
+            <div className="page-loader">
+                Загружаем данные...
+            </div>
+        )
+    }
+
+    if (error) {
+        return (
+            <div className="page-error">
+                {error}
+            </div>
+        )
     }
 
     return (
@@ -208,7 +228,6 @@ export default function Dashboard() {
                                     </div>
                                     <div className="stat-label">Всего опросов</div>
                                     <div className="stat-value">{totalPolls}</div>
-                                    <div className="stat-delta">из данных API</div>
                                 </div>
 
                                 <div className="stat-card">
@@ -219,7 +238,6 @@ export default function Dashboard() {
                                     </div>
                                     <div className="stat-label">Ответов получено</div>
                                     <div className="stat-value">{totalVotes}</div>
-                                    <div className="stat-delta">из данных API</div>
                                 </div>
 
                                 <div className="stat-card">
@@ -230,7 +248,6 @@ export default function Dashboard() {
                                     </div>
                                     <div className="stat-label">Активных опросов</div>
                                     <div className="stat-value">{activePolls}</div>
-                                    <div className="stat-delta">из данных API</div>
                                 </div>
 
                                 <div className="stat-card">
@@ -241,7 +258,9 @@ export default function Dashboard() {
                                     </div>
                                     <div className="stat-label">Средний отклик</div>
                                     <div className="stat-value">—</div>
-                                    <div className="stat-delta">нет в списке API</div>
+                                    <div className="stat-delta muted">
+                                        появится после ответов
+                                    </div>
                                 </div>
                             </div>
 
@@ -269,35 +288,95 @@ export default function Dashboard() {
                                     </thead>
 
                                     <tbody>
-                                        {surveys.slice(0, 4).map((poll) => (
-                                            <tr key={poll.id}>
-                                                <td>
-                                                    <div className="survey-name">{poll.title}</div>
-                                                    <div className="survey-meta">Опрос</div>
-                                                </td>
 
-                                                <td>
-                                                    <span className={`status-badge ${poll.status}`}>
-                                                        {getStatusText(poll.status)}
-                                                    </span>
-                                                </td>
+                                        {
+                                            surveys.length ? (
 
-                                                <td>{poll.total_votes || 0}</td>
+                                                surveys.slice(0, 4).map((poll) => (
 
-                                                <td>—</td>
+                                                    <tr key={poll.id}>
 
-                                                <td style={{ color: "var(--gray-500)" }}>
-                                                    {formatDate(poll.expires_at)}
-                                                </td>
+                                                        <td>
+                                                            <div className="survey-name">
+                                                                {poll.title}
+                                                            </div>
 
-                                                <td>
-                                                    <div className="table-actions">
-                                                        <button className="btn btn-secondary btn-sm">Результаты</button>
-                                                        <button className="btn btn-ghost btn-sm">⋯</button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                                            <div className="survey-meta">
+                                                                Опрос
+                                                            </div>
+                                                        </td>
+
+                                                        <td>
+                                                            <span className={`status-badge ${poll.status}`}>
+                                                                {getStatusText(poll.status)}
+                                                            </span>
+                                                        </td>
+
+                                                        <td>
+                                                            {poll.total_votes || 0}
+                                                        </td>
+
+                                                        <td>—</td>
+
+                                                        <td>
+                                                            {formatDate(poll.expires_at)}
+                                                        </td>
+
+                                                        <td>
+
+                                                            <div className="table-actions">
+
+                                                                <button
+                                                                    className="btn btn-secondary btn-sm"
+                                                                >
+                                                                    Результаты
+                                                                </button>
+
+                                                            </div>
+
+                                                        </td>
+
+                                                    </tr>
+
+                                                ))
+
+                                            ) : (
+
+                                                <tr>
+
+                                                    <td colSpan="6">
+
+                                                        <div className="empty-state">
+
+                                                            <div className="empty-icon">
+                                                                📝
+                                                            </div>
+
+                                                            <div className="empty-title">
+                                                                Пока нет опросов
+                                                            </div>
+
+                                                            <div className="empty-text">
+                                                                Создайте первый опрос
+                                                            </div>
+
+                                                            <button
+                                                                className="btn btn-primary"
+                                                                onClick={() => setPage("create")}
+                                                            >
+                                                                Создать опрос
+                                                            </button>
+
+                                                        </div>
+
+                                                    </td>
+
+                                                </tr>
+
+                                            )
+
+                                        }
+
                                     </tbody>
                                 </table>
                             </div>
@@ -383,22 +462,65 @@ export default function Dashboard() {
                                                     <div className="survey-name">{poll.title}</div>
                                                     <div className="survey-meta">Опрос</div>
                                                 </td>
+
+                                                <td>
+                                                    <span className="chip">—</span>
+                                                </td>
+
                                                 <td>
                                                     <span className={`status-badge ${poll.status}`}>
                                                         {getStatusText(poll.status)}
                                                     </span>
                                                 </td>
+
                                                 <td>{poll.total_votes || 0}</td>
+
                                                 <td>—</td>
+
                                                 <td style={{ color: "var(--gray-500)" }}>
-                                                    {formatDate(poll.expires_at)}
+                                                    {formatDate(poll.created_at)}
                                                 </td>
-                                                <td>
-                                                    <span className="chip">—</span>
-                                                </td>
+
                                                 <td>
                                                     <div className="table-actions">
-                                                        <button className="btn btn-secondary btn-sm">Результаты</button>
+                                                        <button
+                                                            className="btn btn-secondary btn-sm"
+
+                                                            onClick={async () => {
+
+                                                                try {
+
+                                                                    const data =
+                                                                        await getPollResults(
+                                                                            poll.id
+                                                                        )
+
+                                                                    console.log(data)
+
+                                                                    setSelectedResults(
+                                                                        data
+                                                                    )
+
+                                                                    setPage(
+                                                                        "results"
+                                                                    )
+
+                                                                }
+
+                                                                catch {
+
+                                                                    alert(
+                                                                        "Пока нет результатов"
+                                                                    )
+
+                                                                }
+
+                                                            }}
+                                                        >
+
+                                                            Результаты
+
+                                                        </button>
                                                         <button className="btn btn-ghost btn-sm">⋯</button>
                                                     </div>
                                                 </td>
@@ -410,9 +532,42 @@ export default function Dashboard() {
                         </div>
                     </div>
                 )}
-                {page === "create" && <CreatePoll />}
+                {page === "create" && (
+                    <CreatePoll
+                        onCreated={async () => {
+                            const polls = await getMyPolls()
+                            setSurveys(polls)
+                            setPage("surveys")
+                        }}
+                    />
+                )}
                 {page === "subscription" && <Subscription />}
                 {page === "settings" && <Settings />}
+                {
+                    page === "results" && (
+
+                        <div className="results-page">
+
+                            <h2>
+                                Результаты
+                            </h2>
+
+                            <pre>
+
+                                {
+                                    JSON.stringify(
+                                        selectedResults,
+                                        null,
+                                        2
+                                    )
+                                }
+
+                            </pre>
+
+                        </div>
+
+                    )
+                }
             </main>
         </>
     )

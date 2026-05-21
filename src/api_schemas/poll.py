@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 from datetime import datetime, timezone
 from typing import List, Optional, Literal
+from zoneinfo import ZoneInfo
 
 
 # ─── Вспомогательные схемы ───
@@ -51,13 +52,14 @@ class PollCreate(BaseModel):
     @model_validator(mode="after")
     def validate_expires_at(self) -> "PollCreate":
         if self.expires_at:
-            # 1. Приводим к naive datetime, т.к. БД не хранит таймзону
-            if self.expires_at.tzinfo is not None:
-                self.expires_at = self.expires_at.replace(tzinfo=None)
-            # 2. Сравниваем с текущим временем (тоже приводим к naive)
-            now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
-            if self.expires_at <= now_naive:
+            # Если время пришло без пояса (naive), считаем, что это время Москвы (UTC+3)
+            if self.expires_at.tzinfo is None:
+                self.expires_at = self.expires_at.replace(tzinfo=ZoneInfo("Europe/Moscow"))
+
+            # Валидация в одном часовом поясе
+            if self.expires_at <= datetime.now(self.expires_at.tzinfo):
                 raise ValueError("Дата окончания опроса должна быть строго в будущем")
+
         return self
 
 

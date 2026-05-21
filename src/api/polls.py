@@ -19,9 +19,6 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-# заглушка
-polls_db = {}
-
 
 @router.post(
     "/",

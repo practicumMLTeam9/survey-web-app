@@ -15,7 +15,8 @@ if not DATABASE_URL:
 
 engine = create_async_engine(
     DATABASE_URL,
-    echo=True
+    echo=True,
+    connect_args={"server_settings": {"timezone": "Europe/Moscow"}}
 )
 
 AsyncSessionLocal = async_sessionmaker(

@@ -22,7 +22,7 @@ class Poll(Base):
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'draft'"),
                                         index=True, comment='Статус опроса (draft, active, closed)')
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(), nullable=False,
+        DateTime(timezone=True), nullable=False,
         server_default=func.now(), comment='Дата создания')
 
     created_by_user_id: Mapped[int | None] = mapped_column(
@@ -30,14 +30,14 @@ class Poll(Base):
         index=True, comment='ID пользователя, создавшего опрос')
 
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(), nullable=True,
+        DateTime(timezone=True), nullable=True,
         server_default=func.now(), comment='Дата последнего обновления')
 
     published_at: Mapped[datetime] = mapped_column(
-        DateTime(), nullable=True, comment='Дата публикации')
+        DateTime(timezone=True), nullable=True, comment='Дата публикации')
 
     expires_at: Mapped[datetime] = mapped_column(
-        DateTime(), nullable=True, comment='Дата окончания опроса')
+        DateTime(timezone=True), nullable=True, comment='Дата окончания опроса')
 
     is_anonymous: Mapped[bool] = mapped_column(Boolean, server_default=true(), nullable=True,
                                                comment='Признак анонимного опроса')
@@ -146,11 +146,11 @@ class Submission(Base):
 
     respondent_token: Mapped[str] = mapped_column(Text, nullable=True,
                                                   comment='Анонимный идентификатор пользователя')  # хеш
-    created_at: Mapped[datetime] = mapped_column(DateTime(), server_default=func.now(), nullable=False,
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False,
                                                  comment='Дата создания прохождения')
-    started_at: Mapped[datetime] = mapped_column(DateTime(), nullable=True,
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True,
                                                  comment="Дата и время начала прохождения опроса")
-    completed_at: Mapped[datetime] = mapped_column(DateTime(), nullable=True,
+    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True,
                                                    comment="Дата и время завершения прохождения опроса")
     # ORM
     poll: Mapped["Poll"] = relationship("Poll", back_populates="submissions")
@@ -192,7 +192,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(Text, nullable=False, comment="Хеш пароля пользователя")
 
     created_at: Mapped[datetime | None] = mapped_column(
-        DateTime(),
+        DateTime(timezone=True),
         nullable=True,
         server_default=func.now(),
         comment="Дата создания аккаунта")
@@ -200,7 +200,7 @@ class User(Base):
     reset_token_hash: Mapped[str | None] = mapped_column(Text, nullable=True, comment="Хеш токена для сброса пароля")
 
     reset_token_expires_at: Mapped[datetime | None] = mapped_column(
-        DateTime(), nullable=True, comment="Срок действия токена сброса пароля")
+        DateTime(timezone=True), nullable=True, comment="Срок действия токена сброса пароля")
 
     first_name: Mapped[str] = mapped_column(Text, nullable=True, comment="Имя пользователя")
 
@@ -258,12 +258,12 @@ class Subscription(Base):
     )
 
     started_at: Mapped[datetime | None] = mapped_column(
-        DateTime(), nullable=True, server_default=func.now(),
+        DateTime(timezone=True), nullable=True, server_default=func.now(),
         comment="Дата начала действия подписки"
     )
 
     expires_at: Mapped[datetime | None] = mapped_column(
-        DateTime(), nullable=True, comment="Дата окончания действия подписки"
+        DateTime(timezone=True), nullable=True, comment="Дата окончания действия подписки"
     )
     # ORM
     user: Mapped["User"] = relationship("User", back_populates="subscriptions")
@@ -285,7 +285,7 @@ class AiChatMessage(Base):
     message_text: Mapped[str] = mapped_column(Text, nullable=False, comment="Текст сообщения в AI-чате")
 
     created_at: Mapped[datetime | None] = mapped_column(
-        DateTime(), nullable=True, server_default=func.now(), comment="Дата создания сообщения")
+        DateTime(timezone=True), nullable=True, server_default=func.now(), comment="Дата создания сообщения")
 
     # ORM
     poll: Mapped["Poll"] = relationship(back_populates="ai_chat_messages")
@@ -304,7 +304,7 @@ class AiSummary(Base):
     summary_text: Mapped[str] = mapped_column(Text, nullable=False, comment="Текст AI-резюме по результатам опроса")
 
     created_at: Mapped[datetime | None] = mapped_column(
-        DateTime(), nullable=True, server_default=func.now(), comment="Дата генерации AI-резюме")
+        DateTime(timezone=True), nullable=True, server_default=func.now(), comment="Дата генерации AI-резюме")
     # ORM
     poll: Mapped["Poll"] = relationship("Poll", back_populates="ai_summaries")
 
@@ -335,7 +335,7 @@ class AiRequest(Base):
         comment="Тип AI-запроса: generate_poll, summary, chat")
 
     created_at: Mapped[datetime | None] = mapped_column(
-        DateTime(), nullable=True, server_default=func.now(),
+        DateTime(timezone=True), nullable=True, server_default=func.now(),
         index=True, comment="Дата создания AI-запроса")
 
     # ORM

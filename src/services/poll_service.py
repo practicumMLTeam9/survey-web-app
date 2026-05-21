@@ -50,7 +50,7 @@ async def create_poll_service(db: AsyncSession, poll_in: PollCreate, user_id: in
 
     # Автозаполнение даты публикации, если клиент сразу ставит active
     if poll.status == "active" and poll.published_at is None:
-        poll.published_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        poll.published_at = datetime.now(timezone.utc)
 
     db.add(poll)
     await db.flush()  # Фиксируем poll.id для вложенных сущностей

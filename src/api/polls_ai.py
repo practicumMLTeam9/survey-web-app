@@ -20,6 +20,8 @@ router = APIRouter(prefix="/api/v1/polls",
                    tags=["AI Generation"],
                    dependencies=[Depends(security_scheme)],  # ← глобальная проверка для всех методов в роутере
                    responses={404: {"description": "Not found"}}, )
+
+
 @router.post(
     "/generate",
     response_model=PollCreate,
@@ -28,10 +30,11 @@ router = APIRouter(prefix="/api/v1/polls",
     description="Вызывает LLM по промпту и возвращает предзаполненную структуру опроса."
 )
 async def generate_poll_endpoint(
-    req: GeneratePollRequest,
-    current_user: User = Depends(get_current_user())  # ← если нужна авторизация
+        req: GeneratePollRequest,
+        current_user: User = Depends(get_current_user())  # ← если нужна авторизация
 ):
     return await generate_poll(req)
+
 
 def _normalize_positions(poll_data: Dict) -> Dict:
     """Гарантирует корректные последовательные позиции вопросов и вариантов."""
@@ -54,17 +57,40 @@ async def _call_llm_api(req: GeneratePollRequest) -> dict:
     llm_url = os.getenv("LLM_API_URL", "http://localhost:1234/v1/chat/completions")
     model = os.getenv("LLM_MODEL", "local-model")
 
-    system_prompt = (
-        "Ты — генератор опросов. Возвращай ТОЛЬКО валидный JSON без лишних комментариев. "
-        "Следуй схеме PollCreate: title, description, questions[]. "
-        "Каждый вопрос: text, type (только из разрешённых), is_required, options[] (если type != text), position. "
-        "Варианты: text, position. Для 'text' не добавляй options. Позиции можно опустить."
-    )
+    system_prompt = ("""Ты — генератор опросов. Возвращай ТОЛЬКО валидный JSON, строго соответствующий схеме ниже. Никаких пояснений, markdown или комментариев.
+
+    {
+      "title": "Название опроса (3-200 символов)",
+      "description": "Краткое описание или null",
+      "status": "draft",
+      "is_anonymous": true,
+      "one_response_only": true,
+      "poll_type": "corporate",
+      "language": "ru",
+      "questions": [
+        {
+          "text": "Текст вопроса (до 1000 символов)",
+          "type": "single_choice | multiple_choice | text | scale",
+          "is_required": true,
+          "options": [{"text": "Вариант ответа (до 500 символов)", "position": 1}]
+        }
+      ]
+    }
+
+    ПРАВИЛА:
+    1. Для type="text" НЕ добавляй поле options.
+    2. Для type="single_choice|multiple_choice|scale" добавь 2-5 options.
+    3. Типы вопросов используй ТОЛЬКО из переданного списка разрешённых.
+    4. Поле position в вопросах и вариантах можно опустить (бэкенд проставит автоматически).
+    5. Не добавляй поля, которых нет в схеме. Не генерируй expires_at, если не просили."""
+                     )
 
     user_prompt = (
-        f"Тема: {req.prompt}. Язык: {req.language}. Тип: {req.poll_type}. "
-        f"Вопросов: ~{req.questions_count}. Анонимный: {req.is_anonymous}. "
-        f"Один ответ: {req.one_response_only}. Разрешённые типы: {req.allowed_question_types}."
+        f"Тема: {req.prompt}. "
+        f"Количество вопросов: {req.questions_count}. "
+        f"Язык: {req.language}. Тип опроса: {req.poll_type}. "
+        f"Анонимный: {req.is_anonymous}. Один ответ на пользователя: {req.one_response_only}. "
+        f"Разрешённые типы вопросов: {req.allowed_question_types}."
     )
 
     async with httpx.AsyncClient(timeout=120.0) as client:

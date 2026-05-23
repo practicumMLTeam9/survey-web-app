@@ -4,19 +4,34 @@ import re
 from datetime import datetime
 from typing import Dict
 from zoneinfo import ZoneInfo
+from src.db.models import User
 
 import httpx
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import ValidationError
 
 from src.api_schemas.poll import PollCreate, GeneratePollRequest
-from src.security.security import security_scheme
+from src.security.security import security_scheme, get_current_user
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/polls",
                    tags=["AI Generation"],
                    dependencies=[Depends(security_scheme)],  # ← глобальная проверка для всех методов в роутере
                    responses={404: {"description": "Not found"}}, )
-
+@router.post(
+    "/generate",
+    response_model=PollCreate,
+    status_code=status.HTTP_200_OK,
+    summary="Сгенерировать опрос с помощью AI",
+    description="Вызывает LLM по промпту и возвращает предзаполненную структуру опроса."
+)
+async def generate_poll_endpoint(
+    req: GeneratePollRequest,
+    current_user: User = Depends(get_current_user())  # ← если нужна авторизация
+):
+    return await generate_poll(req)
 
 def _normalize_positions(poll_data: Dict) -> Dict:
     """Гарантирует корректные последовательные позиции вопросов и вариантов."""
@@ -78,6 +93,10 @@ async def generate_poll(req: GeneratePollRequest):
         # 1. Запрос к LLM
         llm_data = await _call_llm_api(req)
 
+        # Защита: LLM иногда возвращает list или строку вместо dict
+        if not isinstance(llm_data, dict):
+            raise ValueError("LLM вернул не JSON-объект")
+
         # 2. Дополняем дефолтами из запроса, если LLM пропустил
         llm_data.setdefault("status", "draft")
         llm_data.setdefault("is_anonymous", req.is_anonymous)
@@ -85,10 +104,10 @@ async def generate_poll(req: GeneratePollRequest):
         llm_data.setdefault("poll_type", req.poll_type)
         llm_data.setdefault("language", req.language)
 
-        # 3. Нормализация позиций (ваше требование)
+        # 3. Нормализация позиций
         _normalize_positions(llm_data)
 
-        # 4. Безопасная обработка expires_at (согласно вашему фиксу часовых поясов)
+        # 4. Безопасная обработка expires_at
         if llm_data.get("expires_at"):
             try:
                 exp_str = str(llm_data["expires_at"])
@@ -96,11 +115,11 @@ async def generate_poll(req: GeneratePollRequest):
                 if exp_dt.tzinfo is None:
                     exp_dt = exp_dt.replace(tzinfo=ZoneInfo("Europe/Moscow"))
                 if exp_dt <= datetime.now(exp_dt.tzinfo):
-                    llm_data["expires_at"] = None  # LLM часто генерирует прошлые даты → сбрасываем
+                    llm_data["expires_at"] = None
             except Exception:
                 llm_data["expires_at"] = None
 
-        # 5. Финальная валидация через вашу существующую схему
+        # 5. Финальная валидация через вашу схему
         return PollCreate(**llm_data)
 
     except json.JSONDecodeError as e:
@@ -109,5 +128,11 @@ async def generate_poll(req: GeneratePollRequest):
         raise HTTPException(status_code=422, detail=f"Ошибка структуры опроса: {e.errors()}")
     except httpx.HTTPStatusError as e:
         raise HTTPException(status_code=502, detail=f"Ошибка LLM API: {e.response.text}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Внутренняя ошибка генерации: {str(e)}")
+    except httpx.RequestError as e:  # Таймауты, DNS, обрыв соединения
+        raise HTTPException(status_code=504, detail=f"Не удалось связаться с LLM: {e}")
+    except Exception:  # noqa: BLE001 (допустимо на границе внешних API)
+        logger.exception("Непредвиденная ошибка при генерации опроса через LLM")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Внутренняя ошибка генерации. Попробуйте позже или измените промпт."
+        )

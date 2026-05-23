@@ -8,7 +8,20 @@
 
 ### Установка зависимостей из requirements.txt)
 
-`pip install -r requirements.txt`
+`pip install -r requirements.txt
+
+### Создайте в корне приложения `.env` - файл с содержимым:
+
+SECRET_KEY= # Секреты — сгенерируйте  python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+
+ALGORITHM=HS256
+
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+REFRESH_TOKEN_EXPIRE_DAYS=7
+
+DATABASE_URL=postgresql+asyncpg://user:pass@localhost/dbname
+
 
 ### Запуск сервера с помощью uvicorn:
 
@@ -17,3 +30,5 @@
 ### Открыть swagger:
 
 http://localhost:8000/docs
+
+

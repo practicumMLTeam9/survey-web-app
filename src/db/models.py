@@ -3,32 +3,9 @@ from sqlalchemy import text, Integer, DateTime, Text, ForeignKey, func, UniqueCo
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from datetime import datetime
 from sqlalchemy.orm import DeclarativeBase
-from enum import Enum as PyEnum
 
 
 class Base(DeclarativeBase): pass
-
-
-class PollStatus(PyEnum):
-    DRAFT = "draft"
-    ACTIVE = "active"
-    CLOSED = "closed"
-
-    @classmethod
-    def choices(cls):
-        return [status.value for status in cls]
-
-
-class QuestionType(PyEnum):
-    SINGLE = 'single_choice'
-    MULTIPLE = 'multiple_choice'
-    TEXT = 'text'
-    SCALE = 'scale'
-
-    @classmethod
-    def types(cls):
-        return [question_type.value for question_type in cls]
-
 
 class Poll(Base):
     __tablename__ = 'polls'
@@ -45,30 +22,22 @@ class Poll(Base):
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'draft'"),
                                         index=True, comment='Статус опроса (draft, active, closed)')
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        comment='Дата создания')
+        DateTime(timezone=True), nullable=False,
+        server_default=func.now(), comment='Дата создания')
 
     created_by_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True,
         index=True, comment='ID пользователя, создавшего опрос')
 
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-        server_default=func.now(),
-        comment='Дата последнего обновления')
+        DateTime(timezone=True), nullable=True,
+        server_default=func.now(), comment='Дата последнего обновления')
 
     published_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-        comment='Дата публикации')
+        DateTime(timezone=True), nullable=True, comment='Дата публикации')
 
     expires_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-        comment='Дата окончания опроса')
+        DateTime(timezone=True), nullable=True, comment='Дата окончания опроса')
 
     is_anonymous: Mapped[bool] = mapped_column(Boolean, server_default=true(), nullable=True,
                                                comment='Признак анонимного опроса')
@@ -92,19 +61,22 @@ class Poll(Base):
                                                      comment="Планируемое или ожидаемое количество участников опроса")
     # ORM
     creator: Mapped["User | None"] = relationship("User", back_populates="polls")
-    questions: Mapped[list["Question"]] = relationship(back_populates="poll",
+    questions: Mapped[list["Question"]] = relationship("Question", back_populates="poll",
+                                                       order_by="Question.position",
                                                        cascade="all, delete-orphan",
                                                        passive_deletes=True)
     submissions: Mapped[list["Submission"]] = relationship(back_populates="poll",
                                                            cascade="all, delete-orphan",
                                                            passive_deletes=True)
-    ai_summaries: Mapped[list["AI Summary"]] = relationship("AI Summary", back_populates="poll",
+    ai_summaries: Mapped[list["AiSummary"]] = relationship("AiSummary", back_populates="poll",
                                                             cascade="all, delete-orphan",
                                                             passive_deletes=True)
     ai_chat_messages: Mapped[list["AiChatMessage"]] = relationship("AiChatMessage", back_populates="poll",
                                                             cascade="all, delete-orphan",
                                                             passive_deletes=True)
-    ai_requests: Mapped[""]
+    ai_requests: Mapped[list["AiRequest"]] = relationship("AiRequest", back_populates="poll",
+                                                          cascade="all, delete-orphan",
+                                                            passive_deletes=True)
 
 
 class Question(Base):
@@ -131,6 +103,7 @@ class Question(Base):
     poll: Mapped["Poll"] = relationship("Poll", back_populates="questions")
     options: Mapped[list["QuestionOption"]] = relationship("QuestionOption", back_populates="question",
                                                            cascade="all, delete-orphan",
+                                                           order_by="QuestionOption.position",
                                                            passive_deletes=True)
     answers: Mapped[list["Answer"]] = relationship("Answer", back_populates="question",
                                                    cascade="all, delete-orphan",
@@ -153,7 +126,7 @@ class QuestionOption(Base):
 
     # ORM
     question: Mapped["Question"] = relationship("Question", back_populates="options")
-    answers: Mapped[list["Answer"]] = relationship("Answer", back_populates="question",
+    answers: Mapped[list["Answer"]] = relationship("Answer", back_populates="option",
                                                    cascade="all, delete-orphan",
                                                    passive_deletes=True)
 

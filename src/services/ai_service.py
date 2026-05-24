@@ -240,7 +240,7 @@ class ApiLLMService:
 
 
 # Функция для создания экземпляра сервиса
-def get_llm_service(api_key: str = openrouter_api_key) -> OpenRouterLLMService:
+def get_llm_service(api_key: str = openrouter_api_key) -> ApiLLMService:
     """
     Фабрика для создания сервиса LLM
     """

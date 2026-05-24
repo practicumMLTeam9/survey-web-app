@@ -13,6 +13,8 @@ from pydantic import ValidationError
 from src.api_schemas.poll import PollCreate, GeneratePollRequest
 from src.security.security import security_scheme, get_current_user
 import logging
+from src.services.ai_service import ApiLLMService, get_llm_service
+from src.api_schemas.ai import LLMRequestParams, Test
 
 logger = logging.getLogger(__name__)
 
@@ -162,3 +164,23 @@ async def generate_poll(req: GeneratePollRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Внутренняя ошибка генерации. Попробуйте позже или измените промпт."
         )
+
+
+@router.post("/test_ai")
+async def test_ai(
+    prompt: str,
+    llm_service: ApiLLMService = Depends(get_llm_service)
+):
+    params = LLMRequestParams(
+        prompt=prompt,
+        model="baidu/cobuddy:free",
+        temperature=0.2,
+        max_tokens=2000,
+        response_model=Test,
+        response_format={"type": "json_object"}
+    )
+    
+    system_prompt = "Верни ответ в формате JSON"
+    
+    result = await llm_service.generate_ai(params, system_prompt)
+    return result

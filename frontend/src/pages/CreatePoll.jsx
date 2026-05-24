@@ -2,7 +2,11 @@ import { useState } from "react"
 import { createPoll } from "../api/polls"
 import { generatePoll } from "../api/ai"
 
-export default function CreatePoll({ onCreated }) {
+export default function CreatePoll({
+    onCreated,
+    initialData = null,
+    editMode = false,
+}) {
     const [createMode, setCreateMode] = useState("ai")
     const [participants, setParticipants] = useState(280)
 

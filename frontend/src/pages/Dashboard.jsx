@@ -17,6 +17,7 @@ export default function Dashboard() {
     const [openedMenu, setOpenedMenu] = useState(null)
     const [editingPoll, setEditingPoll] = useState(null)
     const [copyPoll, setCopyPoll] = useState(null)
+    const [toast, setToast] = useState(null)
 
     const navigate = useNavigate()
 
@@ -117,24 +118,50 @@ export default function Dashboard() {
 
     const togglePollStatus = async (poll) => {
         try {
-            await fetch(
-                `/api/v1/polls/${poll.id}/status?use_cookie=false&token_type=access`,
-                {
-                    method: "PATCH",
-                    headers: {
-                        Authorization: `Bearer ${localStorage.getItem("access_token")
-                            }`,
-                        "Content-Type": "application/json",
-                    },
+            const token =
+                localStorage.getItem(
+                    "access_token"
+                )
 
-                    body: JSON.stringify({
-                        status:
-                            poll.status === "active"
-                                ? "closed"
-                                : "active",
-                    }),
-                }
-            )
+            const newStatus =
+                poll.status === "closed"
+                    ? "active"
+                    : "closed"
+
+            const response =
+                await fetch(
+                    `/api/v1/polls/${poll.id}/status?use_cookie=false&token_type=access`,
+                    {
+                        method: "PATCH",
+
+                        headers: {
+                            Authorization:
+                                `Bearer ${token}`,
+
+                            "Content-Type":
+                                "application/json",
+                        },
+
+                        body: JSON.stringify({
+                            status: newStatus,
+                        }),
+                    }
+                )
+
+            if (!response.ok) {
+
+                const error =
+                    await response
+                        .json()
+                        .catch(
+                            () => null
+                        )
+
+                throw new Error(
+                    error?.detail ||
+                    "Не удалось изменить статус"
+                )
+            }
 
             const updated =
                 await getMyPolls()
@@ -143,10 +170,57 @@ export default function Dashboard() {
 
             setOpenedMenu(null)
 
-        } catch {
+        } catch (err) {
+
             alert(
-                "Не удалось изменить статус"
+                err.message
             )
+
+        }
+    }
+
+    const showToast = (text) => {
+        setToast(text)
+
+        setTimeout(() => {
+            setToast(null)
+        }, 2500)
+    }
+
+    const copyPollLink = async (poll) => {
+        try {
+            const url =
+                poll.share_url ||
+                `${window.location.origin}/vote/${poll.id}`
+
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(url)
+            } else {
+                const textarea = document.createElement("textarea")
+                textarea.value = url
+                textarea.style.position = "fixed"
+                textarea.style.left = "-9999px"
+
+                document.body.appendChild(textarea)
+                textarea.focus()
+                textarea.select()
+
+                document.execCommand("copy")
+                document.body.removeChild(textarea)
+            }
+
+            setOpenedMenu(null)
+
+            showToast(
+                "Ссылка на прохождение опроса скопирована"
+            )
+
+        } catch {
+
+            showToast(
+                "Не удалось скопировать ссылку"
+            )
+
         }
     }
 
@@ -607,23 +681,9 @@ export default function Dashboard() {
                                                                 <div className="table-menu">
 
                                                                     <button
-                                                                        onClick={async () => {
-
-                                                                            const url =
-                                                                                poll.share_url ||
-                                                                                `${window.location.origin}/vote/${poll.id}`
-
-                                                                            await navigator.clipboard.writeText(
-                                                                                url
-                                                                            )
-
-                                                                            alert(
-                                                                                "Ссылка скопирована"
-                                                                            )
-
-                                                                            setOpenedMenu(null)
-
-                                                                        }}
+                                                                        onClick={() =>
+                                                                            copyPollLink(poll)
+                                                                        }
                                                                     >
                                                                         🔗 Скопировать ссылку
                                                                     </button>
@@ -639,7 +699,14 @@ export default function Dashboard() {
 
                                                                         }}
                                                                     >
-                                                                        ✏️ Редактировать опрос
+                                                                        {
+                                                                            poll.status === "draft"
+                                                                                ?
+                                                                                "✏️ Редактировать"
+
+                                                                                :
+                                                                                "👁 Посмотреть"
+                                                                        }
                                                                     </button>
 
                                                                     <button
@@ -662,17 +729,13 @@ export default function Dashboard() {
 
                                                                     <button
                                                                         onClick={() =>
-                                                                            togglePollStatus(
-                                                                                poll
-                                                                            )
+                                                                            togglePollStatus(poll)
                                                                         }
                                                                     >
                                                                         {
                                                                             poll.status === "closed"
-                                                                                ?
-                                                                                "🔓 Открыть опрос"
-                                                                                :
-                                                                                "🔒 Закрыть опрос"
+                                                                                ? "🔓 Открыть опрос"
+                                                                                : "🔒 Закрыть опрос"
                                                                         }
                                                                     </button>
 
@@ -758,6 +821,23 @@ export default function Dashboard() {
                         setPage={setPage}
                     />
                 )}
+                {
+                    toast && (
+
+                        <div className="toast">
+
+                            <div className="toast-icon">
+                                ✓
+                            </div>
+
+                            <div>
+                                {toast}
+                            </div>
+
+                        </div>
+
+                    )
+                }
             </main>
         </>
     )

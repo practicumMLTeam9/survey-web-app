@@ -1,6 +1,6 @@
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import select, and_, func, cast, Integer
+from sqlalchemy import select, and_, func, Integer
 from fastapi import HTTPException, status
 from typing import List, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -405,6 +405,7 @@ async def update_poll_status_service(
         id=poll.id,
         title=poll.title,
         status=poll.status,
+        type=poll.poll_type,
         created_at=poll.created_at,
         expires_at=poll.expires_at,
         total_votes=total_votes

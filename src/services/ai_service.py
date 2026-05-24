@@ -12,17 +12,17 @@ load_dotenv()
 openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
 
 
-class OpenRouterLLMService:
-    """Сервис для интеграции с OpenRouter API"""
+class ApiLLMService:
+    """Сервис для интеграции с API LLM"""
     def __init__(self, api_key: str, base_url: str = "https://openrouter.ai/api/v1"):
         """
-        Инициализация сервиса OpenRouter
+        Инициализация сервиса
         Args:
-            api_key: API ключ OpenRouter
-            base_url: Базовый URL API OpenRouter
+            api_key: API ключ
+            base_url: Базовый URL API
         """
         self.api_key = api_key
-        self.base_url = base_url
+        self.base_url = base_url    # URL Модели
         self.headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
@@ -90,7 +90,7 @@ class OpenRouterLLMService:
         timeout: int = 60
     ) -> LLMResponse:
         """
-        Отправка запроса к LLM через OpenRouter        
+        Отправка запроса к LLM        
         Args:
             params: Параметры запроса
             system_prompt: Системный промпт
@@ -244,4 +244,4 @@ def get_llm_service(api_key: str = openrouter_api_key) -> OpenRouterLLMService:
     """
     Фабрика для создания сервиса LLM
     """
-    return OpenRouterLLMService(api_key=api_key)
+    return ApiLLMService(api_key=api_key)

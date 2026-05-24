@@ -11,8 +11,6 @@ from src.security.security import get_current_user, get_respondent_token, securi
 from src.services.poll_service import create_poll_service, get_poll_with_details, vote_poll_service, get_list_polls, \
     get_poll_results, start_vote_service
 from src.utils.external_urls import get_frontend_vote_url
-from src.services.ai_service import OpenRouterLLMService, get_llm_service
-from src.api_schemas.ai import LLMRequestParams, Test
 
 router = APIRouter(
     prefix="/api/v1/polls",
@@ -142,22 +140,3 @@ async def update_poll_status(
     user_id = current_user.id
     return await update_poll_status(db, poll_id, user_id, status_in)
 
-
-@router.post("/test_ai")
-async def test_ai(
-    prompt: str,
-    llm_service: OpenRouterLLMService = Depends(get_llm_service)
-):
-    params = LLMRequestParams(
-        prompt=prompt,
-        model="baidu/cobuddy:free",
-        temperature=0.2,
-        max_tokens=2000,
-        response_model=Test,
-        response_format={"type": "json_object"}
-    )
-    
-    system_prompt = "Верни ответ в формате JSON"
-    
-    result = await llm_service.generate_ai(params, system_prompt)
-    return result

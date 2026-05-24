@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { createPoll } from "../api/polls"
+import { generatePoll } from "../api/ai"
 
 export default function CreatePoll({ onCreated }) {
     const [createMode, setCreateMode] = useState("ai")
@@ -8,6 +9,9 @@ export default function CreatePoll({ onCreated }) {
     const [unlimited, setUnlimited] = useState(false)
 
     const [showProgress, setShowProgress] = useState(true)
+    const [aiPrompt, setAiPrompt] = useState("")
+    const [aiLoading, setAiLoading] = useState(false)
+    const [aiQuestionsCount, setAiQuestionsCount] = useState(5)
 
     const [pollTitle, setPollTitle] = useState("")
     const [pollDescription, setPollDescription] = useState("")
@@ -203,6 +207,59 @@ export default function CreatePoll({ onCreated }) {
             alert(err.message)
         }
     }
+
+    const handleAiGenerate = async () => {
+        if (!aiPrompt.trim()) {
+            alert("Опишите, какой опрос нужно создать")
+            return
+        }
+
+        setAiLoading(true)
+
+        try {
+            const data = await generatePoll({
+                prompt: aiPrompt,
+                poll_type: pollType,
+                language,
+                questions_count: Number(aiQuestionsCount),
+                allowed_question_types: [
+                    "single_choice",
+                    "multiple_choice",
+                ],
+                is_anonymous: true,
+                one_response_only: true,
+            })
+
+            setPollTitle(data.title || "")
+            setPollDescription(data.description || "")
+            setPollType(data.poll_type || pollType)
+            setLanguage(data.language || language)
+            setParticipants(data.max_participants || participants)
+            setShowProgress(data.show_progress ?? true)
+
+            const generatedQuestions = (data.questions || []).map((q, index) => ({
+                id: index + 1,
+                text: q.text || "",
+                type: q.type || "text",
+                typeLabel:
+                    q.type === "single_choice" ? "Один вариант" :
+                        q.type === "multiple_choice" ? "Несколько" :
+                            q.type === "scale" ? "Шкала" :
+                                "Текст",
+                options: (q.options || []).map(option => option.text || ""),
+                allowOwnAnswer: false,
+            }))
+
+            setQuestions(generatedQuestions)
+            setActiveQuestionId(generatedQuestions[0]?.id || null)
+            setCreateMode("manual")
+        } catch (err) {
+            alert(err.message)
+        } finally {
+            setAiLoading(false)
+        }
+    }
+
     return (
         <div className="page active">
             <div className="topbar">
@@ -286,7 +343,9 @@ export default function CreatePoll({ onCreated }) {
                                 <textarea
                                     className="ai-prompt-area"
                                     rows="3"
-                                    placeholder="Например: Нам нужен квартальный пульс-опрос для 200 сотрудников. Хотим понять уровень вовлечённости, отношение к remote-формату и запросы по обучению. Тон — дружелюбный, анонимный."
+                                    value={aiPrompt}
+                                    onChange={(e) => setAiPrompt(e.target.value)}
+                                    placeholder="Например: Нам нужен квартальный пульс-опрос для 200 сотрудников..."
                                 />
 
                                 <div className="ai-quick-prompts">
@@ -294,12 +353,12 @@ export default function CreatePoll({ onCreated }) {
                                         Быстрый старт:
                                     </span>
 
-                                    <button className="ai-quick-btn">Пульс-опрос сотрудников</button>
-                                    <button className="ai-quick-btn">NPS после поддержки</button>
-                                    <button className="ai-quick-btn">Оценка онбординга</button>
-                                    <button className="ai-quick-btn">Опрос после события</button>
-                                    <button className="ai-quick-btn">360° оценка руководителя</button>
-                                    <button className="ai-quick-btn">Exit interview</button>
+                                    <button className="ai-quick-btn" onClick={() => setAiPrompt("Создай пульс-опрос сотрудников")}>Пульс-опрос сотрудников</button>
+                                    <button className="ai-quick-btn" onClick={() => setAiPrompt("Создай NPS-опрос после обращения в поддержку")}>NPS после поддержки</button>
+                                    <button className="ai-quick-btn" onClick={() => setAiPrompt("Создай опрос для оценки онбординга новых сотрудников")}>Оценка онбординга</button>
+                                    <button className="ai-quick-btn" onClick={() => setAiPrompt("Создай опрос после корпоративного события")}>Опрос после события</button>
+                                    <button className="ai-quick-btn" onClick={() => setAiPrompt("Создай 360-градусную оценку руководителя")}>360° оценка руководителя</button>
+                                    <button className="ai-quick-btn" onClick={() => setAiPrompt("Создай exit interview для увольняющегося сотрудника")}>Exit interview</button>
                                 </div>
 
                                 <div className="ai-settings-row">
@@ -311,19 +370,29 @@ export default function CreatePoll({ onCreated }) {
                                         <option>📝 Тон: Формальный</option>
                                     </select>
 
-                                    <select className="ai-select">
-                                        <option>5 вопросов</option>
+                                    <select
+                                        className="ai-select"
+                                        value={aiQuestionsCount}
+                                        onChange={(e) => setAiQuestionsCount(e.target.value)}
+                                    >
+                                        <option value={5}>5 вопросов</option>
+                                        <option value={8}>8 вопросов</option>
+                                        <option value={10}>10 вопросов</option>
                                     </select>
 
                                     <select className="ai-select">
                                         <option>🔒 Анонимно</option>
                                     </select>
 
-                                    <button className="ai-generate-btn">
+                                    <button
+                                        className="ai-generate-btn"
+                                        onClick={handleAiGenerate}
+                                        disabled={aiLoading}
+                                    >
                                         <svg viewBox="0 0 20 20" fill="currentColor">
                                             <path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" />
                                         </svg>
-                                        Сгенерировать опрос
+                                        {aiLoading ? "Генерируем..." : "Сгенерировать опрос"}
                                     </button>
                                 </div>
                             </div>
@@ -636,6 +705,6 @@ export default function CreatePoll({ onCreated }) {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     )
 }

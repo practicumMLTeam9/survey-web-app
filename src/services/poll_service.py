@@ -123,7 +123,7 @@ async def get_poll_with_details(db: AsyncSession, poll_id: int) -> Optional[Poll
 async def start_vote_service(poll_id: int,
                              respondent_token: str,
                              db: AsyncSession):
-    started_time = datetime.now(timezone.utc).replace(tzinfo=None)
+    started_time = datetime.now(timezone.utc)
     """Проверка существования и активности опроса"""
     poll_query = select(Poll).where(
         and_(Poll.id == poll_id, Poll.status == 'active')
@@ -171,7 +171,7 @@ async def vote_poll_service(poll_id: int,
                             vote: VoteRequest,
                             respondent_token: str,
                             db: AsyncSession):
-    completed_time = datetime.now(timezone.utc).replace(tzinfo=None)
+    completed_time = datetime.now(timezone.utc)
     """Проверка существования и активности опроса"""
     poll_query = select(Poll).where(
         and_(Poll.id == poll_id, Poll.status == 'active')

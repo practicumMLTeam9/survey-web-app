@@ -12,6 +12,11 @@ import Results from "./Results"
 export default function Dashboard() {
     const [page, setPage] = useState("dashboard")
     const [surveyTab, setSurveyTab] = useState("all")
+    const [searchQuery, setSearchQuery] = useState("")
+    const [typeFilter, setTypeFilter] = useState("all")
+    const [openedMenu, setOpenedMenu] = useState(null)
+    const [editingPoll, setEditingPoll] = useState(null)
+    const [copyPoll, setCopyPoll] = useState(null)
 
     const navigate = useNavigate()
 
@@ -41,11 +46,26 @@ export default function Dashboard() {
     }, [])
 
     const filteredSurveys = surveys.filter((poll) => {
-        if (surveyTab === "all") return true
-        if (surveyTab === "active") return poll.status === "active"
-        if (surveyTab === "draft") return poll.status === "draft"
-        if (surveyTab === "closed") return poll.status === "closed"
-        return true
+        const statusOk =
+            surveyTab === "all"
+                ? true
+                : poll.status === surveyTab
+
+        const searchOk =
+            poll.title
+                ?.toLowerCase()
+                .includes(searchQuery.toLowerCase())
+
+        const typeOk =
+            typeFilter === "all"
+                ? true
+                : (
+                    poll.poll_type ||
+                    poll.type ||
+                    poll.category
+                ) === typeFilter
+
+        return statusOk && searchOk && typeOk
     })
 
     const totalPolls = surveys.length
@@ -93,6 +113,41 @@ export default function Dashboard() {
         }
 
         setPage("results")
+    }
+
+    const togglePollStatus = async (poll) => {
+        try {
+            await fetch(
+                `/api/v1/polls/${poll.id}/status?use_cookie=false&token_type=access`,
+                {
+                    method: "PATCH",
+                    headers: {
+                        Authorization: `Bearer ${localStorage.getItem("access_token")
+                            }`,
+                        "Content-Type": "application/json",
+                    },
+
+                    body: JSON.stringify({
+                        status:
+                            poll.status === "active"
+                                ? "closed"
+                                : "active",
+                    }),
+                }
+            )
+
+            const updated =
+                await getMyPolls()
+
+            setSurveys(updated)
+
+            setOpenedMenu(null)
+
+        } catch {
+            alert(
+                "Не удалось изменить статус"
+            )
+        }
     }
 
     return (
@@ -354,6 +409,7 @@ export default function Dashboard() {
 
                                                                 <button
                                                                     className="btn btn-secondary btn-sm"
+                                                                    onClick={() => openResults(poll)}
                                                                 >
                                                                     Результаты
                                                                 </button>
@@ -451,13 +507,25 @@ export default function Dashboard() {
                                     <svg viewBox="0 0 20 20" fill="currentColor">
                                         <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
                                     </svg>
-                                    <input type="text" placeholder="Поиск по названию..." />
+                                    <input
+                                        type="text"
+                                        value={searchQuery}
+                                        onChange={(e) =>
+                                            setSearchQuery(e.target.value)
+                                        }
+                                        placeholder="Поиск по названию..."
+                                    />
                                 </div>
 
-                                <select className="filter-select">
-                                    <option>Тип: Все</option>
-                                    <option>Корпоративный</option>
-                                    <option>Клиентский</option>
+                                <select
+                                    className="filter-select"
+                                    value={typeFilter}
+                                    onChange={(e) => setTypeFilter(e.target.value)}
+                                >
+                                    <option value="all">Тип: Все</option>
+                                    <option value="corporate">Корпоративный</option>
+                                    <option value="client">Клиентский</option>
+                                    <option value="public">Публичный</option>
                                 </select>
 
                                 <select className="filter-select">
@@ -490,7 +558,17 @@ export default function Dashboard() {
                                                 </td>
 
                                                 <td>
-                                                    <span className="chip">—</span>
+                                                    <span className="chip">
+                                                        {
+                                                            poll.poll_type === "corporate"
+                                                                ? "Корпоративный"
+                                                                : poll.poll_type === "client"
+                                                                    ? "Клиентский"
+                                                                    : poll.poll_type === "public"
+                                                                        ? "Публичный"
+                                                                        : "—"
+                                                        }
+                                                    </span>
                                                 </td>
 
                                                 <td>
@@ -515,11 +593,121 @@ export default function Dashboard() {
                                                         >
                                                             Результаты
                                                         </button>
-                                                        <button className="btn btn-ghost btn-sm">⋯</button>
+                                                        <div className="menu-wrap">
+                                                            <button
+                                                                className="btn btn-ghost btn-sm"
+                                                                onClick={() =>
+                                                                    setOpenedMenu(openedMenu === poll.id ? null : poll.id)
+                                                                }
+                                                            >
+                                                                ⋯
+                                                            </button>
+
+                                                            {openedMenu === poll.id && (
+                                                                <div className="table-menu">
+
+                                                                    <button
+                                                                        onClick={async () => {
+
+                                                                            const url =
+                                                                                poll.share_url ||
+                                                                                `${window.location.origin}/vote/${poll.id}`
+
+                                                                            await navigator.clipboard.writeText(
+                                                                                url
+                                                                            )
+
+                                                                            alert(
+                                                                                "Ссылка скопирована"
+                                                                            )
+
+                                                                            setOpenedMenu(null)
+
+                                                                        }}
+                                                                    >
+                                                                        🔗 Скопировать ссылку
+                                                                    </button>
+
+                                                                    <button
+                                                                        onClick={() => {
+
+                                                                            setEditingPoll(poll)
+
+                                                                            setPage("create")
+
+                                                                            setOpenedMenu(null)
+
+                                                                        }}
+                                                                    >
+                                                                        ✏️ Редактировать опрос
+                                                                    </button>
+
+                                                                    <button
+                                                                        onClick={() => {
+
+                                                                            setCopyPoll({
+                                                                                ...poll,
+                                                                                title:
+                                                                                    `${poll.title} (копия)`
+                                                                            })
+
+                                                                            setPage("create")
+
+                                                                            setOpenedMenu(null)
+
+                                                                        }}
+                                                                    >
+                                                                        📄 Создать копию
+                                                                    </button>
+
+                                                                    <button
+                                                                        onClick={() =>
+                                                                            togglePollStatus(
+                                                                                poll
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        {
+                                                                            poll.status === "closed"
+                                                                                ?
+                                                                                "🔓 Открыть опрос"
+                                                                                :
+                                                                                "🔒 Закрыть опрос"
+                                                                        }
+                                                                    </button>
+
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </td>
                                             </tr>
                                         ))}
+                                        {!filteredSurveys.length && (
+                                            <tr>
+
+                                                <td colSpan="7">
+
+                                                    <div className="empty-state">
+
+                                                        <div className="empty-icon">
+                                                            🔎
+                                                        </div>
+
+                                                        <div className="empty-title">
+                                                            Ничего не найдено
+                                                        </div>
+
+                                                        <div className="empty-text">
+                                                            Попробуйте изменить фильтр или поиск
+                                                        </div>
+
+                                                    </div>
+
+                                                </td>
+
+                                            </tr>
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
@@ -528,10 +716,32 @@ export default function Dashboard() {
                 )}
                 {page === "create" && (
                     <CreatePoll
+                        initialData={
+                            editingPoll ||
+                            copyPoll
+                        }
+
+                        editMode={
+                            !!editingPoll
+                        }
+
                         onCreated={async () => {
-                            const polls = await getMyPolls()
-                            setSurveys(polls)
-                            setPage("surveys")
+
+                            setEditingPoll(null)
+
+                            setCopyPoll(null)
+
+                            const polls =
+                                await getMyPolls()
+
+                            setSurveys(
+                                polls
+                            )
+
+                            setPage(
+                                "surveys"
+                            )
+
                         }}
                     />
                 )}

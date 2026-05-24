@@ -12,6 +12,7 @@ export default function CreatePoll({ onCreated }) {
     const [aiPrompt, setAiPrompt] = useState("")
     const [aiLoading, setAiLoading] = useState(false)
     const [aiQuestionsCount, setAiQuestionsCount] = useState(5)
+    const [aiGenerated, setAiGenerated] = useState(false)
 
     const [pollTitle, setPollTitle] = useState("")
     const [pollDescription, setPollDescription] = useState("")
@@ -202,7 +203,7 @@ export default function CreatePoll({ onCreated }) {
                 await onCreated()
             }
 
-            alert("Опрос создан")
+            alert(status === "draft" ? "Черновик сохранён" : "Опрос опубликован")
         } catch (err) {
             alert(err.message)
         }
@@ -253,6 +254,7 @@ export default function CreatePoll({ onCreated }) {
             setQuestions(generatedQuestions)
             setActiveQuestionId(generatedQuestions[0]?.id || null)
             setCreateMode("manual")
+            setAiGenerated(true)
         } catch (err) {
             alert(err.message)
         } finally {
@@ -396,6 +398,34 @@ export default function CreatePoll({ onCreated }) {
                                     </button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {aiGenerated && (
+                    <div className="ai-done-header">
+                        <div className="ai-done-icon">✓</div>
+
+                        <div>
+                            <div className="ai-done-title">
+                                AI сгенерировал опрос
+                            </div>
+
+                            <div className="ai-done-sub">
+                                Проверьте вопросы, отредактируйте при необходимости и опубликуйте
+                            </div>
+                        </div>
+
+                        <div className="ai-done-actions">
+                            <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => {
+                                    setCreateMode("ai")
+                                    setAiGenerated(false)
+                                }}
+                            >
+                                Сгенерировать заново
+                            </button>
                         </div>
                     </div>
                 )}

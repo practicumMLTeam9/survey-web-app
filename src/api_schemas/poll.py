@@ -153,6 +153,7 @@ class PollSummary(BaseModel):
     id: int = Field(..., description="Уникальный идентификатор опроса")
     title: str = Field(..., description="Название опроса")
     status: str = Field(..., description="Статус опроса")
+    type: str = Field(..., description="Тип опроса")
     created_at: datetime = Field(..., description="Дата и время создания")
     expires_at: Optional[datetime] = Field(default=None, description="Дата окончания опроса")
     total_votes: int = Field(..., description="Общее количество голосов")

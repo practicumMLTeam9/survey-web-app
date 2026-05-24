@@ -336,6 +336,7 @@ async def get_list_polls(db: AsyncSession, user_id: int) -> list[PollSummary]:
             Poll.id,
             Poll.title,
             Poll.status,
+            Poll.poll_type,
             Poll.created_at,
             Poll.expires_at,
             func.count(Submission.id).filter(
@@ -355,6 +356,7 @@ async def get_list_polls(db: AsyncSession, user_id: int) -> list[PollSummary]:
             id=row.id,
             title=row.title,
             status=row.status,
+            type=row.poll_type,
             created_at=row.created_at,
             expires_at=row.expires_at,
             total_votes=row.total_votes

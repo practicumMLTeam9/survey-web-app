@@ -9,7 +9,7 @@ from src.db.async_session import get_db as get_assync_db
 from src.db.models import User
 from src.security.security import get_current_user, get_respondent_token, security_scheme
 from src.services.poll_service import create_poll_service, get_poll_with_details, vote_poll_service, get_list_polls, \
-    get_poll_results, start_vote_service
+    get_poll_results, start_vote_service, update_poll_status_service
 from src.utils.external_urls import get_frontend_vote_url
 
 router = APIRouter(
@@ -138,5 +138,5 @@ async def update_poll_status(
     db: AsyncSession = Depends(get_assync_db)
 ):
     user_id = current_user.id
-    return await update_poll_status(db, poll_id, user_id, status_in)
+    return await update_poll_status_service(db, poll_id, user_id, status_in)
 

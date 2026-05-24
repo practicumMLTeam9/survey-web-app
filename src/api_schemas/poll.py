@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
-from datetime import datetime, timezone
+from pydantic import BaseModel, Field, model_validator, ConfigDict
+from datetime import datetime
 from typing import List, Optional, Literal
 from zoneinfo import ZoneInfo
 
@@ -184,3 +184,15 @@ class PollStatusUpdate(BaseModel):
     """Тело запроса для изменения статуса опроса"""
     status: Literal["draft", "active", "closed"] = Field(..., description="Новый статус опроса (draft, active, closed)"
     )
+
+
+class GeneratePollRequest(BaseModel):
+    prompt: str = Field(..., min_length=10, max_length=2000, description="Описание опроса для LLM")
+    poll_type: Literal["corporate", "client"] = Field("corporate")
+    language: Literal["ru", "en"] = Field("ru")
+    questions_count: int = Field(5, ge=1, le=50, description="Желаемое количество вопросов")
+    allowed_question_types: Optional[List[Literal["single_choice", "multiple_choice", "scale", "text"]]] = Field(
+        default_factory=lambda: ["single_choice", "multiple_choice", "scale", "text"]
+    )
+    is_anonymous: bool = Field(True)
+    one_response_only: bool = Field(True)

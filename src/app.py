@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from src.api import polls, health, auth
+from src.api import polls, health, auth, polls_ai
 from fastapi.security import HTTPBearer
 app = FastAPI(
     title="Poll Application",
@@ -10,6 +10,8 @@ app = FastAPI(
 app.include_router(polls.router)
 app.include_router(health.router)
 app.include_router(auth.router)
+
+app.include_router(polls_ai.router)
 
 # 🔑 Добавляем схему безопасности для Swagger
 security = HTTPBearer(auto_error=False)

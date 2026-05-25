@@ -146,6 +146,8 @@ class PollResultsResponse(BaseModel):
     id: int = Field(..., description="Уникальный идентификатор опроса")
     title: str = Field(..., description="Название опроса")
     description: Optional[str] = Field(None, description="Описание опроса")
+    poll_type: Optional[str] = Field(None, pattern="^(corporate|client)$")  # default 'corporate'
+    language: Optional[str] = Field(None, pattern="^(ru|en)$")  # default 'ru'
     created_at: datetime = Field(..., description="Дата и время создания")
     total_votes: int = Field(..., description="Общее количество голосов")
     votes: Optional[List[QuestionResult]] = Field(..., description="Словарь с подсчётом голосов")
@@ -167,7 +169,7 @@ class PollSummary(BaseModel):
 class AnswerRequest(BaseModel):
     """Ответ на вопрос"""
     question_id: int = Field(..., description="ID вопроса")
-    option_id: int = Field(..., description="ID варианта ответа")
+    option_id: Optional[int] = Field(default=None, description="ID варианта ответа")
     text_value: Optional[str] = Field(..., description="Текст")
 
     class Config:
@@ -202,3 +204,8 @@ class GeneratePollRequest(BaseModel):
     )
     is_anonymous: bool = Field(True)
     one_response_only: bool = Field(True)
+
+
+class GenerateAnalyticsRequest(BaseModel):
+    req: PollResultsResponse
+    answers_list: list[str]

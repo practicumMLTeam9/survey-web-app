@@ -282,19 +282,20 @@ async def vote_poll_service(poll_id: int,
             )
     """Проверка существования варианта ответа"""
     for answer in answers_list:
-        answer_query = select(QuestionOption).where(
-            and_(
-                QuestionOption.id == answer.option_id,
-                QuestionOption.question_id == answer.question_id
+        if answer.option_id is not None:
+            answer_query = select(QuestionOption).where(
+                and_(
+                    QuestionOption.id == answer.option_id,
+                    QuestionOption.question_id == answer.question_id
+                )
             )
-        )
-        result_answer = await db.execute(answer_query)
-        option = result_answer.scalar_one_or_none()
-        if not option:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Вариант ответа id:'{answer.option_id}' не найден или не принадлежит указанному вопросу"
-            )
+            result_answer = await db.execute(answer_query)
+            option = result_answer.scalar_one_or_none()
+            if not option:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Вариант ответа id:'{answer.option_id}' не найден или не принадлежит указанному вопросу"
+                )
     # Создаем ответ пользователя
     answers = []
     for answer in answers_list:
@@ -481,15 +482,18 @@ async def get_poll_results(poll_id: int,
     for question_id in questions_map:
         results_list = []
         question_pos, question_text, question_type = questions_map[question_id]
-        for _, option_text, option_pos, count in votes_data:  # Сохраняем результаты по вариантам
+        for q_id, option_text, option_pos, count in votes_data:  # Сохраняем результаты по вариантам
             q_count = votes_q_data[question_id]
-            option_result = OptionResult(
-                option_position=option_pos,
-                option=option_text,
-                votes=count,
-                percentage=round(count / q_count * 100, 2) if q_count > 0 else 0.0
-            )
-            results_list.append(option_result)
+            if q_id == question_id:
+                option_result = OptionResult(
+                    option_position=option_pos,
+                    option=option_text,
+                    votes=count,
+                    percentage=round(count / q_count * 100, 2) if q_count > 0 else 0.0
+                )
+                results_list.append(option_result)
+        # Сортируем по позиции
+        results_list.sort(key=lambda x: x.option_position)
         question_result = QuestionResult(
             question_id=question_id,
             question_text=question_text,
@@ -529,6 +533,8 @@ async def get_poll_results(poll_id: int,
         id=poll.id,
         title=poll.title,
         description=poll.description,
+        poll_type=poll.poll_type,
+        language=poll.language,
         created_at=poll.created_at,
         total_votes=total_votes,
         votes=votes_list,
@@ -556,14 +562,20 @@ async def get_text_answers(
             detail="Опрос не найден или не активен"
         )
     answers_query = (
-    select(Answer.text_value)
-    .join(Question, Answer.question_id == Question.id)
-    .where(Poll.id == poll_id, Answer.text_value.isnot(None))
+        select(Answer.text_value)
+        .join(Question, Answer.question_id == Question.id)
+        .where(
+            Question.poll_id == poll_id,
+            Question.type == 'text',  # ← КЛЮЧЕВОЙ ФИЛЬТР
+            Answer.text_value.isnot(None),
+            Answer.text_value != '',   # ← исключаем пустые строки
+            Answer.text_value != 'string'  # ← исключаем "string"
+        )
     )
     # Выполнение и сохранение в list
     result = await db.execute(answers_query)
     text_answers = result.scalars().all()   
-    return text_answers, poll.description, poll.poll_type, poll.language
+    return text_answers, poll.title, poll.description, poll.poll_type, poll.language
 
 
 async def get_aggregate_val(

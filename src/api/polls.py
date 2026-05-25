@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, Request, Response, status, HTTPException, Body, Path
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -98,10 +98,9 @@ async def get_results(poll_id: int,
 async def vote_poll(poll_id: int, 
                     vote: VoteRequest, 
                     request: Request, 
-                    response: Response,
                     db: AsyncSession = Depends(get_assync_db)):
     """Проголосовать в опросе"""
-    respondent_token = get_respondent_token(request, response)
+    respondent_token = get_respondent_token(request)
     if respondent_token is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -147,3 +146,41 @@ async def update_poll_status(
     user_id = current_user.id
     return await update_poll_status(db, poll_id, user_id, status_in)
 
+
+@router.post("/{poll_id}/vote/bulk",
+             status_code=status.HTTP_200_OK,
+             summary="Массовое голосование в опросе (для тестов)",
+             description="Автоматически начинает опрос для каждого ответа и сохраняет голоса",
+             tags=["Voting"])
+async def bulk_vote_poll(poll_id: int,
+                         votes_data: List[VoteRequest],
+                         request: Request,
+                         response: Response,
+                         db: AsyncSession = Depends(get_assync_db)):
+    """
+    Массовое голосование в опросе.
+    Для каждого ответа из массива:
+    1. Автоматически получает respondent_token (как в /vote/start)
+    2. Сохраняет голос через vote_poll_service
+    """
+    results = []
+    
+    for idx, vote in enumerate(votes_data):
+        try:
+            respondent_token = create_respondent_token(request, response)
+            start_result = await start_vote_service(poll_id, respondent_token, db)  # сервис сам управляет транзакцией
+            answers = await vote_poll_service(poll_id, vote, respondent_token, db)  # сервис сам управляет транзакцией
+            
+            results.append(VoteResponse(
+                poll_id=poll_id,
+                answers_confirmed=answers if answers else [],
+                message=f"Голос #{idx + 1} успешно учтён"
+            ))
+        except Exception as e:
+            results.append(VoteResponse(
+                poll_id=poll_id,
+                answers_confirmed=[],
+                message=f"Ошибка при обработке голоса #{idx + 1}: {str(e)}"
+            ))
+    
+    return results

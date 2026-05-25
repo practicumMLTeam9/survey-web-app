@@ -8,12 +8,19 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, HTTPException, Depends, status, Body
 from pydantic import ValidationError
 
-from src.api_schemas.poll import PollCreate, GeneratePollRequest, PollResultsResponse
+from src.api_schemas.poll import PollCreate, GeneratePollRequest, PollResultsResponse, GenerateAnalyticsRequest
 from src.api_schemas.ai import LLMRequestParams, Test
 from src.db.models import User
 from src.security.security import security_scheme, get_current_user
 from src.services.ai_service import ApiLLMService, get_llm_service
 from src.services.poll_service import get_text_answers, get_aggregate_val
+from src.db.models import AiSummary, AiRequest
+import json
+from src.db.async_session import get_db as get_assync_db
+from sqlalchemy.ext.asyncio import AsyncSession
+from math import ceil
+import asyncio
+import time
 
 DEFAULT_MODEL = os.getenv("DEFAULT_LLM_MODEL", "baidu/cobuddy:free")
 SYSTEM_PROMPT_GENERATE = """Ты — генератор опросов. Возвращай ТОЛЬКО валидный JSON, строго соответствующий схеме ниже. Никаких пояснений, markdown или комментариев.
@@ -199,73 +206,16 @@ START_PROMPT_ANALYTICS = """
 - `avg_values`: список объектов вида {"option": "string", "avg_value": float}, ...` или null, средние оценки по шкале (если применимо).
 - `response_rate`: число с плавающей точкой, доля ответивших (от 0 до 1).
 - `avg_completion_time`: число с плавающей точкой, среднее время заполнения в секундах.
-- `text_answers`: список строк, открытые текстовые ответы респондентов.
+- `answers_list`: список строк, открытые текстовые ответы респондентов.
 
 
-Схема ответа (JSON Schema)
-Сгенерируй JSON строго по следующей схеме:
-{
-  Валидация тональности: Проанализируй каждый элемент из `text_answers`. 
-Количество ответов, отнесённых к позитивным, нейтральным и негативным, в сумме должно быть строго равно `total_votes`. 
-Процентное соотношение должно считаться от `total_votes` и в сумме давать 100%.
-  "sentiment": {
-    "positive": {"count": "int", "percentage": "float"},
-    "neutral": {"count": "int", "percentage": "float"},
-    "negative": {"count": "int", "percentage": "float"},
-  },
-
-  Валидация тем и цитат: Ты должен выделить ровно 3 ключевых тем из открытых ответов. 
-Для каждой темы приведи ровно 2 цитаты. Цитаты должны быть дословными выдержками из `text_answers`.
-  "themes": [
-    {
-      "theme": "string (название темы, 2-4 слова)",
-      "count": "int (число упоминаний темы)",
-      "quotes": ["string", "string", "string"] // ровно 2 цитаты
-    }
-    // ... всего должно быть 3 элемента(тем)
-  ],
-
-  Логика инсайтов: Должно быть ровно 3 инсайта. Каждый инсайт — одно предложение. 
-У каждого инсайта есть оценка: "positive", "warning", "critical" или "neutral". 
-  "insights": [
-    {
-      "text": "string (1 предложение)",
-      "type": "string (допустимые значения: 'positive', 'warning', 'critical', 'neutral')",
-    }
-    // ... всего должно быть 3 элемента
-  ],
-
-  Логика рекомендаций: Должно быть ровно 3 рекомендации. 
-К каждой указан уровень важности: "high", "medium", "low". 
-  "recommendations": [
-    {
-      "text": "string (1-2 предложения)",
-      "priority": "string (допустимые значения: 'high', 'medium', 'low')",
-    }
-    // ... всего должно быть 3 элемента
-  ],
-}
-
-Пример обработки (твоя внутренняя логика)
-1.  Получив `text_answers`, классифицируй каждый ответ. 
-Если ответов меньше, чем `total_votes`, дозаполни тональность до 100% пропорционально уже классифицированным, но в поле `conclusion` обязательно укажи это допущение.
-2.  При выделении 3 тем из `text_answers` сгруппируй семантически близкие ответы. 
-Если уникальных ответов меньше 3, создай оставшиеся темы с заглушкой "Прочие аспекты", но с пустыми цитатами. Стремись к тому, чтобы значимые темы были первыми.
-3.  Формируя `insights`, базируйся на цифрах (корреляция между данными из `votes`, `avg_values`, `sentiment`). 
-Не пиши общих фраз типа "Результаты опроса показали...", пиши конкретно: "82% респондентов негативно оценивают скорость работы, что является критическим сигналом".
-
-Итоговое действие
-Сгенерируй итоговый JSON. Проверь его валидность и соответствие всем пунктам перед выводом.
-"""
-
-SUMMARY_PROMPT_ANALYTICS = """
 Схема ответа (JSON Schema)
 Сгенерируй JSON строго по следующей схеме:
 {
   "summary": "string (4-5 предложений с основными выводами)",
 
   Валидация тем и цитат: Ты должен выделить ровно 10 ключевых тем из открытых ответов. 
-Для каждой темы приведи ровно 3 цитаты. Цитаты должны быть дословными выдержками из `text_answers`.
+Для каждой темы приведи ровно 3 цитаты. Цитаты должны быть дословными выдержками из `answers_list`.
   "themes": [
     {
       "theme": "string (название темы, 2-4 слова)",
@@ -301,6 +251,88 @@ SUMMARY_PROMPT_ANALYTICS = """
   ],
 }
 
+  Отбор двух ключевых вопросов: Выбрать 2 наиболее важных вопроса.
+  "key_questions":{
+  "categorical_question": "int"
+  "scale_question": "int"
+  }
+
+Справочник цветов и Emoji для фронтенда
+Используй исключительно следующие значения:
+
+Для инсайтов (insights):
+- positive: тип "positive", emoji "✅", цвет "#059669"
+- warning: тип "warning", emoji "⚠️", цвет "#D97706"
+- critical: тип "critical", emoji "🔴", цвет "#DC2626"
+- neutral: тип "neutral", emoji "ℹ️", цвет "#4B5563"
+
+Для рекомендаций (recommendations: priority_color):
+- high: цвет "#DC2626"
+- medium: цвет "#D97706"
+- low: цвет "#059669"
+
+
+Пример обработки (твоя внутренняя логика)
+1.  Получив `answers_list`, классифицируй каждый ответ. 
+Если ответов меньше, чем `total_votes`, дозаполни тональность до 100% пропорционально уже классифицированным, но в поле `conclusion` обязательно укажи это допущение.
+2.  При выделении 3 тем из `answers_list` сгруппируй семантически близкие ответы. 
+Если уникальных ответов меньше 3, создай оставшиеся темы с заглушкой "Прочие аспекты", но с пустыми цитатами. Стремись к тому, чтобы значимые темы были первыми.
+3.  Формируя `insights`, базируйся на цифрах (корреляция между данными из `votes`, `avg_values`, `sentiment`). 
+Не пиши общих фраз типа "Результаты опроса показали...", пиши конкретно: "82% респондентов негативно оценивают скорость работы, что является критическим сигналом".
+
+Итоговое действие
+Сгенерируй итоговый JSON. Проверь его валидность и соответствие всем пунктам перед выводом.
+"""
+
+SUMMARY_PROMPT_ANALYTICS = """
+Схема ответа (JSON Schema)
+Сгенерируй JSON строго по следующей схеме:
+{
+  "summary": "string (4-5 предложений с основными выводами)",
+
+  Валидация тем и цитат: Ты должен выделить ровно 10 ключевых тем из открытых ответов. 
+Для каждой темы приведи ровно 3 цитаты. Цитаты должны быть дословными выдержками из `answers_list`.
+  "themes": [
+    {
+      "theme": "string (название темы, 2-4 слова)",
+      "count": "int (число упоминаний темы)",
+      "quotes": ["string", "string", "string"] // ровно 3 цитаты
+    }
+    // ... всего должно быть 3 элемента(тем)
+  ],
+
+  Логика инсайтов: Должно быть ровно 4 инсайта. Каждый инсайт — одно предложение. 
+У каждого инсайта есть оценка: "positive" (зеленый), "warning" (желтый), "critical" (красный) или "neutral". 
+Обязательно наличие как минимум одного инсайта типа "positive", одного "critical" и одного "warning".
+  "insights": [
+    {
+      "text": "string (1 предложение)",
+      "type": "string (допустимые значения: 'positive', 'warning', 'critical', 'neutral')",
+      "emoji": "string (emoji, соответствующий типу)",
+      "color": "string (HEX-код цвета, соответствующий типу)"
+    }
+    // ... всего должно быть 4 элемента
+  ],
+
+  Логика рекомендаций: Должно быть ровно 4 рекомендации. 
+К каждой указан уровень важности: "high" (красный), "medium" (жёлтый), "low" (зелёный). 
+Обязательно должна присутствовать хотя бы одна рекомендация каждого уровня.
+  "recommendations": [
+    {
+      "text": "string (1-2 предложения)",
+      "priority": "string (допустимые значения: 'high', 'medium', 'low')",
+      "priority_color": "string (HEX-код цвета приоритета)"
+    }
+    // ... всего должно быть 4 элемента
+  ],
+}
+
+  Отбор двух ключевых вопросов: Выбрать 2 наиболее важных вопроса.
+  "key_questions":{
+  "categorical_question": "int"
+  "scale_question": "int"
+  }
+
 Справочник цветов и Emoji для фронтенда
 Используй исключительно следующие значения:
 
@@ -316,9 +348,9 @@ SUMMARY_PROMPT_ANALYTICS = """
 - low: цвет "#059669"
 
 Пример обработки (твоя внутренняя логика)
-1.  Получив `text_answers`, классифицируй каждый ответ. 
+1.  Получив `answers_list`, классифицируй каждый ответ. 
 Если ответов меньше, чем `total_votes`, дозаполни тональность до 100% пропорционально уже классифицированным, но в поле `conclusion` обязательно укажи это допущение.
-2.  При выделении 10 тем из `text_answers` сгруппируй семантически близкие ответы. 
+2.  При выделении 10 тем из `answers_list` сгруппируй семантически близкие ответы. 
 Если уникальных ответов меньше 10, создай оставшиеся темы с заглушкой "Прочие аспекты", но с пустыми цитатами. Стремись к тому, чтобы значимые темы были первыми.
 3.  Формируя `insights`, базируйся на цифрах (корреляция между данными из `votes`, `avg_values`, `sentiment`). 
 Не пиши общих фраз типа "Результаты опроса показали...", пиши конкретно: "82% респондентов негативно оценивают скорость работы, что является критическим сигналом".
@@ -336,40 +368,132 @@ SUMMARY_PROMPT_ANALYTICS = """
 )
 async def generate_analytics(
         req: PollResultsResponse,
-        text_answers: str, poll_desription: str, poll_type: str, poll_language: str,
         current_user: User = Depends(get_current_user()),
-        llm_service: ApiLLMService = Depends(get_llm_service)
-):
-    # text_answers, poll_desription, poll_type, poll_language  = await get_text_answers(poll_id, user_id)
+        llm_service: ApiLLMService = Depends(get_llm_service),
+        db: AsyncSession = Depends(get_assync_db)):
+    answers_list, poll_title, poll_description, poll_type, poll_language  = await get_text_answers(req.id, current_user.id, db)
     try: 
-        # 1. Формируем параметры запроса к LLM
-        poll_params = (
-            f"Название: {req.title}. "
-            f"Описание: {poll_desription}. "
-            f"Язык: {poll_language}. Тип опроса: {poll_type}. "
-            f"Результаты опроса:{req}"
-            f"Текстовые ответы: {text_answers}"
+        # Валидация входных данных
+        if not answers_list:
+            logger.warning("Нет текстовых ответов для анализа")
+            return {
+                "status": "no_data",
+                "message": "Нет текстовых ответов для анализа",
+                "analytics": {}
+            }
+    
+        batch_size = 100
+        
+        # Создаем батчи с весами
+        batches = []
+        for i in range(0, len(answers_list), batch_size):
+            batch = answers_list[i:i+batch_size]
+            weight = len(batch) / batch_size  # вес = количество ответов в батче / 10
+            batches.append({
+                'answers': batch,
+                'weight': weight,
+                'batch_num': i // batch_size + 1
+            })
+        
+        # Если нет текстовых ответов, создаем один пустой батч
+        if not batches:
+            batches.append({
+                'answers': [],
+                'weight': 0,
+                'batch_num': 1
+            })
+        
+        logger.info(f"Разбито на {len(batches)} батчей. Веса: {[b['weight'] for b in batches]}")
+        
+        # 2. Функция для обработки одного батча
+        async def process_batch(batch_data: dict) -> dict:
+            start_time = time.time()
+            logger.info(f"Батч {batch_data['batch_num']} начал выполнение в {start_time}")
+
+            batch_answers = '\n'.join(batch_data['answers']) if batch_data['answers'] else "Нет ответов в этом батче"
+            
+            poll_params = (
+                f"Название: {poll_title}. "
+                f"Описание: {poll_description}. "
+                f"Язык: {poll_language}. Тип опроса: {poll_type}. "
+                f"Результаты опроса: {req}"
+                f"Текстовые ответы: {batch_answers}"
+            )
+            
+            llm_params = LLMRequestParams(
+                prompt=poll_params,
+                model=DEFAULT_MODEL,
+                temperature=0.1,
+                max_tokens=32000,
+                top_p=0.9,
+                response_format={"type": "json_object"}
+            )
+            
+            system_prompt = SYSTEM_PROPMT_ANALYTICS + START_PROMPT_ANALYTICS
+            
+            try:
+                llm_data = await llm_service.generate_ai(llm_params, system_prompt)
+                
+                # Добавляем метаинформацию о батче
+                if isinstance(llm_data, dict):
+                    llm_data['_batch_metadata'] = {
+                        'batch_num': batch_data['batch_num'],
+                        'weight': batch_data['weight'],
+                        'answers_count': len(batch_data['answers'])
+                    }
+                logger.info(f"Батч {batch_data['batch_num']} закончил за {time.time() - start_time} сек")
+                return llm_data
+            except Exception as e:
+                logger.error(f"Ошибка в батче {batch_data['batch_num']}: {str(e)}")
+                # Возвращаем fallback для ошибочного батча
+                return {
+                    "error": f"Ошибка обработки батча {batch_data['batch_num']}",
+                    "_batch_metadata": {
+                        'batch_num': batch_data['batch_num'],
+                        'weight': batch_data['weight'],
+                        'error': str(e)
+                    }
+                }
+        
+        # 3. Запуск батчей 
+        if len(batches) == 1:
+            # Для одного батча - выполняем напрямую, без asyncio.gather
+            logger.info("Один батч, выполняю синхронно")
+            batch_results = [await process_batch(batches[0])]
+        else:
+            # Для нескольких батчей
+            logger.info(f"{len(batches)} батчей, выполняю асинхронно")
+            tasks = [process_batch(batch) for batch in batches]
+            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # 4. Агрегация результатов
+        aggregated_result = {
+            "total_batches": len(batches),
+            "total_answers": len(answers_list),
+            "batch_results": batch_results,
+        }
+
+
+        # Сохраняем AI-резюме
+        summary_text = json.dumps(aggregated_result, ensure_ascii=False, default=str)
+        ai_summary = AiSummary(
+            poll_id=req.id,
+            summary_text=summary_text
         )
-
-        llm_params = LLMRequestParams(
-            prompt=poll_params,
-            model=DEFAULT_MODEL,
-            temperature=0.1,  # Возможно уменьшить до 0.1 для строгого JSON
-            max_tokens=32000,
-            top_p=0.9,
-            response_format={"type": "json_object"}
+        db.add(ai_summary)
+        
+        # Сохраняем AI-запрос
+        ai_request = AiRequest(
+            user_id=current_user.id,
+            poll_id=req.id,
+            request_type='summary'
         )
-
-        system_prompt = SYSTEM_PROPMT_ANALYTICS + START_PROMPT_ANALYTICS
-
-        # 2. Вызов LLM через сервис
-        llm_data = await llm_service.generate_ai(llm_params, system_prompt)
-
-        # 3. Защита: LLM иногда возвращает list или строку вместо dict
-        if not isinstance(llm_data, dict):
-            raise ValueError("LLM вернул не JSON-объект")
-
-        return llm_data
+        db.add(ai_request)
+        
+        # Коммитим изменения
+        await db.commit()
+        logger.info(f"AI аналитика для опроса {req.id} сохранена в БД. Summary ID: {ai_summary.id}, Request ID: {ai_request.id}")
+        return aggregated_result
     
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=400, detail=f"LLM вернул некорректный JSON: {str(e)}")

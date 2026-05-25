@@ -7,7 +7,7 @@ class LLMRequestParams(BaseModel):
     model: str = Field(default="openrouter/free", description="Модель LLM")
     response_model: Optional[Type[BaseModel]] = Field(default=None, description="Pydantic модель для структурированного вывода")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Креативность ответа")
-    max_tokens: int = Field(default=2000, ge=1, le=32000, description="Максимальное количество токенов")
+    max_tokens: int = Field(default=2000, ge=1, description="Максимальное количество токенов")
     top_p: float = Field(default=1.0, ge=0.0, le=1.0, description="Nucleus sampling")
     frequency_penalty: float = Field(default=0.0, ge=-2.0, le=2.0, description="Штраф за частоту упоминания")
     presence_penalty: float = Field(default=0.0, ge=-2.0, le=2.0, description="Штраф за новые темы")

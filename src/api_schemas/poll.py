@@ -111,18 +111,25 @@ class PollDetailResponse(BaseModel):
 
 
 class OptionResult(BaseModel):
-    question: str = Field(..., description="Текст вопроса")
-    question_position: int = Field(..., description="Позиция вопроса")
     option: str = Field(..., description="Текст варианта ответа")
     option_position: int = Field(..., description="Позиция варианта ответа")
     votes: int = Field(..., description="Количество голосов")
     percentage: float = Field(..., description="Процент голосов")
 
 
-class AverageValue(BaseModel):
-    question: str = Field(..., description="Текст вопроса")
+class QuestionResult(BaseModel):
+    question_id: int = Field(..., description="ID вопроса")
+    question_text: str = Field(..., description="Текст вопроса")
     question_position: int = Field(..., description="Позиция вопроса")
-    option: str = Field(default="Средний рейтинг", description="Текст метрики")
+    question_type: str = Field(default='draft', pattern='^(single_choice|multiple_choice|scale|text)$', description="Тип вопроса")
+    question_votes: Optional[List[OptionResult]] = Field(..., description="Словарь с подсчётом голосов")
+
+
+class AverageValue(BaseModel):
+    question_id: int = Field(..., description="ID вопроса")
+    question_text: str = Field(..., description="Текст вопроса")
+    question_position: int = Field(..., description="Позиция вопроса")
+    option: str = Field(default="Среднее значение", description="Текст метрики")
     avg_value: float = Field(..., description="Среднее значение")
 
 
@@ -138,11 +145,10 @@ class PollResponse(BaseModel):
 class PollResultsResponse(BaseModel):
     id: int = Field(..., description="Уникальный идентификатор опроса")
     title: str = Field(..., description="Название опроса")
-    options: List[str] = Field(..., description="Список вариантов")
     description: Optional[str] = Field(None, description="Описание опроса")
     created_at: datetime = Field(..., description="Дата и время создания")
     total_votes: int = Field(..., description="Общее количество голосов")
-    votes: Optional[List[OptionResult]] = Field(..., description="Словарь с подсчётом голосов")
+    votes: Optional[List[QuestionResult]] = Field(..., description="Словарь с подсчётом голосов")
     avg_values: Optional[List[AverageValue]] = Field(..., description="Словарь со средними значениями")
     response_rate: float = Field(..., description="Отклик на опрос")
     avg_completion_time: float = Field(..., description="Среднее время прохождения опроса")

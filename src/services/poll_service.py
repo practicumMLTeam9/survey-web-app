@@ -1,4 +1,4 @@
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, aliased
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select, and_, func, cast, Integer
 from fastapi import HTTPException, status
@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from src.db.models import Poll, Question, QuestionOption, Submission, Answer
 from src.api_schemas.poll import PollCreate, VoteRequest, AnswerRequest, PollSummary, PollStatusUpdate, OptionResult, \
-    PollResultsResponse, AverageValue, QuestionOptionCreate
+    PollResultsResponse, AverageValue, QuestionOptionCreate, QuestionResult
 from collections import defaultdict
 
 
@@ -139,7 +139,7 @@ async def start_vote_service(poll_id: int,
     existing_submission_query = select(Submission).where(
         and_(
             Submission.poll_id == poll_id,
-            Submission.respondent_token == respondent_token
+            Submission.respondent_token == respondent_token,
         )
     )
     result_sub = await db.execute(existing_submission_query)
@@ -184,7 +184,7 @@ async def vote_poll_service(poll_id: int,
             detail="Опрос не найден или не активен/достигнут лимит участников"
         )
     """Проверка истечения времени для ответа"""
-    if poll.expires_at and poll.expires_at < completed_time:
+    if poll.expires_at and poll.expires_at < completed_time.replace(tzinfo=None):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Время для прохождения опроса истекло"
@@ -476,21 +476,28 @@ async def get_poll_results(poll_id: int,
     """Сохранение числа ответов по вариантам"""
     votes_data = [(question_id, option_text, option_pos, count) for question_id, option_text, option_pos, count in
                   votes_opt_results.all()]
-    options_list = [option_text for question_id, option_text, option_pos, count in votes_data]
     votes_q_data = {q.id: q.q_count for q in votes_q_results.all()}
-    results_list = []
-    for question_id, option_text, option_pos, count in votes_data:  # Сохраняем результаты по вариантам
-        question_pos, question_text, _ = questions_map[question_id]
-        q_count = votes_q_data[question_id]
-        option_result = OptionResult(
-            question=question_text,
+    votes_list = []
+    for question_id in questions_map:
+        results_list = []
+        question_pos, question_text, question_type = questions_map[question_id]
+        for _, option_text, option_pos, count in votes_data:  # Сохраняем результаты по вариантам
+            q_count = votes_q_data[question_id]
+            option_result = OptionResult(
+                option_position=option_pos,
+                option=option_text,
+                votes=count,
+                percentage=round(count / q_count * 100, 2) if q_count > 0 else 0.0
+            )
+            results_list.append(option_result)
+        question_result = QuestionResult(
+            question_id=question_id,
+            question_text=question_text,
             question_position=question_pos,
-            option_position=option_pos,
-            option=option_text,
-            votes=count,
-            percentage=round(count / q_count * 100, 2) if q_count > 0 else 0.0
+            question_type=question_type,
+            question_votes=results_list
         )
-        results_list.append(option_result)
+        votes_list.append(question_result)
     """Подсчёт среднего значения для опросов с типом scale"""
     avg_res_list = []
     if any(q[2] == 'scale' for q in questions_map.values()):
@@ -503,7 +510,8 @@ async def get_poll_results(poll_id: int,
             .join(Answer, QuestionOption.id == Answer.option_id)
             .where(
                 Question.poll_id == poll_id,
-                Question.type == 'scale'
+                Question.type == 'scale',
+                QuestionOption.text.regexp_match(r'^-?\d+$')
             )
             .group_by(Question.id)
         )
@@ -512,20 +520,104 @@ async def get_poll_results(poll_id: int,
             if avg_val is not None:
                 q_pos, q_text, _ = questions_map[q_id]
                 avg_res_list.append(AverageValue(
-                    question=q_text,
+                    question_id = q_id,
+                    question_text=q_text,
                     question_position=q_pos,
                     avg_value=round(float(avg_val), 2),
                 ))
     results_response = PollResultsResponse(
         id=poll.id,
         title=poll.title,
-        options=options_list,
         description=poll.description,
         created_at=poll.created_at,
         total_votes=total_votes,
-        votes=results_list,
+        votes=votes_list,
         avg_values=avg_res_list,
         response_rate=response_rate_val,
         avg_completion_time=avg_completion_time_seconds
     )
     return results_response
+
+
+async def get_text_answers(
+    poll_id: int,
+    user_id: int,
+    db: AsyncSession
+):
+    """Проверка существования опроса"""
+    poll_query = select(Poll).where(
+        and_(Poll.id == poll_id, Poll.created_by_user_id == user_id)
+    )
+    result_poll = await db.execute(poll_query)
+    poll = result_poll.scalar_one_or_none()
+    if poll is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Опрос не найден или не активен"
+        )
+    answers_query = (
+    select(Answer.text_value)
+    .join(Question, Answer.question_id == Question.id)
+    .where(Poll.id == poll_id, Answer.text_value.isnot(None))
+    )
+    # Выполнение и сохранение в list
+    result = await db.execute(answers_query)
+    text_answers = result.scalars().all()   
+    return text_answers, poll.description, poll.poll_type, poll.language
+
+
+async def get_aggregate_val(
+    poll_id: int,
+    user_id: int,
+    db: AsyncSession,
+    categorical_question_id: int, scale_question_id: int
+    ):
+    """Проверка существования опроса"""
+    poll_query = select(Poll).where(
+        and_(Poll.id == poll_id, Poll.created_by_user_id == user_id)
+    )
+    result_poll = await db.execute(poll_query)
+    poll = result_poll.scalar_one_or_none()
+    if poll is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Опрос не найден или не активен"
+        )
+    # Создаём алиасы для одной и той же таблицы QuestionOption
+    category_option = aliased(QuestionOption)  # для ответа на категориальный вопрос
+    scale_option = aliased(QuestionOption)     # для ответа на шкальный вопрос
+    scale_answer = aliased(Answer) 
+
+    aggregation_query = (
+        select(
+            # Берём ТЕКСТ варианта из категориального ответа
+            category_option.text.label('category'),
+            # Среднее число из шкального ответа
+            func.avg(cast(scale_option.text, Integer)).label('avg_scale')
+        )
+        .select_from(Submission)
+        # Джойним ответы (категориальные)
+        .join(Answer, Answer.submission_id == Submission.id)
+        .join(category_option, category_option.id == Answer.option_id)
+        .join(Question, Question.id == category_option.question_id)
+        .where(Question.id == categorical_question_id)  # ID вопроса "Отдел"
+        
+        # Джойним ответы на шкальный вопрос (через алиас)
+        .join(
+            scale_answer,
+            and_(
+                scale_answer.submission_id == Submission.id,
+                scale_answer.question_id == scale_question_id
+            )
+        )
+        .join(scale_option, scale_option.id == scale_answer.option_id)
+        .where(scale_option.text.regexp_match(r'^-?\d+$'))
+        
+        .group_by(category_option.text)
+    )
+    result = await db.execute(aggregation_query)
+    aggregation_data = [
+        {"category": row.category, "avg_scale": float(row.avg_scale)}
+        for row in result
+    ]
+    return aggregation_data

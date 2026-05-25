@@ -133,9 +133,9 @@ class ApiLLMService:
 
             # Проверяем, поддерживает ли модель tool calling
             use_tools = await self._supports_tool_calling(params.model)
-            if use_tools:
-                if not params.response_model:
-                    raise ValueError("response_model должна быть указана")
+            if use_tools and params.response_model is not None:
+                # if not params.response_model:
+                #     raise ValueError("response_model должна быть указана")
                 
                 # Добавляем параметры для tool calling
                 tool_schema = {
@@ -148,7 +148,7 @@ class ApiLLMService:
                     "function": {"name": params.response_model.__name__}
                 }
                 # Отправляем запрос с таймаутом
-                response = await self.client.chat.completions.create(**request_body)
+                response = await self.client.chat.completions.create(**request_body, timeout=timeout)
                 # Извлекаем данные из tool_calls
                 tool_call = response.choices[0].message.tool_calls[0]
                 arguments_json = tool_call.function.arguments
@@ -166,7 +166,7 @@ class ApiLLMService:
                 )
             else:
                 # Отправляем запрос
-                response = await self.client.chat.completions.create(**request_body)
+                response = await self.client.chat.completions.create(**request_body, timeout=timeout)
                     
                 return LLMResponse(
                 content=response.choices[0].message.content,
@@ -199,7 +199,7 @@ class ApiLLMService:
         params: LLMRequestParams,
         system_prompt: Optional[str] = None,
         timeout: int = 60
-    ) -> Dict[str, Any]:
+    ):
         """
         Генерация JSON ответа от LLM   
         Args:

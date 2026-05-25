@@ -7,7 +7,7 @@ from src.api_schemas.poll import PollCreate, PollCreatedResponse, PollSummary, P
     VoteResponse, VoteRequest, PollStatusUpdate
 from src.db.async_session import get_db as get_assync_db
 from src.db.models import User
-from src.security.security import get_current_user, get_respondent_token, security_scheme
+from src.security.security import get_current_user, get_respondent_token, security_scheme, create_respondent_token
 from src.services.poll_service import create_poll_service, get_poll_with_details, vote_poll_service, get_list_polls, \
     get_poll_results, start_vote_service
 from src.utils.external_urls import get_frontend_vote_url
@@ -102,6 +102,11 @@ async def vote_poll(poll_id: int,
                     db: AsyncSession = Depends(get_assync_db)):
     """Проголосовать в опросе"""
     respondent_token = get_respondent_token(request, response)
+    if respondent_token is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Запустите /vote/start для получения respondent_token"
+        )
     async with db.begin():
         answers = await vote_poll_service(poll_id, vote, respondent_token, db)
     return VoteResponse(
@@ -119,7 +124,9 @@ async def start_vote(poll_id: int,
                     response: Response,
                     db: AsyncSession = Depends(get_assync_db)):
     """Начать прохождение опроса"""
-    respondent_token = get_respondent_token(request, response)
+    respondent_token = get_respondent_token(request)
+    if respondent_token is None:
+        respondent_token = create_respondent_token(request, response)
     start_result = await start_vote_service(poll_id, respondent_token, db)
     return start_result
 

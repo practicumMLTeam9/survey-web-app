@@ -1,11 +1,13 @@
-from sqlalchemy import text, Integer, DateTime, Text, ForeignKey, func, UniqueConstraint, CheckConstraint, \
+from sqlalchemy import text, Integer, Float, DateTime, Text, ForeignKey, func, UniqueConstraint, CheckConstraint, \
     Boolean, false, true
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from datetime import datetime
 from sqlalchemy.orm import DeclarativeBase
+import uuid
 
 
 class Base(DeclarativeBase): pass
+
 
 class Poll(Base):
     __tablename__ = 'polls'
@@ -69,14 +71,16 @@ class Poll(Base):
                                                            cascade="all, delete-orphan",
                                                            passive_deletes=True)
     ai_summaries: Mapped[list["AiSummary"]] = relationship("AiSummary", back_populates="poll",
-                                                            cascade="all, delete-orphan",
-                                                            passive_deletes=True)
+                                                           cascade="all, delete-orphan",
+                                                           passive_deletes=True)
     ai_chat_messages: Mapped[list["AiChatMessage"]] = relationship("AiChatMessage", back_populates="poll",
-                                                            cascade="all, delete-orphan",
-                                                            passive_deletes=True)
+                                                                   cascade="all, delete-orphan",
+                                                                   passive_deletes=True)
     ai_requests: Mapped[list["AiRequest"]] = relationship("AiRequest", back_populates="poll",
                                                           cascade="all, delete-orphan",
-                                                            passive_deletes=True)
+                                                          passive_deletes=True)
+    # generation_metrics: Mapped[list["AiGenerationMetric"]] = relationship("AiGenerationMetric", back_populates="poll",
+    #                                                                       passive_deletes=True)
 
 
 class Question(Base):
@@ -221,7 +225,7 @@ class User(Base):
     # ORM
     polls: Mapped[list["Poll"]] = relationship("Poll", back_populates="creator",
                                                cascade="save-update, merge",
-                                               lazy="selectin")                     # LAZY
+                                               lazy="selectin")  # LAZY
     subscriptions: Mapped[list["Subscription"]] = relationship("Subscription", back_populates="user",
                                                                cascade="save-update, merge",
                                                                passive_deletes=True)
@@ -338,6 +342,41 @@ class AiRequest(Base):
         DateTime(timezone=True), nullable=True, server_default=func.now(),
         index=True, comment="Дата создания AI-запроса")
 
+    latency_ms: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Время ответа LLM в миллисекундах"
+    )
+    # Опционально: токен для связи с черновиком до создания опроса
+    session_token: Mapped[str | None] = mapped_column(
+        Text, nullable=True, index=True, comment="Временный ID черновика для фронтенда"
+    )
+
     # ORM
     user: Mapped["User | None"] = relationship("User", back_populates="ai_requests")
     poll: Mapped["Poll | None"] = relationship("Poll", back_populates="ai_requests")
+
+
+# class AiGenerationMetric(Base):
+#     __tablename__ = "ai_generation_metrics"
+#     __table_args__ = {"comment": "Метрики AI-генерации опросов"}
+#
+#     session_id: Mapped[str] = mapped_column(primary_key=True, default=lambda: str(uuid.uuid4()))
+#     user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+#     llm_model: Mapped[str] = mapped_column(nullable=False)
+#     poll_id: Mapped[int | None] = mapped_column(
+#         ForeignKey("polls.id", ondelete="SET NULL"),
+#         nullable=True,
+#         comment="ID опроса, созданного из этого черновика"
+#     )
+#
+#     # Этапы времени
+#     llm_response_time_ms: Mapped[float] = mapped_column(Float, nullable=False)
+#     draft_created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+#     poll_created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+#     poll_published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+#
+#     # Действия пользователя
+#     user_review_time_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+#     was_edited: Mapped[bool] = mapped_column(Boolean, server_default=false())
+#
+#     # ORM
+#     poll: Mapped[int | None] = relationship("Poll", back_populates="generation_metrics")

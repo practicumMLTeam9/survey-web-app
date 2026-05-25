@@ -13,6 +13,8 @@ from src.api_schemas.ai import LLMRequestParams, Test
 from src.db.models import User
 from src.security.security import security_scheme, get_current_user
 from src.services.ai_service import ApiLLMService, get_llm_service
+from sqlalchemy.ext.asyncio import AsyncSession
+from src.db.async_session import get_db as get_assync_db
 
 DEFAULT_MODEL = os.getenv("DEFAULT_LLM_MODEL", "baidu/cobuddy:free")
 SYSTEM_PROMPT_GENERATE = """Ты — генератор опросов. Возвращай ТОЛЬКО валидный JSON, строго соответствующий схеме ниже. Никаких пояснений, markdown или комментариев.
@@ -71,9 +73,10 @@ def _normalize_positions(poll_data: Dict) -> Dict:
     summary="Сгенерировать опрос с помощью AI",
     description="Вызывает LLM по промпту и возвращает предзаполненную структуру опроса."
 )
-async def generate_poll_endpoint(
+async def generate_poll(
         req: GeneratePollRequest,
         current_user: User = Depends(get_current_user()),
+        db: AsyncSession = Depends(get_assync_db),
         llm_service: ApiLLMService = Depends(get_llm_service)
 ):
     """
@@ -107,6 +110,7 @@ async def generate_poll_endpoint(
             raise ValueError("LLM вернул не JSON-объект")
 
         # 4. Дополняем дефолтами из запроса, если LLM пропустил
+        llm_data.setdefault("generated_by_ai", "true")
         llm_data.setdefault("status", "draft")
         llm_data.setdefault("is_anonymous", req.is_anonymous)
         llm_data.setdefault("one_response_only", req.one_response_only)

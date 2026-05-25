@@ -1,6 +1,6 @@
-from pydantic import BaseModel, Field, model_validator, ConfigDict
+from pydantic import BaseModel, Field, model_validator, ConfigDict, field_validator
 from datetime import datetime
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Any
 from zoneinfo import ZoneInfo
 
 
@@ -15,21 +15,30 @@ class QuestionCreate(BaseModel):
     text: str = Field(..., min_length=1, max_length=1000, description="Текст вопроса")
     type: str = Field(..., pattern="^(single_choice|multiple_choice|text|scale)$")
     is_required: Optional[bool] = None
-    options: Optional[List[QuestionOptionCreate]] = Field(None, min_length=2, max_length=10,
-                                                          description="Варианты ответов (от 2 до 10)")
-    # позиция вопроса в опросе может быть не указана. Если не у всех вопросов указана или указана неверно, то генерация на бэкенде
-    position: Optional[int] = Field(None, ge=1, le=100, description='Порядок отображения вопроса в опросе (1,2,3, ...')
+    position: Optional[int] = Field(None, ge=1, le=100, description='Порядок отображения вопроса')
+    options: Optional[List["QuestionOptionCreate"]] = Field(
+        None,
+        description="Варианты ответов (от 2 до 10 для choice/scale)"
+    )
 
-    @model_validator(mode="after")
+    @field_validator('options', mode='before')
+    @classmethod
+    def normalize_empty_list(cls, v: Any) -> Optional[List]:
+        # [] превращаем в None, чтобы не триггерить min_length валидацию поля
+        return None if v == [] else v
+
+    @model_validator(mode='after')
     def validate_options_consistency(self) -> "QuestionCreate":
-        choice_types = ("single_choice", "multiple_choice")
-        no_options_types = ("text",)
-        if self.type in no_options_types and self.options is not None:
+        if self.type == "text" and self.options is not None:
             raise ValueError("Варианты не поддерживаются для текстового вопроса")
-        if self.type in choice_types and self.options is None:
-            raise ValueError("Для выбора вариантов необходимо указать варианты ответов")
-        return self
 
+        if self.type in ("single_choice", "multiple_choice", "scale"):
+            if self.options is None or len(self.options) < 2:
+                raise ValueError("Для выбора/шкалы необходимо минимум 2 варианта ответов")
+            if len(self.options) > 10:
+                raise ValueError("Максимум 10 вариантов ответов")
+
+        return self
 
 class PollCreate(BaseModel):
     title: str = Field(..., min_length=3, max_length=200, description="Название опроса")

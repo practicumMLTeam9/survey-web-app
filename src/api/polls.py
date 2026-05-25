@@ -9,7 +9,7 @@ from src.db.async_session import get_db as get_assync_db
 from src.db.models import User
 from src.security.security import get_current_user, get_respondent_token, security_scheme
 from src.services.poll_service import create_poll_service, get_poll_with_details, vote_poll_service, get_list_polls, \
-    get_poll_results, start_vote_service, update_poll_status_service
+    get_poll_results, start_vote_service, update_poll_status_service, update_poll_service
 from src.utils.external_urls import get_frontend_vote_url
 
 router = APIRouter(
@@ -52,10 +52,8 @@ async def create_poll(
 async def list_polls(
         current_user: User = Depends(get_current_user()),
         db: AsyncSession = Depends(get_assync_db)):
-
     user_id = current_user.id
     return await get_list_polls(db=db, user_id=user_id)
-
 
 
 @router.get("/{poll_id}",
@@ -81,9 +79,9 @@ async def get_poll(poll_id: int = Path(..., ge=1, description="Уникальн�
             summary="Получить результаты опроса",
             description="Возвращает агрегированные результаты голосования с процентами.",
             tags=["Results"])
-async def get_results(poll_id: int, 
-                           current_user: dict = Depends(get_current_user()), 
-                           db: AsyncSession = Depends(get_assync_db)):
+async def get_results(poll_id: int,
+                      current_user: dict = Depends(get_current_user()),
+                      db: AsyncSession = Depends(get_assync_db)):
     user_id = current_user.id
     results_data = await get_poll_results(poll_id, user_id, db)
     return results_data
@@ -95,9 +93,9 @@ async def get_results(poll_id: int,
              summary="Проголосовать в опросе",
              description="Принимает выбранный вариант и создаёт новый голос в таблице Answers.",
              tags=["Voting"])
-async def vote_poll(poll_id: int, 
-                    vote: VoteRequest, 
-                    request: Request, 
+async def vote_poll(poll_id: int,
+                    vote: VoteRequest,
+                    request: Request,
                     response: Response,
                     db: AsyncSession = Depends(get_assync_db)):
     """Проголосовать в опросе"""
@@ -114,10 +112,10 @@ async def vote_poll(poll_id: int,
              summary="Начать прохождение опроса",
              description="Сохраняет факт начала прохождения опроса. Создаёт запись в таблице Submissions с временем начала и respondent_token",
              tags=["Voting"])
-async def start_vote(poll_id: int, 
-                    request: Request, 
-                    response: Response,
-                    db: AsyncSession = Depends(get_assync_db)):
+async def start_vote(poll_id: int,
+                     request: Request,
+                     response: Response,
+                     db: AsyncSession = Depends(get_assync_db)):
     """Начать прохождение опроса"""
     respondent_token = get_respondent_token(request, response)
     start_result = await start_vote_service(poll_id, respondent_token, db)
@@ -132,11 +130,27 @@ async def start_vote(poll_id: int,
     tags=["Polls"]
 )
 async def update_poll_status(
-    poll_id: int = Path(..., ge=1, description="Уникальный идентификатор опроса"),
-    status_in: PollStatusUpdate = Body(..., description="Новый статус"),
-    current_user: User = Depends(get_current_user()),
-    db: AsyncSession = Depends(get_assync_db)
+        poll_id: int = Path(..., ge=1, description="Уникальный идентификатор опроса"),
+        status_in: PollStatusUpdate = Body(..., description="Новый статус"),
+        current_user: User = Depends(get_current_user()),
+        db: AsyncSession = Depends(get_assync_db)
 ):
     user_id = current_user.id
     return await update_poll_status_service(db, poll_id, user_id, status_in)
 
+
+@router.post(
+    "/{poll_id}",
+    response_model=PollSummary,
+    summary="Обновить опрос",
+    description="Изменяет поля опроса в статусе draft. Доступно только создателю. ",
+    tags=["Polls"]
+)
+async def update_poll(
+        poll_update: Annotated[PollCreate, Body(title="PollCreate")],
+        poll_id: int = Path(..., ge=1, description="Уникальный идентификатор опроса"),
+        current_user: User = Depends(get_current_user()),
+        db: AsyncSession = Depends(get_assync_db)
+):
+    user_id = current_user.id
+    return await update_poll_service(db, poll_id, user_id, poll_update)

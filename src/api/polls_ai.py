@@ -1,6 +1,8 @@
 import os
 import json
 import logging
+import time
+import uuid
 from datetime import datetime
 from typing import Dict
 from zoneinfo import ZoneInfo
@@ -10,7 +12,7 @@ from pydantic import ValidationError
 
 from src.api_schemas.poll import PollCreate, GeneratePollRequest
 from src.api_schemas.ai import LLMRequestParams, Test
-from src.db.models import User
+from src.db.models import User, AiRequest
 from src.security.security import security_scheme, get_current_user
 from src.services.ai_service import ApiLLMService, get_llm_service
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,14 +49,13 @@ SYSTEM_PROMPT_GENERATE = """Ты — генератор опросов. Возв
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/api/v1/polls",
+    prefix="/api/v1/ai",
     tags=["AI Generation"],
     dependencies=[Depends(security_scheme)],
     responses={404: {"description": "Not found"}},
 )
 
 
-# ─── Вспомогательные функции (бизнес-логика, не зависит от LLM) ───
 def _normalize_positions(poll_data: Dict) -> Dict:
     """Гарантирует корректные последовательные позиции вопросов и вариантов."""
     for i, q in enumerate(poll_data.get("questions", []), start=1):
@@ -65,9 +66,8 @@ def _normalize_positions(poll_data: Dict) -> Dict:
     return poll_data
 
 
-# ─── Эндпоинт генерации опроса ───
 @router.post(
-    "/generate",
+    "/generate_poll",
     response_model=PollCreate,
     status_code=status.HTTP_200_OK,
     summary="Сгенерировать опрос с помощью AI",
@@ -80,9 +80,12 @@ async def generate_poll(
         llm_service: ApiLLMService = Depends(get_llm_service)
 ):
     """
-    Генерирует черновик опроса через LLM и возвращает валидированную схему PollCreate.
+    Генерирует черновик опроса через LLM, логирует запрос в AiRequest,
+    возвращает session_token для связи с финальным опросом и возвращает валидированную схему PollCreate.
     Фронтенд должен отредактировать и отправить на POST /.
     """
+    session_token = str(uuid.uuid4())
+    start_time = time.perf_counter()
     try:
         # 1. Формируем параметры запроса к LLM
         user_prompt = (
@@ -96,7 +99,7 @@ async def generate_poll(
         llm_params = LLMRequestParams(
             prompt=user_prompt,
             model=DEFAULT_MODEL,
-            temperature=0.1,  # Возможно уменьшить до 0.1 для строгого JSON
+            temperature=0.1,
             max_tokens=2000,
             top_p=0.9,
             response_format={"type": "json_object"}
@@ -104,13 +107,14 @@ async def generate_poll(
 
         # 2. Вызов LLM через сервис
         llm_data = await llm_service.generate_ai(llm_params, SYSTEM_PROMPT_GENERATE)
+        latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
         # 3. Защита: LLM иногда возвращает list или строку вместо dict
         if not isinstance(llm_data, dict):
             raise ValueError("LLM вернул не JSON-объект")
 
         # 4. Дополняем дефолтами из запроса, если LLM пропустил
-        llm_data.setdefault("generated_by_ai", "true")
+        llm_data.setdefault("generated_by_ai", True)
         llm_data.setdefault("status", "draft")
         llm_data.setdefault("is_anonymous", req.is_anonymous)
         llm_data.setdefault("one_response_only", req.one_response_only)
@@ -132,7 +136,25 @@ async def generate_poll(
             except Exception:
                 llm_data["expires_at"] = None
 
-        # 7. Финальная валидация через API схему
+        # 7. Логирование в AiRequest (poll_id=None, так как опрос ещё не создан)
+        ai_request = AiRequest(
+            user_id=current_user.id,
+            poll_id=None,  # Будет проставлен при создании опроса
+            request_type="generate_poll",
+            latency_ms=latency_ms,
+            session_token=session_token,
+            # created_at=datetime.now(timezone.utc)
+        )
+        db.add(ai_request)
+        await db.flush()
+        await db.commit()
+
+        # 8. Сохраняем промпт пользователя в чат (poll_id=None пока нельзя, отложим)
+        # Вместо этого сохраняем промпт в llm_data для передачи во фронтенд
+        llm_data["ai_generation_prompt"] = req.prompt
+        llm_data["ai_request_session_token"] = session_token
+
+        # 9. Финальная валидация и возврат
         return PollCreate(**llm_data)
 
     except json.JSONDecodeError as e:
@@ -140,8 +162,7 @@ async def generate_poll(
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=f"Ошибка структуры опроса: {e.errors()}")
     except HTTPException:
-        # Пробрасываем уже оформленные ошибки сервиса (401, 502, 504)
-        raise
+        raise  # Пробрасываем уже оформленные ошибки сервиса (401, 502, 504)
     except Exception:  # noqa: BLE001 (допустимо на границе внешних API)
         logger.exception("Непредвиденная ошибка при генерации опроса через LLM")
         raise HTTPException(

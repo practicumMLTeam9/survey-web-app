@@ -55,8 +55,10 @@ class PollCreate(BaseModel):
     show_progress: Optional[bool] = None  # default true
     notify_on_response: Optional[bool] = None  # default false
     generated_by_ai: Optional[bool] = None  # default false
-    ai_generation_prompt: Optional[str] = None  # default null
     target_participants: Optional[int] = None  # default null
+    # Служебные поля для связи с AI-генерацией (заполняются фронтендом)
+    ai_request_session_token: Optional[str] = Field(None, description="Токен сессии AI-генерации")
+    ai_generation_prompt: Optional[str] = Field(None, description="Исходный промпт для истории чата")
 
     @model_validator(mode="after")
     def validate_expires_at(self) -> "PollCreate":
@@ -198,9 +200,9 @@ class PollStatusUpdate(BaseModel):
 
 class GeneratePollRequest(BaseModel):
     prompt: str = Field(..., min_length=10, max_length=2000, description="Описание опроса для LLM")
-    poll_type: Literal["corporate", "client"] = Field("corporate")
-    language: Literal["ru", "en"] = Field("ru")
-    questions_count: int = Field(5, ge=1, le=50, description="Желаемое количество вопросов")
+    poll_type: Literal["corporate", "client"] = Field(..., description="Тип опроса: corporate или client")
+    language: Literal["ru", "en"] = Field(..., description="Язык опроса: ru или en")
+    questions_count: int = Field(..., ge=1, le=10, description="Точное количество вопросов для генерации")
     allowed_question_types: Optional[List[Literal["single_choice", "multiple_choice", "scale", "text"]]] = Field(
         default_factory=lambda: ["single_choice", "multiple_choice", "scale", "text"]
     )

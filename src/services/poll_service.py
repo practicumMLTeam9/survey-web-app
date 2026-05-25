@@ -1,17 +1,20 @@
+import logging
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Optional
 from typing import List
 
 from fastapi import HTTPException, status
-from sqlalchemy import select, and_, func, Integer, delete
+from sqlalchemy import select, and_, func, Integer, delete, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.api_schemas.poll import QuestionCreate, PollCreate, VoteRequest, AnswerRequest, PollSummary, \
     PollStatusUpdate, OptionResult, PollResultsResponse, AverageValue, QuestionOptionCreate
-from src.db.models import Poll, Question, QuestionOption, Submission, Answer
+from src.db.models import Poll, Question, QuestionOption, Submission, Answer, AiRequest, AiChatMessage
+
+logger = logging.getLogger(__name__)
 
 
 async def _sync_questions_tree(
@@ -83,13 +86,13 @@ async def create_poll_service(db: AsyncSession, poll_in: PollCreate, user_id: in
     Создаёт опрос с вопросами и вариантами ответов в одной транзакции.
     Возвращает ID созданного опроса.
     """
-    # 1. Базовый опрос (только обязательные поля)
+    #  Базовый опрос (только обязательные поля)
     poll = Poll(
         title=poll_in.title,
         description=poll_in.description,
         created_by_user_id=user_id)
 
-    # 2. Опциональные поля: применяем ТОЛЬКО явно переданные клиентом.
+    # Опциональные поля: применяем ТОЛЬКО явно переданные клиентом.
     for field_name, value in poll_in.model_dump(exclude={"questions"}, exclude_none=True).items():
         if hasattr(poll, field_name):
             setattr(poll, field_name, value)
@@ -105,9 +108,43 @@ async def create_poll_service(db: AsyncSession, poll_in: PollCreate, user_id: in
     await _sync_questions_tree(db, poll, poll_in.questions)
 
     try:
+        # Логирование AI (если опрос создан из черновика)
+        if getattr(poll_in, "ai_request_session_token", None):
+            # a) Линкуем опрос с AI-запросом
+            await db.execute(
+                update(AiRequest)
+                .where(AiRequest.session_token == poll_in.ai_request_session_token)
+                .values(poll_id=poll.id)
+            )
+
+            # b) Сохраняем историю чата (теперь poll_id известен и NOT NULL)
+            chat_messages = [
+                AiChatMessage(
+                    poll_id=poll.id,
+                    role="user",
+                    message_text=poll_in.ai_generation_prompt or "Генерация опроса через AI",
+                    # created_at=datetime.now(timezone.utc)
+                ),
+                AiChatMessage(
+                    poll_id=poll.id,
+                    role="assistant",
+                    message_text=poll_in.model_dump_json(exclude={"ai_request_session_token", "ai_generation_prompt"}),
+                    # created_at=datetime.now(timezone.utc)
+                )
+            ]
+            db.add_all(chat_messages)
+            # Не делаем отдельный commit() — всё зафиксируется одним общим commit() ниже
+
         await db.commit()
-        await db.refresh(poll)  # Синхронизируем объект с БД (на случай серверных триггеров/дефолтов)
+        await db.refresh(poll)
+
+        logger.info(
+            f"✅ Poll created: id={poll.id}, user={user_id}, "
+            f"ai_linked={bool(getattr(poll_in, 'ai_request_session_token', None))}, "
+            f"num_questions={len(poll_in.questions)}"
+        )
         return poll.id
+
     except IntegrityError:
         await db.rollback()
         raise HTTPException(
@@ -399,8 +436,8 @@ async def update_poll_status_service(
             detail="Опрос не найден или у вас нет прав на его изменение"
         )
 
-    if poll.status == "closed" and status_in.status != "closed":
-        raise HTTPException(400, detail="Нельзя изменить статус закрытого опроса")
+    # if poll.status == "closed" and status_in.status != "closed":
+    #     raise HTTPException(400, detail="Нельзя изменить статус закрытого опроса")
     if poll.status == "active" and status_in.status == "draft":
         raise HTTPException(400, detail="Нельзя вернуть активный опрос в черновик")
 

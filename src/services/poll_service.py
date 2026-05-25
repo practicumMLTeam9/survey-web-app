@@ -109,30 +109,41 @@ async def create_poll_service(db: AsyncSession, poll_in: PollCreate, user_id: in
 
     try:
         # Логирование AI (если опрос создан из черновика)
-        if getattr(poll_in, "ai_request_session_token", None):
-            # a) Линкуем опрос с AI-запросом
-            await db.execute(
-                update(AiRequest)
-                .where(AiRequest.session_token == poll_in.ai_request_session_token)
-                .values(poll_id=poll.id)
-            )
+        session_token = getattr(poll_in, "ai_request_session_token", None)
 
-            # b) Сохраняем историю чата (теперь poll_id известен и NOT NULL)
+        if session_token:
+            # Приводим к bool, так как в модели Mapped[bool | None], но фронтенд шлёт true/false
+            was_edited = bool(getattr(poll_in, "user_edited_draft", False))
+
+            update_stmt = (
+                update(AiRequest)
+                .where(AiRequest.session_token == session_token)
+                .values(
+                    poll_id=poll.id,
+                    user_edited_draft=was_edited
+                )
+            )
+            result = await db.execute(update_stmt)
+
+            if result.rowcount == 0:
+                logger.warning(
+                    f"⚠️ AiRequest с session_token='{session_token[:8]}...' не найден. "
+                    "Возможно, транзакция в /generate была откатчена из-за таймаута. "
+                    "Чат будет сохранён без привязки к бенчмарку."
+                )
+            # Сохраняем историю чата (ВЫПОЛНЯЕТСЯ ВСЕГДА, даже если UPDATE не сработал)
             chat_messages = [
                 AiChatMessage(
                     poll_id=poll.id,
                     role="user",
-                    message_text=poll_in.ai_generation_prompt or "Генерация опроса через AI",
-                    # created_at=datetime.now(timezone.utc)
-                ),
+                    message_text=poll_in.ai_generation_prompt or "Генерация опроса через AI"),
                 AiChatMessage(
                     poll_id=poll.id,
                     role="assistant",
-                    message_text=poll_in.model_dump_json(exclude={"ai_request_session_token", "ai_generation_prompt"}),
-                    # created_at=datetime.now(timezone.utc)
-                )
+                    message_text=poll_in.model_dump_json(exclude={"ai_request_session_token", "ai_generation_prompt"}))
             ]
             db.add_all(chat_messages)
+            logger.info(f"✅ Чат сохранён для poll_id={poll.id}")
             # Не делаем отдельный commit() — всё зафиксируется одним общим commit() ниже
 
         await db.commit()

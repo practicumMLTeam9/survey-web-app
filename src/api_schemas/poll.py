@@ -43,22 +43,24 @@ class QuestionCreate(BaseModel):
 class PollCreate(BaseModel):
     title: str = Field(..., min_length=3, max_length=200, description="Название опроса")
     description: Optional[str] = Field(None, max_length=2000, description="Описание опроса")
-    questions: list[QuestionCreate] = Field(..., min_length=1, max_length=50)
-    # Опциональные настройки (будут использованы дефолты модели, если не переданы)
+    questions: list[QuestionCreate] = Field(..., min_length=1, max_length=50, description="Список вопросов")
+    # Опциональные настройки
     status: Optional[str] = Field(default='draft', pattern='^(draft|active|closed)$')
     expires_at: Optional[datetime] = Field(None, description="Дата окончания опроса")  # default null
-    is_anonymous: Optional[bool] = None  # default true
-    one_response_only: Optional[bool] = None  # default true
+    is_anonymous: Optional[bool] = Field(None)  # default true
+    one_response_only: Optional[bool] = Field(None)  # default true
     poll_type: Optional[str] = Field(None, pattern="^(corporate|client)$")  # default 'corporate'
     language: Optional[str] = Field(None, pattern="^(ru|en)$")  # default 'ru'
     max_participants: Optional[int] = Field(None, ge=1)  #
-    show_progress: Optional[bool] = None  # default true
-    notify_on_response: Optional[bool] = None  # default false
-    generated_by_ai: Optional[bool] = None  # default false
-    target_participants: Optional[int] = None  # default null
+    show_progress: Optional[bool] = Field(None)  # default true
+    notify_on_response: Optional[bool] = Field(None)  # default false
+    generated_by_ai: Optional[bool] = Field(None)  # default false
+    target_participants: Optional[int] = Field(None)  # default null
     # Служебные поля для связи с AI-генерацией (заполняются фронтендом)
     ai_request_session_token: Optional[str] = Field(None, description="Токен сессии AI-генерации")
     ai_generation_prompt: Optional[str] = Field(None, description="Исходный промпт для истории чата")
+    user_edited_draft: bool = Field(False,
+                                   description="Передавайте true, если пользователь менял вопросы/настройки перед сохранением")
 
     @model_validator(mode="after")
     def validate_expires_at(self) -> "PollCreate":
@@ -208,3 +210,8 @@ class GeneratePollRequest(BaseModel):
     )
     is_anonymous: bool = Field(True)
     one_response_only: bool = Field(True)
+    model: str = Field(
+        default="baidu/cobuddy:free",
+        pattern="^[a-z0-9_\-\.]+/[a-z0-9_\-\.]+(:free|:latest)?$",
+        description="ID модели на OpenRouter (например, google/gemini-2.0-flash-lite:free)"
+    )

@@ -15,6 +15,7 @@ if not DATABASE_URL:
 
 engine = create_async_engine(
     DATABASE_URL,
+    pool_pre_ping=True,  # автоматически переподключит базу, если она "уснула"
     echo=True,
     connect_args={"server_settings": {"timezone": "Europe/Moscow"}}
 )

@@ -347,13 +347,23 @@ class AiRequest(Base):
     )
     # Опционально: токен для связи с черновиком до создания опроса
     session_token: Mapped[str | None] = mapped_column(
-        Text, nullable=True, index=True, comment="Временный ID черновика для фронтенда"
-    )
+        Text, nullable=True, index=True, comment="Временный ID черновика для фронтенда")
+
+    is_valid_json: Mapped[bool] = mapped_column(Boolean, server_default=false(),
+                                                comment="Ответ парсится как JSON")
+    is_valid_schema: Mapped[bool] = mapped_column(Boolean, server_default=false(),
+                                                  comment="Ответ проходит валидацию PollCreate")
+    error_type: Mapped[str | None] = mapped_column(Text, nullable=True,
+                                                   comment="Тип ошибки: timeout, 429, 500, json_error")
+    estimated_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True, comment="Оценка токенов ответа")
+    user_edited_draft: Mapped[bool | None] = mapped_column(Boolean, nullable=True, server_default=false(),
+                                                           comment="Пользователь правил черновик перед сохранением")
+    model: Mapped[str | None] = mapped_column(Text, nullable=True,
+                                              comment="Название LLM модели (например, google/gemini-2.0-flash-lite:free)")
 
     # ORM
     user: Mapped["User | None"] = relationship("User", back_populates="ai_requests")
     poll: Mapped["Poll | None"] = relationship("Poll", back_populates="ai_requests")
-
 
 # class AiGenerationMetric(Base):
 #     __tablename__ = "ai_generation_metrics"

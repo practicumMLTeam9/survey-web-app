@@ -9,7 +9,68 @@ from datetime import datetime, timezone
 from src.db.models import Poll, Question, QuestionOption, Submission, Answer
 from src.api_schemas.poll import PollCreate, VoteRequest, AnswerRequest, PollSummary, PollStatusUpdate, OptionResult, \
     PollResultsResponse, AverageValue, QuestionOptionCreate, QuestionResult
+import logging
 from collections import defaultdict
+from datetime import datetime, timezone
+from typing import Any, Optional
+from typing import List
+
+from fastapi import HTTPException, status
+from sqlalchemy import select, and_, func, Integer, delete, update
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from src.api_schemas.poll import QuestionCreate, PollCreate, VoteRequest, AnswerRequest, PollSummary, \
+    PollStatusUpdate, OptionResult, PollResultsResponse, AverageValue, QuestionOptionCreate
+from src.db.models import Poll, Question, QuestionOption, Submission, Answer, AiRequest, AiChatMessage
+
+logger = logging.getLogger(__name__)
+
+
+async def _sync_questions_tree(
+        db: AsyncSession,
+        poll: Poll,
+        questions_in: List[QuestionCreate]
+) -> None:
+    """
+    Синхронизирует дерево вопросов и вариантов ответов для опроса.
+    Использует нормализацию позиций, автогенерацию шкалы и корректную обработку is_required.
+    НЕ вызывает commit() — управление транзакцией остаётся у вызывающего метода.
+    """
+    types_with_options = ("single_choice", "multiple_choice", "scale")
+    q_positions = _resolve_positions(questions_in)
+
+    for q_in, q_pos in zip(questions_in, q_positions):
+        question = Question(
+            poll_id=poll.id,
+            text=q_in.text,
+            type=q_in.type,
+            position=q_pos
+        )
+        # is_required: применяем только при явной передаче
+        if q_in.is_required is not None:
+            question.is_required = q_in.is_required
+
+        db.add(question)
+        await db.flush()  # Фиксируем question.id для привязки вариантов
+
+        # Обработка вариантов ответов
+        if q_in.type in types_with_options:
+            options = list(q_in.options or [])
+
+            # Автогенерация шкалы 1..5, если фронтенд не передал варианты
+            if not options and q_in.type == "scale":
+                options = [QuestionOptionCreate(text=str(i)) for i in range(1, 6)]
+
+            if options:
+                o_positions = _resolve_positions(options)
+                for o_in, o_pos in zip(options, o_positions):
+                    db.add(QuestionOption(
+                        question_id=question.id,
+                        text=o_in.text,
+                        position=o_pos
+                    ))
 
 
 def _resolve_positions(items: List[Any]) -> List[int]:
@@ -36,14 +97,13 @@ async def create_poll_service(db: AsyncSession, poll_in: PollCreate, user_id: in
     Создаёт опрос с вопросами и вариантами ответов в одной транзакции.
     Возвращает ID созданного опроса.
     """
-    # 1. Базовый опрос (только обязательные поля)
+    #  Базовый опрос (только обязательные поля)
     poll = Poll(
         title=poll_in.title,
         description=poll_in.description,
-        created_by_user_id=user_id
-    )
+        created_by_user_id=user_id)
 
-    # 2. Опциональные поля: применяем ТОЛЬКО явно переданные клиентом.
+    # Опциональные поля: применяем ТОЛЬКО явно переданные клиентом.
     for field_name, value in poll_in.model_dump(exclude={"questions"}, exclude_none=True).items():
         if hasattr(poll, field_name):
             setattr(poll, field_name, value)
@@ -55,44 +115,58 @@ async def create_poll_service(db: AsyncSession, poll_in: PollCreate, user_id: in
     db.add(poll)
     await db.flush()  # Фиксируем poll.id для вложенных сущностей
 
-    # 3. Вопросы с нормализацией позиций
-    q_positions = _resolve_positions(poll_in.questions)
-    for q_in, q_pos in zip(poll_in.questions, q_positions):
-        question = Question(
-            poll_id=poll.id,
-            text=q_in.text,
-            type=q_in.type,
-            position=q_pos
-        )
-        # is_required: только если клиент явно передал, иначе БД применит DEFAULT false()
-        if q_in.is_required is not None:
-            question.is_required = q_in.is_required
-
-        db.add(question)
-        await db.flush()
-
-        # 4. Обработка вариантов (single_choice, multiple_choice, scale)
-        types_with_options = ("single_choice", "multiple_choice", "scale")
-        if q_in.type in types_with_options:
-            options = list(q_in.options or [])
-
-            # Автогенерация шкалы 1..5, если фронт не передал варианты
-            if not options and q_in.type == "scale":
-                options = [QuestionOptionCreate(text=str(i)) for i in range(1, 6)]
-
-            if options:
-                o_positions = _resolve_positions(options)
-                for o_in, o_pos in zip(options, o_positions):
-                    db.add(QuestionOption(
-                        question_id=question.id,
-                        text=o_in.text,
-                        position=o_pos
-                    ))
+    # Делегируем построение дерева общей функции
+    await _sync_questions_tree(db, poll, poll_in.questions)
 
     try:
+        # Логирование AI (если опрос создан из черновика)
+        session_token = getattr(poll_in, "ai_request_session_token", None)
+
+        if session_token:
+            # Приводим к bool, так как в модели Mapped[bool | None], но фронтенд шлёт true/false
+            was_edited = bool(getattr(poll_in, "user_edited_draft", False))
+
+            update_stmt = (
+                update(AiRequest)
+                .where(AiRequest.session_token == session_token)
+                .values(
+                    poll_id=poll.id,
+                    user_edited_draft=was_edited
+                )
+            )
+            result = await db.execute(update_stmt)
+
+            if result.rowcount == 0:
+                logger.warning(
+                    f"⚠️ AiRequest с session_token='{session_token[:8]}...' не найден. "
+                    "Возможно, транзакция в /generate была откатчена из-за таймаута. "
+                    "Чат будет сохранён без привязки к бенчмарку."
+                )
+            # Сохраняем историю чата (ВЫПОЛНЯЕТСЯ ВСЕГДА, даже если UPDATE не сработал)
+            chat_messages = [
+                AiChatMessage(
+                    poll_id=poll.id,
+                    role="user",
+                    message_text=poll_in.ai_generation_prompt or "Генерация опроса через AI"),
+                AiChatMessage(
+                    poll_id=poll.id,
+                    role="assistant",
+                    message_text=poll_in.model_dump_json(exclude={"ai_request_session_token", "ai_generation_prompt"}))
+            ]
+            db.add_all(chat_messages)
+            logger.info(f"✅ Чат сохранён для poll_id={poll.id}")
+            # Не делаем отдельный commit() — всё зафиксируется одним общим commit() ниже
+
         await db.commit()
-        await db.refresh(poll)  # Синхронизируем объект с БД (на случай серверных триггеров/дефолтов)
+        await db.refresh(poll)
+
+        logger.info(
+            f"✅ Poll created: id={poll.id}, user={user_id}, "
+            f"ai_linked={bool(getattr(poll_in, 'ai_request_session_token', None))}, "
+            f"num_questions={len(poll_in.questions)}"
+        )
         return poll.id
+
     except IntegrityError:
         await db.rollback()
         raise HTTPException(
@@ -194,7 +268,7 @@ async def vote_poll_service(poll_id: int,
     1. Если completed_at IS NULL -> Разрешаем (пользователь начал, но не финишировал).
     2. Если completed_at IS NOT NULL -> Запрещаем (уже проголосовал).
     """
-    if poll.one_response_only == True:
+    if poll.one_response_only:
         submission_query = select(Submission).where(
             and_(
                 Submission.poll_id == poll_id,
@@ -337,6 +411,7 @@ async def get_list_polls(db: AsyncSession, user_id: int) -> list[PollSummary]:
             Poll.id,
             Poll.title,
             Poll.status,
+            Poll.poll_type,
             Poll.created_at,
             Poll.expires_at,
             func.count(Submission.id).filter(
@@ -356,6 +431,7 @@ async def get_list_polls(db: AsyncSession, user_id: int) -> list[PollSummary]:
             id=row.id,
             title=row.title,
             status=row.status,
+            type=row.poll_type,
             created_at=row.created_at,
             expires_at=row.expires_at,
             total_votes=row.total_votes
@@ -383,8 +459,8 @@ async def update_poll_status_service(
             detail="Опрос не найден или у вас нет прав на его изменение"
         )
 
-    if poll.status == "closed" and status_in.status != "closed":
-        raise HTTPException(400, detail="Нельзя изменить статус закрытого опроса")
+    # if poll.status == "closed" and status_in.status != "closed":
+    #     raise HTTPException(400, detail="Нельзя изменить статус закрытого опроса")
     if poll.status == "active" and status_in.status == "draft":
         raise HTTPException(400, detail="Нельзя вернуть активный опрос в черновик")
 
@@ -404,10 +480,88 @@ async def update_poll_status_service(
         id=poll.id,
         title=poll.title,
         status=poll.status,
+        type=poll.poll_type,
         created_at=poll.created_at,
         expires_at=poll.expires_at,
         total_votes=total_votes
     )
+
+
+async def update_poll_service(
+        db: AsyncSession,
+        poll_id: int,
+        user_id: int,
+        poll_update: PollCreate
+) -> PollSummary:
+    """
+    Полное обновление черновика опроса.
+    """
+    # 1. Проверка прав
+    stmt = select(Poll).where(Poll.id == poll_id, Poll.created_by_user_id == user_id)
+    result = await db.execute(stmt)
+    poll = result.scalar_one_or_none()
+
+    if not poll:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Опрос не найден или у вас нет прав на его изменение")
+    if poll.status != "draft":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Редактировать можно только опросы в статусе draft")
+
+    try:
+        # 2.ОБНОВЛЕНИЕ ПОЛЕЙ
+        update_data = poll_update.model_dump(
+            exclude={"questions"},
+            exclude_unset=True  # Меняет только явно переданные поля
+        )
+        for field, value in update_data.items():
+            if hasattr(poll, field):
+                setattr(poll, field, value)
+
+        # 3. Автозаполнение даты публикации
+        if poll.status == "active" and poll.published_at is None:
+            poll.published_at = datetime.now(timezone.utc)
+
+        # 4. Удаление старого дерева вопросов
+        await db.execute(
+            delete(QuestionOption).where(
+                QuestionOption.question_id.in_(
+                    select(Question.id).where(Question.poll_id == poll_id)
+                )
+            )
+        )
+        await db.execute(delete(Question).where(Question.poll_id == poll_id))
+        await db.flush()
+
+        # 5. Добавление новых вопросов
+        await _sync_questions_tree(db, poll, poll_update.questions)
+
+        await db.commit()
+        await db.refresh(poll)
+
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail="Ошибка валидации данных опроса: нарушены ограничения БД")
+    except Exception:
+        await db.rollback()
+        raise
+
+    # 6. Формирование ответа
+    count_stmt = select(func.count(Submission.id)).where(
+        Submission.poll_id == poll_id,
+        Submission.completed_at.isnot(None)
+    )
+    total_votes = (await db.execute(count_stmt)).scalar() or 0
+
+    return PollSummary(
+        id=poll.id,
+        title=poll.title,
+        status=poll.status,
+        type=poll.poll_type,
+        created_at=poll.created_at,
+        expires_at=poll.expires_at,
+        total_votes=total_votes)
 
 
 async def get_poll_results(poll_id: int,
@@ -439,15 +593,15 @@ async def get_poll_results(poll_id: int,
         .where(Question.poll_id == poll_id)
         .group_by(QuestionOption.id, QuestionOption.question_id, QuestionOption.text, QuestionOption.position)
     )
-    votes_opt_results = await db.execute(votes_opt_query)   # число ответов по вариантам
+    votes_opt_results = await db.execute(votes_opt_query)  # число ответов по вариантам
     votes_q_query = (
-        select(Question.id, func.count(func.distinct((Submission.id))).label("q_count"))
+        select(Question.id, func.count(func.distinct(Submission.id)).label("q_count"))
         .outerjoin(Answer, Question.id == Answer.question_id)
         .join(Submission, Answer.submission_id == Submission.id)
         .where(Question.poll_id == poll_id)
         .group_by(Question.id)
-    )   
-    votes_q_results = await db.execute(votes_q_query)   # число ответов по вопросу
+    )
+    votes_q_results = await db.execute(votes_q_query)  # число ответов по вопросу
     """Подсчёт среднего времени прохождения опроса"""
     avg_time_query = select(
         func.avg(Submission.completed_at - Submission.started_at)

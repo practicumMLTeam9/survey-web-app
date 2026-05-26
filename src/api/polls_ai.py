@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Depends, status, Body
 from pydantic import ValidationError
 
 from src.api_schemas.poll import PollCreate, GeneratePollRequest, PollResultsResponse, GenerateAnalyticsRequest
-from src.api_schemas.ai import LLMRequestParams, Test
+from src.api_schemas.ai import LLMRequestParams, Test, AnalyticsResponse
 from src.db.models import User, AiRequest
 from src.security.security import security_scheme, get_current_user
 from src.services.ai_service import ApiLLMService, get_llm_service
@@ -285,6 +285,17 @@ START_PROMPT_ANALYTICS = """
 {
   "summary": "string (4-5 предложений с основными выводами)",
 
+
+  Валидация тональности: Проанализируй каждый элемент из `text_answers`. 
+Количество ответов, отнесённых к позитивным, нейтральным и негативным, в сумме должно быть строго равно `total_votes`. 
+Процентное соотношение должно считаться от `total_votes` и в сумме давать 100%.
+  "sentiment": {
+    "positive": {"count": "int", "percentage": "float"},
+    "neutral": {"count": "int", "percentage": "float"},
+    "negative": {"count": "int", "percentage": "float"},
+    "conclusion": "string (вывод по тональности, 1 предложение)"
+  },
+
   Валидация тем и цитат: Ты должен выделить ровно 10 ключевых тем из открытых ответов. 
 Для каждой темы приведи ровно 3 цитаты. Цитаты должны быть дословными выдержками из `answers_list`.
   "themes": [
@@ -293,7 +304,7 @@ START_PROMPT_ANALYTICS = """
       "count": "int (число упоминаний темы)",
       "quotes": ["string", "string", "string"] // ровно 3 цитаты
     }
-    // ... всего должно быть 3 элемента(тем)
+    // ... всего должно быть 10 элементов(тем)
   ],
 
   Логика инсайтов: Должно быть ровно 4 инсайта. Каждый инсайт — одно предложение. 
@@ -356,23 +367,26 @@ START_PROMPT_ANALYTICS = """
 """
 
 SUMMARY_PROMPT_ANALYTICS = """
-Схема ответа (JSON Schema)
-Сгенерируй JSON строго по следующей схеме:
+Входные данные
+Ты получишь массив JSON-объектов с результатами опроса, которые разбиты по частям.
+Тебе нужно объединить данные из всех частей и сделать общий вывод по опросу. 
+
+
+Каждый объект в массиве содержит следующие поля:
 {
   "summary": "string (4-5 предложений с основными выводами)",
 
-  Валидация тем и цитат: Ты должен выделить ровно 10 ключевых тем из открытых ответов. 
-Для каждой темы приведи ровно 3 цитаты. Цитаты должны быть дословными выдержками из `answers_list`.
+  Темы, которые были упомянуты участниками в текстовых ответах.
   "themes": [
     {
       "theme": "string (название темы, 2-4 слова)",
       "count": "int (число упоминаний темы)",
       "quotes": ["string", "string", "string"] // ровно 3 цитаты
     }
-    // ... всего должно быть 3 элемента(тем)
+    // 
   ],
 
-  Логика инсайтов: Должно быть ровно 4 инсайта. Каждый инсайт — одно предложение. 
+  Инсайты по результатам опроса (4 элемента).
 У каждого инсайта есть оценка: "positive" (зеленый), "warning" (желтый), "critical" (красный) или "neutral". 
 Обязательно наличие как минимум одного инсайта типа "positive", одного "critical" и одного "warning".
   "insights": [
@@ -385,7 +399,7 @@ SUMMARY_PROMPT_ANALYTICS = """
     // ... всего должно быть 4 элемента
   ],
 
-  Логика рекомендаций: Должно быть ровно 4 рекомендации. 
+  Рекомендации: Должно быть ровно 4 рекомендации. 
 К каждой указан уровень важности: "high" (красный), "medium" (жёлтый), "low" (зелёный). 
 Обязательно должна присутствовать хотя бы одна рекомендация каждого уровня.
   "recommendations": [
@@ -396,13 +410,26 @@ SUMMARY_PROMPT_ANALYTICS = """
     }
     // ... всего должно быть 4 элемента
   ],
-}
 
-  Отбор двух ключевых вопросов: Выбрать 2 наиболее важных вопроса.
+  Два ключевых вопросов из опроса: Выбрать 2 наиболее важных вопроса.
   "key_questions":{
   "categorical_question": "int"
   "scale_question": "int"
   }
+}
+
+  
+Пример обработки (твоя внутренняя логика)
+1.  Получив "summary" по каждому объекту, нужно объединить их и сделать общие выводы по всему опросу.
+Выбрать наиболее важные факты и написать общее summary (4-5 предложений)
+2. Получив темы "themes" каждого объекта, нужно  объединить и отобрать из полученных 10 наиболее важных тем.
+Для каждой темы подсчитать новое число ответов, которые вошли в тему. Каждая тема должна также содержать 3 отобранные цитаты из ответов участников.
+3. Получив инсайты "insights", нужно объединить их и отобрать 4 наиболее важных. Также нужно сделать с рекомендациями "recommendations", отобрать 4 рекомендации. 
+При этом учесть поля уровня важности, цвета и эмодзи.
+4. Получив два ключевых вопроса по каждому объекту, нужно выбрать два наиболее часто встречающихся.
+
+Схема ответа (JSON Schema)
+Сгенерируй JSON строго по той же схеме, что имеют JSON-объекты (была указана выше).
 
 Справочник цветов и Emoji для фронтенда
 Используй исключительно следующие значения:
@@ -417,14 +444,6 @@ SUMMARY_PROMPT_ANALYTICS = """
 - high: цвет "#DC2626"
 - medium: цвет "#D97706"
 - low: цвет "#059669"
-
-Пример обработки (твоя внутренняя логика)
-1.  Получив `answers_list`, классифицируй каждый ответ. 
-Если ответов меньше, чем `total_votes`, дозаполни тональность до 100% пропорционально уже классифицированным, но в поле `conclusion` обязательно укажи это допущение.
-2.  При выделении 10 тем из `answers_list` сгруппируй семантически близкие ответы. 
-Если уникальных ответов меньше 10, создай оставшиеся темы с заглушкой "Прочие аспекты", но с пустыми цитатами. Стремись к тому, чтобы значимые темы были первыми.
-3.  Формируя `insights`, базируйся на цифрах (корреляция между данными из `votes`, `avg_values`, `sentiment`). 
-Не пиши общих фраз типа "Результаты опроса показали...", пиши конкретно: "82% респондентов негативно оценивают скорость работы, что является критическим сигналом".
 
 Итоговое действие
 Сгенерируй итоговый JSON. Проверь его валидность и соответствие всем пунктам перед выводом.
@@ -477,7 +496,7 @@ async def generate_analytics(
         logger.info(f"Разбито на {len(batches)} батчей. Веса: {[b['weight'] for b in batches]}")
         
         # 2. Функция для обработки одного батча
-        async def process_batch(batch_data: dict) -> dict:
+        async def process_batch(batch_data: dict, system_prompt: str) -> dict:
             start_time = time.time()
             logger.info(f"Батч {batch_data['batch_num']} начал выполнение в {start_time}")
 
@@ -500,10 +519,8 @@ async def generate_analytics(
                 response_format={"type": "json_object"}
             )
             
-            system_prompt = SYSTEM_PROPMT_ANALYTICS + START_PROMPT_ANALYTICS
-            
             try:
-                llm_data = await llm_service.generate_ai(llm_params, system_prompt)
+                llm_data = await llm_service.generate_ai(llm_params, system_prompt, timeout=600)
                 
                 # Добавляем метаинформацию о батче
                 if isinstance(llm_data, dict):
@@ -525,25 +542,88 @@ async def generate_analytics(
                         'error': str(e)
                     }
                 }
-        
+            
+        system_prompt = SYSTEM_PROPMT_ANALYTICS + START_PROMPT_ANALYTICS
         # 3. Запуск батчей 
         if len(batches) == 1:
             # Для одного батча - выполняем напрямую, без asyncio.gather
-            logger.info("Один батч, выполняю синхронно")
-            batch_results = [await process_batch(batches[0])]
+            logger.info("Один батч")
+            generate_results = [await process_batch(batches[0],system_prompt)]
         else:
             # Для нескольких батчей
-            logger.info(f"{len(batches)} батчей, выполняю асинхронно")
-            tasks = [process_batch(batch) for batch in batches]
+            logger.info(f"{len(batches)} батчей")
+            tasks = [process_batch(batch, system_prompt) for batch in batches]
             batch_results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # 4. Агрегация результатов
-        aggregated_result = {
-            "total_batches": len(batches),
-            "total_answers": len(answers_list),
-            "batch_results": batch_results,
-        }
 
+            summary_prompt = SYSTEM_PROPMT_ANALYTICS + SUMMARY_PROMPT_ANALYTICS
+            
+            generate_results = await process_batch(batch_results, summary_prompt, timeout=600)
+
+         # ─── АГРЕГАЦИЯ SENTIMENT, THEMES, INSIGHTS, RECOMMENDATIONS ИЗ BATCH_RESULTS ───
+        total_counts = {"positive": 0, "neutral": 0, "negative": 0}
+        aggregated_themes = {}
+        aggregated_insights = []
+        aggregated_recommendations = []
+        summary_parts = []
+        key_questions = None
+
+        for result in generate_results:
+            if isinstance(result, dict):
+                # Агрегация sentiment
+                if "sentiment" in result:
+                    sentiment = result["sentiment"]
+                    total_counts["positive"] += sentiment.get("positive", {}).get("count", 0) if isinstance(sentiment.get("positive"), dict) else sentiment.get("positive", 0)
+                    total_counts["neutral"] += sentiment.get("neutral", {}).get("count", 0) if isinstance(sentiment.get("neutral"), dict) else sentiment.get("neutral", 0)
+                    total_counts["negative"] += sentiment.get("negative", {}).get("count", 0) if isinstance(sentiment.get("negative"), dict) else sentiment.get("negative", 0)
+                
+                # Агрегация themes
+                if "themes" in result and isinstance(result["themes"], list):
+                    for theme in result["themes"]:
+                        theme_name = theme.get("theme")
+                        if theme_name:
+                            if theme_name not in aggregated_themes:
+                                aggregated_themes[theme_name] = {"count": 0, "quotes": []}
+                            aggregated_themes[theme_name]["count"] += theme.get("count", 0)
+                            aggregated_themes[theme_name]["quotes"].extend(theme.get("quotes", [])[:2])
+                
+                # Сбор insights и recommendations
+                if "insights" in result and isinstance(result["insights"], list):
+                    aggregated_insights.extend(result["insights"])
+                
+                if "recommendations" in result and isinstance(result["recommendations"], list):
+                    aggregated_recommendations.extend(result["recommendations"])
+                
+                # Сбор summary и key_questions
+                if "summary" in result:
+                    summary_parts.append(result["summary"])
+                
+                if "key_questions" in result and key_questions is None:
+                    key_questions = result["key_questions"]
+
+        # Формирование итогового словаря
+        total_responses = sum(total_counts.values())
+        negative_percentage = round((total_counts["negative"] / total_responses * 100), 2) if total_responses > 0 else 0
+
+        aggregated_result = {
+            "summary": " ".join(summary_parts) if summary_parts else "Аналитика сгенерирована",
+            "sentiment": {
+                "positive": {"count": total_counts["positive"], "percentage": round((total_counts["positive"] / total_responses * 100), 2) if total_responses > 0 else 0},
+                "neutral": {"count": total_counts["neutral"], "percentage": round((total_counts["neutral"] / total_responses * 100), 2) if total_responses > 0 else 0},
+                "negative": {"count": total_counts["negative"], "percentage": negative_percentage},
+                "conclusion": f"{negative_percentage}% текстовых ответов имеют негативную тональность, что указывает на {'критическую' if negative_percentage >= 60 else 'значительную' if negative_percentage >= 40 else 'умеренную'} неудовлетворенность сотрудников." if total_responses > 0 else "Нет данных"
+            },
+            "themes": [{"theme": name, "count": data["count"], "quotes": data["quotes"]} for name, data in aggregated_themes.items()],
+            "insights": aggregated_insights,
+            "recommendations": aggregated_recommendations,
+            "aggregated_values": await get_aggregate_val(req.id, current_user.id, db, key_questions.get("categorical_question"), key_questions.get("scale_question")) if key_questions else {},
+        }
+        logger.info(f"AI аналитика для опроса {req.id} сгенерирована")
+        
+        try:
+            analytics_response = AnalyticsResponse(**aggregated_result)
+        except ValidationError as e:
+            logger.error(f"Ошибка валидации аналитики: {e.errors()}")
+            raise HTTPException(status_code=422, detail=f"Ошибка структуры аналитики: {e.errors()}")
 
         # Сохраняем AI-резюме
         summary_text = json.dumps(aggregated_result, ensure_ascii=False, default=str)
@@ -564,7 +644,7 @@ async def generate_analytics(
         # Коммитим изменения
         await db.commit()
         logger.info(f"AI аналитика для опроса {req.id} сохранена в БД. Summary ID: {ai_summary.id}, Request ID: {ai_request.id}")
-        return aggregated_result
+        return analytics_response
     
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=400, detail=f"LLM вернул некорректный JSON: {str(e)}")

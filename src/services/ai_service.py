@@ -60,7 +60,7 @@ class ApiLLMService:
         
         # Создаем отдельный клиент для проверки
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.get(f"{self.base_url}/models")
                 
                 if response.status_code == 200:

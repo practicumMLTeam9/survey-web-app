@@ -1,5 +1,257 @@
+import { useState } from "react"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
+import { apiRequest } from "../api/client"
+
+// ─── AI Analytics ─────────────────────────────────────────────────────────────
+
+/**
+ * Запрашивает AI-аналитику по результатам опроса.
+ * @param {object} pollResults - объект результатов (selectedResults)
+ */
+function fetchAiAnalytics(pollResults) {
+    return apiRequest("/api/v1/ai/ai_analytics?use_cookie=false&token_type=access", {
+        method: "POST",
+        body: JSON.stringify(pollResults),
+    })
+}
+
+// ─── AI Analytics UI ──────────────────────────────────────────────────────────
+
+function AiAnalyticsPanel({ results }) {
+    const [analytics, setAnalytics] = useState(null)
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState("")
+
+    const handleGenerate = async () => {
+        if (!results) return
+        setLoading(true)
+        setError("")
+        setAnalytics(null)
+        try {
+            const data = await fetchAiAnalytics(results)
+            setAnalytics(data)
+        } catch (err) {
+            setError(err.message || "Не удалось получить AI-аналитику")
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    return (
+        <div className="card no-print" style={{ marginTop: 20 }}>
+            <div className="card-header">
+                <div className="card-title">AI-аналитика</div>
+                <span className="ai-badge-inline">AI</span>
+            </div>
+
+            <div className="card-body">
+
+                {/* Кнопка запуска */}
+                {!analytics && !loading && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                        <div className="chat-msg ai">
+                            <div className="chat-avatar ai-av">✦</div>
+                            <div className="chat-bubble">
+                                Нажми кнопку — AI проанализирует текстовые ответы и выдаст резюме, тональность, темы и рекомендации.
+                            </div>
+                        </div>
+
+                        {error && (
+                            <div style={{
+                                background: "#FEF2F2",
+                                border: "1px solid #FECACA",
+                                color: "#B91C1C",
+                                borderRadius: "8px",
+                                padding: "10px 14px",
+                                fontSize: "13px",
+                            }}>
+                                {error}
+                            </div>
+                        )}
+
+                        <button
+                            className="btn btn-primary"
+                            onClick={handleGenerate}
+                            disabled={!results}
+                            style={{ alignSelf: "flex-start" }}
+                        >
+                            ✦ Сгенерировать аналитику
+                        </button>
+                    </div>
+                )}
+
+                {/* Лоадер */}
+                {loading && (
+                    <div className="chat-msg ai">
+                        <div className="chat-avatar ai-av">✦</div>
+                        <div className="chat-bubble" style={{ color: "var(--gray-400)" }}>
+                            Анализирую ответы…
+                        </div>
+                    </div>
+                )}
+
+                {/* Результат */}
+                {analytics && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+
+                        {/* Резюме */}
+                        {analytics.summary && (
+                            <div className="chat-msg ai">
+                                <div className="chat-avatar ai-av">✦</div>
+                                <div className="chat-bubble">{analytics.summary}</div>
+                            </div>
+                        )}
+
+                        {/* Тональность */}
+                        {analytics.sentiment && (
+                            <div>
+                                <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--gray-400)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: "10px" }}>
+                                    Тональность
+                                </div>
+                                <div style={{ display: "flex", gap: "10px", marginBottom: "8px" }}>
+                                    <SentimentBadge label="Позитив" data={analytics.sentiment.positive} color="#10B981" />
+                                    <SentimentBadge label="Нейтраль" data={analytics.sentiment.neutral} color="#6B7280" />
+                                    <SentimentBadge label="Негатив" data={analytics.sentiment.negative} color="#EF4444" />
+                                </div>
+                                {analytics.sentiment.conclusion && (
+                                    <div style={{ fontSize: "13px", color: "var(--gray-600)", fontStyle: "italic" }}>
+                                        {analytics.sentiment.conclusion}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Темы */}
+                        {analytics.themes?.length > 0 && (
+                            <div>
+                                <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--gray-400)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: "10px" }}>
+                                    Темы
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                    {analytics.themes.map((theme, i) => (
+                                        <div key={i} style={{
+                                            background: "var(--gray-50)",
+                                            border: "1px solid var(--gray-200)",
+                                            borderRadius: "8px",
+                                            padding: "10px 14px",
+                                        }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: theme.quotes?.length ? "6px" : 0 }}>
+                                                <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--gray-800)" }}>{theme.theme}</span>
+                                                <span style={{ fontSize: "12px", color: "var(--gray-400)" }}>{theme.count} упом.</span>
+                                            </div>
+                                            {theme.quotes?.length > 0 && (
+                                                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                                                    {theme.quotes.slice(0, 2).map((q, qi) => (
+                                                        <div key={qi} style={{ fontSize: "12px", color: "var(--gray-500)", fontStyle: "italic" }}>
+                                                            «{q}»
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Инсайты */}
+                        {analytics.insights?.length > 0 && (
+                            <div>
+                                <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--gray-400)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: "10px" }}>
+                                    Ключевые инсайты
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                    {analytics.insights.map((insight, i) => (
+                                        <div key={i} style={{
+                                            display: "flex",
+                                            alignItems: "flex-start",
+                                            gap: "10px",
+                                            background: "var(--gray-50)",
+                                            border: "1px solid var(--gray-200)",
+                                            borderRadius: "8px",
+                                            padding: "10px 14px",
+                                        }}>
+                                            <span style={{ fontSize: "18px", lineHeight: 1 }}>{insight.emoji}</span>
+                                            <span style={{ fontSize: "13px", color: "var(--gray-700)", lineHeight: "1.5" }}>{insight.text}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Рекомендации */}
+                        {analytics.recommendations?.length > 0 && (
+                            <div>
+                                <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--gray-400)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: "10px" }}>
+                                    Рекомендации
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                    {analytics.recommendations.map((rec, i) => (
+                                        <div key={i} style={{
+                                            display: "flex",
+                                            alignItems: "flex-start",
+                                            gap: "10px",
+                                            background: "var(--gray-50)",
+                                            border: "1px solid var(--gray-200)",
+                                            borderRadius: "8px",
+                                            padding: "10px 14px",
+                                        }}>
+                                            <span style={{
+                                                fontSize: "10px",
+                                                fontWeight: 800,
+                                                padding: "2px 8px",
+                                                borderRadius: "20px",
+                                                background: rec.priority_color || "#E5E7EB",
+                                                color: "#fff",
+                                                whiteSpace: "nowrap",
+                                                marginTop: "2px",
+                                                flexShrink: 0,
+                                            }}>
+                                                {rec.priority === "high" ? "Высокий" : rec.priority === "medium" ? "Средний" : "Низкий"}
+                                            </span>
+                                            <span style={{ fontSize: "13px", color: "var(--gray-700)", lineHeight: "1.5" }}>{rec.text}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Кнопка обновить */}
+                        <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={handleGenerate}
+                            disabled={loading}
+                            style={{ alignSelf: "flex-start" }}
+                        >
+                            Обновить анализ
+                        </button>
+
+                    </div>
+                )}
+            </div>
+        </div>
+    )
+}
+
+function SentimentBadge({ label, data, color }) {
+    return (
+        <div style={{
+            flex: 1,
+            background: "var(--gray-50)",
+            border: "1px solid var(--gray-200)",
+            borderRadius: "8px",
+            padding: "10px 12px",
+            textAlign: "center",
+        }}>
+            <div style={{ fontSize: "18px", fontWeight: 900, color }}>{data?.percentage ?? 0}%</div>
+            <div style={{ fontSize: "12px", color: "var(--gray-500)" }}>{label}</div>
+            <div style={{ fontSize: "11px", color: "var(--gray-400)" }}>{data?.count ?? 0} отв.</div>
+        </div>
+    )
+}
+
+// ─── Main Results component ───────────────────────────────────────────────────
 
 export default function Results({
     surveys,
@@ -298,41 +550,9 @@ export default function Results({
                     )}
                 </div>
 
-                <div className="card no-print" style={{ marginTop: 20 }}>
-                    <div className="card-header">
-                        <div className="card-title">
-                            Спросить AI про этот опрос
-                        </div>
+                {/* AI-аналитика */}
+                <AiAnalyticsPanel results={selectedResults} />
 
-                        <span className="ai-badge-inline">
-                            AI
-                        </span>
-                    </div>
-
-                    <div className="card-body">
-                        <div className="chat-msg ai">
-                            <div className="chat-avatar ai-av">
-                                ✦
-                            </div>
-
-                            <div className="chat-bubble">
-                                AI-анализ будет доступен после подключения backend endpoint.
-                            </div>
-                        </div>
-
-                        <div className="chat-input-row">
-                            <input
-                                className="chat-input"
-                                placeholder="AI-анализ пока недоступен"
-                                disabled
-                            />
-
-                            <button className="btn btn-primary" disabled>
-                                ↑
-                            </button>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     )

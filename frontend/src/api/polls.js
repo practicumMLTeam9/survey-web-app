@@ -25,3 +25,10 @@ export function updatePollStatus(id, status) {
 export function getPollResults(id) {
     return apiRequest(`/api/v1/polls/${id}/results?use_cookie=false&token_type=access`)
 }
+
+export function updatePoll(pollId, data) {
+    return apiRequest(`/api/v1/polls/${pollId}?use_cookie=false&token_type=access`, {
+        method: "POST",
+        body: JSON.stringify(data),
+    })
+}

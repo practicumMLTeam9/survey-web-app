@@ -14,6 +14,7 @@ export default function Dashboard() {
     const [surveyTab, setSurveyTab] = useState("all")
     const [searchQuery, setSearchQuery] = useState("")
     const [typeFilter, setTypeFilter] = useState("all")
+    const [periodFilter, setPeriodFilter] = useState("all")
     const [openedMenu, setOpenedMenu] = useState(null)
     const [editingPoll, setEditingPoll] = useState(null)
     const [copyPoll, setCopyPoll] = useState(null)
@@ -66,7 +67,38 @@ export default function Dashboard() {
                     poll.category
                 ) === typeFilter
 
-        return statusOk && searchOk && typeOk
+        const periodOk =
+            periodFilter === "all"
+                ? true
+                : (() => {
+
+                    const created =
+                        new Date(
+                            poll.created_at
+                        )
+
+                    const days =
+                        Number(
+                            periodFilter
+                        )
+
+                    const limit =
+                        new Date()
+
+                    limit.setDate(
+                        limit.getDate() - days
+                    )
+
+                    return created >= limit
+
+                })()
+
+        return (
+            statusOk
+            && searchOk
+            && typeOk
+            && periodOk
+        )
     })
 
     const totalPolls = surveys.length
@@ -190,6 +222,7 @@ export default function Dashboard() {
     const copyPollLink = async (poll) => {
         try {
             const url =
+                poll.vote_link ||
                 poll.share_url ||
                 `${window.location.origin}/vote/${poll.id}`
 
@@ -602,10 +635,28 @@ export default function Dashboard() {
                                     <option value="public">Публичный</option>
                                 </select>
 
-                                <select className="filter-select">
-                                    <option>Период: Любой</option>
-                                    <option>Апрель 2026</option>
-                                    <option>Март 2026</option>
+                                <select
+                                    className="filter-select"
+                                    value={periodFilter}
+                                    onChange={(e) =>
+                                        setPeriodFilter(e.target.value)
+                                    }
+                                >
+                                    <option value="all">
+                                        Период: Любой
+                                    </option>
+
+                                    <option value="7">
+                                        Последние 7 дней
+                                    </option>
+
+                                    <option value="30">
+                                        Последние 30 дней
+                                    </option>
+
+                                    <option value="90">
+                                        Последние 3 месяца
+                                    </option>
                                 </select>
                             </div>
 
@@ -633,15 +684,13 @@ export default function Dashboard() {
 
                                                 <td>
                                                     <span className="chip">
-                                                        {
-                                                            poll.poll_type === "corporate"
-                                                                ? "Корпоративный"
-                                                                : poll.poll_type === "client"
-                                                                    ? "Клиентский"
-                                                                    : poll.poll_type === "public"
-                                                                        ? "Публичный"
-                                                                        : "—"
-                                                        }
+                                                        {(poll.poll_type || poll.type) === "corporate"
+                                                            ? "Корпоративный"
+                                                            : (poll.poll_type || poll.type) === "client"
+                                                                ? "Клиентский"
+                                                                : (poll.poll_type || poll.type) === "public"
+                                                                    ? "Публичный"
+                                                                    : "—"}
                                                     </span>
                                                 </td>
 

@@ -139,9 +139,30 @@ export default function VotePoll() {
         return (
             <div className="vote-page">
                 <div className="vote-card finish-card">
-                    <div className="finish-icon">✓</div>
-                    <h1>Спасибо за ответ!</h1>
-                    <p>Ответы подготовлены к отправке. Подключим сохранение следующим шагом.</p>
+                    <div className="finish-glow"></div>
+
+                    <div className="finish-icon">
+                        ✓
+                    </div>
+
+                    <div className="finish-kicker">
+                        SurveyPulse
+                    </div>
+
+                    <h1>
+                        Спасибо за участие!
+                    </h1>
+
+                    <p>
+                        Ваш ответ сохранён анонимно. Вы помогаете сделать опрос точнее и полезнее.
+                    </p>
+
+                    <button
+                        className="btn btn-primary finish-btn"
+                        onClick={() => window.close()}
+                    >
+                        Закрыть страницу
+                    </button>
                 </div>
             </div>
         )

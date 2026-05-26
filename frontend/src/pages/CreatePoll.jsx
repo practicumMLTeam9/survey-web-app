@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { createPoll } from "../api/polls"
+import { createPoll, updatePoll } from "../api/polls"
 import { generatePoll } from "../api/ai"
 
 export default function CreatePoll({
@@ -17,6 +17,8 @@ export default function CreatePoll({
     const [aiLoading, setAiLoading] = useState(false)
     const [aiQuestionsCount, setAiQuestionsCount] = useState(5)
     const [aiGenerated, setAiGenerated] = useState(false)
+    const [userEditedDraft, setUserEditedDraft] = useState(false)
+    const [aiSessionToken, setAiSessionToken] = useState(null)
 
     const [pollTitle, setPollTitle] = useState("")
     const [pollDescription, setPollDescription] = useState("")
@@ -27,6 +29,11 @@ export default function CreatePoll({
 
     const [activeQuestionId, setActiveQuestionId] = useState(1)
 
+    const markEdited = () => {
+        if (aiGenerated) {
+            setUserEditedDraft(true)
+        }
+    }
     const addQuestion = () => {
         const newId = questions.length ? Math.max(...questions.map(q => q.id)) + 1 : 1
 
@@ -175,6 +182,10 @@ export default function CreatePoll({
             one_response_only: true,
             max_participants: unlimited ? null : Number(participants),
             show_progress: showProgress,
+            generated_by_ai: aiGenerated,
+            ai_request_session_token: aiSessionToken,
+            ai_generation_prompt: aiGenerated ? aiPrompt : null,
+            user_edited_draft: aiGenerated ? userEditedDraft : false,
             questions: questions.map((q, index) => {
                 const questionPayload = {
                     text: q.text,
@@ -220,7 +231,7 @@ export default function CreatePoll({
         }
 
         setAiLoading(true)
-
+        setUserEditedDraft(false)
         try {
             const data = await generatePoll({
                 prompt: aiPrompt,
@@ -233,6 +244,7 @@ export default function CreatePoll({
                 ],
                 is_anonymous: true,
                 one_response_only: true,
+                model: "baidu/cobuddy:free",
             })
 
             setPollTitle(data.title || "")
@@ -259,6 +271,7 @@ export default function CreatePoll({
             setActiveQuestionId(generatedQuestions[0]?.id || null)
             setCreateMode("manual")
             setAiGenerated(true)
+            setAiSessionToken(data.ai_request_session_token || null)
         } catch (err) {
             alert(err.message)
         } finally {
@@ -447,7 +460,10 @@ export default function CreatePoll({
                                     <input
                                         className="form-input"
                                         value={pollTitle}
-                                        onChange={(e) => setPollTitle(e.target.value)}
+                                        onChange={(e) => {
+                                            markEdited()
+                                            setPollTitle(e.target.value)
+                                        }}
                                         placeholder="Оценка удовлетворённости сотрудников Q2"
                                     />
                                 </div>
@@ -457,7 +473,10 @@ export default function CreatePoll({
                                     <textarea
                                         className="form-textarea"
                                         value={pollDescription}
-                                        onChange={(e) => setPollDescription(e.target.value)}
+                                        onChange={(e) => {
+                                            markEdited()
+                                            setPollDescription(e.target.value)
+                                        }}
                                         placeholder="Помогите нам стать лучше — пройдите короткий опрос о вашем опыте работы. Это займёт около 3 минут."
                                     />
                                 </div>
@@ -468,7 +487,10 @@ export default function CreatePoll({
                                         <select
                                             className="form-select"
                                             value={pollType}
-                                            onChange={(e) => setPollType(e.target.value)}
+                                            onChange={(e) => {
+                                                markEdited()
+                                                setPollType(e.target.value)
+                                            }}
                                         >
                                             <option value="corporate">Корпоративный</option>
                                             <option value="client">Клиентский</option>
@@ -481,7 +503,10 @@ export default function CreatePoll({
                                         <select
                                             className="form-select"
                                             value={language}
-                                            onChange={(e) => setLanguage(e.target.value)}
+                                            onChange={(e) => {
+                                                markEdited()
+                                                setLanguage(e.target.value)
+                                            }}
                                         >
                                             <option value="ru">Русский</option>
                                             <option value="en">English</option>
@@ -518,7 +543,10 @@ export default function CreatePoll({
                                                         <input
                                                             className="form-input"
                                                             value={question.text}
-                                                            onChange={(e) => updateQuestionText(question.id, e.target.value)}
+                                                            onChange={(e) => {
+                                                                markEdited()
+                                                                updateQuestionText(question.id, e.target.value)
+                                                            }}
                                                         />
                                                     </div>
 
@@ -528,28 +556,40 @@ export default function CreatePoll({
                                                         <div className="type-picker">
                                                             <div
                                                                 className={`type-option ${question.type === "single_choice" ? "selected" : ""}`}
-                                                                onClick={() => updateQuestionType(question.id, "single_choice", "Один вариант")}
+                                                                onClick={() => {
+                                                                    markEdited()
+                                                                    updateQuestionType(question.id, "single_choice", "Один вариант")
+                                                                }}
                                                             >
                                                                 Один вариант
                                                             </div>
 
                                                             <div
                                                                 className={`type-option ${question.type === "multiple_choice" ? "selected" : ""}`}
-                                                                onClick={() => updateQuestionType(question.id, "multiple_choice", "Несколько")}
+                                                                onClick={() => {
+                                                                    markEdited()
+                                                                    updateQuestionType(question.id, "multiple_choice", "Несколько")
+                                                                }}
                                                             >
                                                                 Несколько
                                                             </div>
 
                                                             <div
                                                                 className={`type-option ${question.type === "scale" ? "selected" : ""}`}
-                                                                onClick={() => updateQuestionType(question.id, "scale", "Шкала")}
+                                                                onClick={() => {
+                                                                    markEdited()
+                                                                    updateQuestionType(question.id, "scale", "Шкала")
+                                                                }}
                                                             >
                                                                 Шкала 1–10
                                                             </div>
 
                                                             <div
                                                                 className={`type-option ${question.type === "text" ? "selected" : ""}`}
-                                                                onClick={() => updateQuestionType(question.id, "text", "Текст")}
+                                                                onClick={() => {
+                                                                    markEdited()
+                                                                    updateQuestionType(question.id, "text", "Текст")
+                                                                }}
                                                             >
                                                                 Текст
                                                             </div>
@@ -573,24 +613,23 @@ export default function CreatePoll({
                                                                             <input
                                                                                 className="form-input"
                                                                                 value={option}
-                                                                                onChange={(e) =>
+                                                                                onChange={(e) => {
+                                                                                    markEdited()
                                                                                     updateOption(
                                                                                         question.id,
                                                                                         index,
                                                                                         e.target.value
                                                                                     )
-                                                                                }
+                                                                                }}
                                                                             />
 
                                                                             <button
                                                                                 type="button"
                                                                                 className="option-delete"
-                                                                                onClick={() =>
-                                                                                    removeOption(
-                                                                                        question.id,
-                                                                                        index
-                                                                                    )
-                                                                                }
+                                                                                onClick={() => {
+                                                                                    markEdited()
+                                                                                    removeOption(question.id, index)
+                                                                                }}
                                                                             >
                                                                                 ×
                                                                             </button>
@@ -602,9 +641,10 @@ export default function CreatePoll({
                                                                     <button
                                                                         type="button"
                                                                         className="add-option-btn"
-                                                                        onClick={() =>
+                                                                        onClick={() => {
+                                                                            markEdited()
                                                                             addOption(question.id)
-                                                                        }
+                                                                        }}
                                                                     >
                                                                         ＋ Добавить вариант
                                                                     </button>
@@ -612,7 +652,8 @@ export default function CreatePoll({
                                                                         <input
                                                                             type="checkbox"
                                                                             checked={question.allowOwnAnswer || false}
-                                                                            onChange={(e) =>
+                                                                            onChange={(e) => {
+                                                                                markEdited()
                                                                                 setQuestions(
                                                                                     questions.map(q =>
                                                                                         q.id === question.id
@@ -620,7 +661,7 @@ export default function CreatePoll({
                                                                                             : q
                                                                                     )
                                                                                 )
-                                                                            }
+                                                                            }}
                                                                         />
                                                                         Разрешить свой ответ
                                                                     </label>
@@ -649,14 +690,20 @@ export default function CreatePoll({
                                                     <div style={{ display: "flex", gap: "8px" }}>
                                                         <button
                                                             className="btn btn-ghost btn-sm"
-                                                            onClick={() => duplicateQuestion(question)}
+                                                            onClick={() => {
+                                                                markEdited()
+                                                                duplicateQuestion(question)
+                                                            }}
                                                         >
                                                             Дублировать
                                                         </button>
 
                                                         <button
                                                             className="btn btn-danger btn-sm"
-                                                            onClick={() => deleteQuestion(question.id)}
+                                                            onClick={() => {
+                                                                markEdited()
+                                                                deleteQuestion(question.id)
+                                                            }}
                                                         >
                                                             Удалить
                                                         </button>
@@ -667,7 +714,10 @@ export default function CreatePoll({
                                     ))}
                                 </div>
 
-                                <div className="add-question-bar" onClick={addQuestion}>
+                                <div className="add-question-bar" onClick={() => {
+                                    markEdited()
+                                    addQuestion()
+                                }}>
                                     <span className="aq-label">Добавить вопрос</span>
                                 </div>
                             </div>
@@ -690,9 +740,10 @@ export default function CreatePoll({
                                         type="number"
                                         value={participants}
                                         disabled={unlimited}
-                                        onChange={(e) =>
+                                        onChange={(e) => {
+                                            markEdited()
                                             setParticipants(e.target.value)
-                                        }
+                                        }}
                                     />
 
                                     <span>человек</span>
@@ -714,9 +765,10 @@ export default function CreatePoll({
 
                                     <div
                                         className={`toggle ${unlimited ? "on" : ""}`}
-                                        onClick={() =>
+                                        onClick={() => {
+                                            markEdited()
                                             setUnlimited(!unlimited)
-                                        }
+                                        }}
                                     />
 
                                 </div>
@@ -729,9 +781,10 @@ export default function CreatePoll({
                                 </div>
                                 <div
                                     className={`toggle ${showProgress ? "on" : ""}`}
-                                    onClick={() =>
+                                    onClick={() => {
+                                        markEdited()
                                         setShowProgress(!showProgress)
-                                    }
+                                    }}
                                 />
                             </div>
 

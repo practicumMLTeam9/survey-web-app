@@ -31,6 +31,13 @@ ALLOWED_MODELS = {
     "qwen/qwen-2.5-7b-instruct:free",
     "meta-llama/llama-3.2-3b-instruct:free",
     "mistralai/mistral-7b-instruct:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "qwen/qwen3-next-80b-a3b-instruct:free",
+    "deepseek/deepseek-v4-flash:free",
+    "openrouter/owl-alpha",
+    "liquid/lfm-2.5-1.2b-thinking:free"
 }
 
 SYSTEM_PROMPT_GENERATE = """Ты — генератор опросов. Возвращай ТОЛЬКО валидный JSON, строго соответствующий схеме ниже. Никаких пояснений, markdown или комментариев.

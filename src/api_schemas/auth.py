@@ -79,3 +79,36 @@ class ResetPasswordLink(BaseModel):
 class ResetPasswordRequest(BaseModel):
     """Запрос с отправкой нового пароля"""
     new_password: str = Field(..., min_length=6, max_length=30, description="Новый пароль")
+
+class UserChangedData(BaseModel):
+    """Запрос с новыми данными пользователя"""
+    email: Optional[EmailStr] = Field(..., description="E-mail пользователя")
+    first_name: Optional[str] = Field(None, description="Имя")
+    last_name: Optional[str] = Field(None, description="Фамилия")
+    company_name: Optional[str] = Field(None, description="Компания")
+    position: Optional[str] = Field(None, description="Должность")
+    phone: Optional[str] = Field(None, description="Телефон")
+    avatar_url: Optional[str] = Field(None, description="Ссылка на аватар")
+    interface_language: Optional[str] = Field("ru", description="Язык интерфейса")
+
+    class Config:
+        from_attributes = True 
+
+class ChangedPassword(BaseModel):
+    """Запрос с новым паролем"""
+    password: str = Field(..., min_length=6, max_length=30, description="Пароль пользователя")
+    confirmed_password: str = Field(..., min_length=6, max_length=30, description="Подтверждённый пароль")
+
+    @field_validator("password")
+    @classmethod
+    def password_not_null(cls, v: str) -> str:
+        """Явная проверка: пароль не None и не пустая строка"""
+        if not v or not v.strip():
+            raise ValueError("Пароль не может быть пустым")
+        if len(v.strip()) < 6:
+            raise ValueError("Пароль должен содержать минимум 6 символов")
+        if len(v) > 30:
+            raise ValueError("Пароль не длиннее 30 символов")
+        return v
+
+    model_config = ConfigDict(from_attributes=True)

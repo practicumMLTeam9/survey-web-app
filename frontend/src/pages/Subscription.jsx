@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react"
+import { useState, useEffect, useCallback } from "react"
+import { getMyPolls } from "../api/polls"
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
@@ -71,6 +72,41 @@ function EnterpriseFeatureList({ items }) {
 export default function Subscription() {
     const [period, setPeriod] = useState("monthly")
     const [toast, setToast] = useState(null)
+
+    // ── Лимиты тарифа Pro ──────────────────────────────────────────────────────
+    const PLAN_POLL_LIMIT      = 50
+    const PLAN_RESPONSE_LIMIT  = 5000
+
+    // ── Реальная статистика из API ─────────────────────────────────────────────
+    const [usageLoading, setUsageLoading] = useState(true)
+    const [pollCount,    setPollCount]    = useState(null)   // число опросов
+    const [responseCount, setResponseCount] = useState(null) // сумма total_votes
+
+    useEffect(() => {
+        /** Загружает список опросов и считает количество опросов и суммарное
+         *  число ответов (total_votes). Частичный ответ принимается — если
+         *  поле отсутствует, используется 0. */
+        async function loadUsage() {
+            try {
+                const polls = await getMyPolls()
+                const list = Array.isArray(polls) ? polls : (polls?.items ?? polls?.polls ?? [])
+                setPollCount(list.length)
+                const votes = list.reduce((sum, p) => sum + (p.total_votes ?? p.responses_count ?? 0), 0)
+                setResponseCount(votes)
+            } catch {
+                // Не критично — оставляем null, UsageStat покажет "—"
+            } finally {
+                setUsageLoading(false)
+            }
+        }
+        loadUsage()
+    }, [])
+
+    /** Форматирует число для отображения: null → "—", иначе locale-строка */
+    function fmt(n) { return n === null ? "—" : n.toLocaleString("ru-RU") }
+
+    /** Возвращает процент заполнения шкалы, 0–100, или 0 при отсутствии данных */
+    function pct(n, limit) { return n === null ? 0 : Math.min(100, Math.round(n / limit * 100)) }
 
     const proPrice = period === "monthly" ? "2 990 ₽" : "2 392 ₽"
     const proPeriodLabel = period === "monthly"
@@ -184,9 +220,9 @@ export default function Subscription() {
                             </svg>
                         }
                         label="Опросов"
-                        value="12"
-                        limit="из 50 в месяц"
-                        percent={24}
+                        value={usageLoading ? "…" : fmt(pollCount)}
+                        limit={`из ${PLAN_POLL_LIMIT} в месяц`}
+                        percent={pct(pollCount, PLAN_POLL_LIMIT)}
                     />
                     <UsageStat
                         colorClass="green"
@@ -196,11 +232,12 @@ export default function Subscription() {
                             </svg>
                         }
                         label="Ответов"
-                        value="1 842"
-                        limit="из 5 000 в месяц"
-                        percent={37}
+                        value={usageLoading ? "…" : fmt(responseCount)}
+                        limit={`из ${PLAN_RESPONSE_LIMIT.toLocaleString("ru-RU")} в месяц`}
+                        percent={pct(responseCount, PLAN_RESPONSE_LIMIT)}
                         barColor="var(--success)"
                     />
+                    {/* TODO: участников — заменить на реальные данные когда появится эндпоинт /api/v1/users или /api/v1/organization/members */}
                     <UsageStat
                         colorClass="amber"
                         icon={
@@ -209,11 +246,12 @@ export default function Subscription() {
                             </svg>
                         }
                         label="Участников"
-                        value="280"
+                        value="—"
                         limit="из 1 000 в аккаунте"
-                        percent={28}
+                        percent={0}
                         barColor="var(--warning)"
                     />
+                    {/* TODO: AI-запросов — заменить на реальные данные когда появится счётчик в API */}
                     <UsageStat
                         colorClass="indigo"
                         icon={
@@ -222,9 +260,9 @@ export default function Subscription() {
                             </svg>
                         }
                         label="AI-запросов"
-                        value="47"
+                        value="—"
                         limit="из 200 в месяц"
-                        percent={24}
+                        percent={0}
                     />
                 </div>
 

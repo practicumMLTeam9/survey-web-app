@@ -131,6 +131,7 @@ export default function Settings() {
         phone: "",
         interface_language: "ru",
         company_name: "",
+        role: "",
     })
     const [profileLoading, setProfileLoading] = useState(true)
     const [profileSaving, setProfileSaving] = useState(false)
@@ -165,6 +166,7 @@ export default function Settings() {
                     phone: data.phone || "",
                     interface_language: data.interface_language || "ru",
                     company_name: data.company_name || "",
+                    role: data.role || "user",
                 })
             })
             .catch(() => {})
@@ -242,6 +244,18 @@ export default function Settings() {
     const avatarLetter = (
         (profile.first_name?.[0] || profile.email?.[0] || "?")
     ).toUpperCase()
+
+    const roleLabel = (role) => {
+        if (role === "admin") return "Администратор"
+        if (role === "moderator") return "Модератор"
+        return "Пользователь"
+    }
+
+    const roleDescription = (role) => {
+        if (role === "admin") return "Полный доступ: создание опросов, просмотр всех результатов, управление участниками и настройками."
+        if (role === "moderator") return "Может просматривать результаты и управлять опросами, но не может менять настройки аккаунта."
+        return "Может проходить опросы и просматривать свои результаты."
+    }
 
     return (
         <div className="page active">
@@ -429,10 +443,10 @@ export default function Settings() {
                                         </div>
                                         <div>
                                             <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--gray-900)" }}>
-                                                Администратор
+                                                {profileLoading ? "—" : roleLabel(profile.role)}
                                             </div>
                                             <div style={{ fontSize: "12px", color: "var(--gray-400)", marginTop: "2px" }}>
-                                                Полный доступ: создание опросов, просмотр всех результатов, управление участниками и настройками.
+                                                {profileLoading ? "" : roleDescription(profile.role)}
                                             </div>
                                         </div>
                                         <button
@@ -467,7 +481,8 @@ export default function Settings() {
                                             <input
                                                 className="form-input"
                                                 type="text"
-                                                defaultValue={profile.company_name || ""}
+                                                value={profile.company_name}
+                                                onChange={(e) => setProfile(p => ({ ...p, company_name: e.target.value }))}
                                                 placeholder="Название вашей компании"
                                             />
                                         </div>
@@ -511,7 +526,19 @@ export default function Settings() {
                                         </div>
                                     </div>
                                     <div className="settings-card-footer">
-                                        <button type="button" className="btn btn-secondary">Отмена</button>
+                                        <button
+                                            type="button"
+                                            className="btn btn-secondary"
+                                            onClick={() => {
+                                                setProfileLoading(true)
+                                                getMe()
+                                                    .then((data) => setProfile(p => ({ ...p, company_name: data.company_name || "" })))
+                                                    .catch(() => {})
+                                                    .finally(() => setProfileLoading(false))
+                                            }}
+                                        >
+                                            Отмена
+                                        </button>
                                         <button type="submit" className="btn btn-primary">Сохранить</button>
                                     </div>
                                 </form>

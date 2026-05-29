@@ -261,6 +261,16 @@ export default function Results({
     getStatusText,
     formatDate,
 }) {
+    const [copied, setCopied] = useState(false)
+
+    const handleShare = () => {
+        if (!selectedPoll) return
+        const link = `${window.location.origin}/poll/${selectedPoll.id}`
+        navigator.clipboard.writeText(link).then(() => {
+            setCopied(true)
+            setTimeout(() => setCopied(false), 2000)
+        })
+    }
     const handleExportPdf = async () => {
         const element = document.querySelector(".results-print-area")
 
@@ -365,13 +375,25 @@ export default function Results({
                         Скачать PDF
                     </button>
 
-                    <button className="btn btn-primary">
-                        Поделиться
+                    <button className="btn btn-primary" onClick={handleShare} disabled={!selectedPoll}>
+                        {copied ? "Ссылка скопирована ✓" : "Поделиться"}
                     </button>
                 </div>
             </div>
 
-            <div className="dashboard-content results-print-area">
+            {!selectedPoll && (
+                <div style={{ padding: "60px 28px", textAlign: "center" }}>
+                    <div style={{ fontSize: "40px", marginBottom: "12px" }}>📊</div>
+                    <div style={{ fontSize: "16px", fontWeight: 600, color: "var(--gray-700)", marginBottom: "6px" }}>
+                        Выберите опрос
+                    </div>
+                    <div style={{ fontSize: "13px", color: "var(--gray-400)" }}>
+                        Перейдите в раздел «Опросы» и нажмите «Результаты» у нужного опроса
+                    </div>
+                </div>
+            )}
+
+            <div className="dashboard-content results-print-area" style={{ display: selectedPoll ? undefined : "none" }}>
                 <div className="results-picker-card no-print">
                     <div className="results-picker-left">
                         <div className="results-picker-label">Опрос</div>
@@ -444,7 +466,7 @@ export default function Results({
                             {avgTime ? `${Math.round(avgTime)}с` : "—"}
                         </div>
                         <div className="stat-delta">
-                            {avgTime ? "из API" : "нет в API"}
+                            {avgTime ? "среднее по всем участникам" : "данных пока нет"}
                         </div>
                     </div>
                 </div>

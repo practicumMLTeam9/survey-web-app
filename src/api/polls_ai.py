@@ -24,9 +24,9 @@ from math import ceil
 import asyncio
 import time
 
-DEFAULT_MODEL = os.getenv("DEFAULT_LLM_MODEL", "baidu/cobuddy:free")
+DEFAULT_MODEL = os.getenv("DEFAULT_LLM_MODEL", "openrouter/owl-alpha")
 ALLOWED_MODELS = {
-    "baidu/cobuddy:free",
+    "openrouter/owl-alpha",
     "google/gemini-2.0-flash-lite:free",
     "qwen/qwen-2.5-7b-instruct:free",
     "meta-llama/llama-3.2-3b-instruct:free",

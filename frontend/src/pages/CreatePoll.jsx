@@ -8,7 +8,7 @@ export default function CreatePoll({
     editMode = false,
 }) {
     const [createMode, setCreateMode] = useState("ai")
-    const [participants, setParticipants] = useState(280)
+    const [participants, setParticipants] = useState("")
 
     const [unlimited, setUnlimited] = useState(false)
 
@@ -18,6 +18,9 @@ export default function CreatePoll({
     const [saving, setSaving] = useState(false)
     const [successStatus, setSuccessStatus] = useState(null)
     const [aiQuestionsCount, setAiQuestionsCount] = useState(5)
+    const [aiAudience, setAiAudience] = useState("employees")
+    const [aiTone, setAiTone] = useState("formal")
+    const [aiPrivacy, setAiPrivacy] = useState("anonymous")
     const [aiGenerated, setAiGenerated] = useState(false)
     const [userEditedDraft, setUserEditedDraft] = useState(false)
     const [aiSessionToken, setAiSessionToken] = useState(null)
@@ -234,7 +237,9 @@ export default function CreatePoll({
             status,
             poll_type: pollType,
             language: language,
-            is_anonymous: true,
+            audience: aiAudience,
+            tone: aiTone,
+            is_anonymous: aiPrivacy === "anonymous",
             one_response_only: true,
             max_participants: unlimited ? null : Number(participants),
             show_progress: showProgress,
@@ -291,7 +296,7 @@ export default function CreatePoll({
         } catch (err) {
             setSaving(false)
             alert(err.message)
-        } 
+        }
     }
 
     const handleAiGenerate = async () => {
@@ -457,12 +462,25 @@ export default function CreatePoll({
                                 </div>
 
                                 <div className="ai-settings-row">
-                                    <select className="ai-select">
-                                        <option>🎯 Аудитория: Сотрудники</option>
+                                    <select
+                                        className="ai-select"
+                                        value={aiAudience}
+                                        onChange={(e) => setAiAudience(e.target.value)}
+                                    >
+                                        <option value="employees">🎯 Сотрудники</option>
+                                        <option value="clients">🎯 Клиенты</option>
+                                        <option value="students">🎯 Студенты</option>
+                                        <option value="event">🎯 Участники мероприятия</option>
                                     </select>
 
-                                    <select className="ai-select">
-                                        <option>📝 Тон: Формальный</option>
+                                    <select
+                                        className="ai-select"
+                                        value={aiTone}
+                                        onChange={(e) => setAiTone(e.target.value)}
+                                    >
+                                        <option value="formal">📝 Формальный</option>
+                                        <option value="friendly">😊 Дружелюбный</option>
+                                        <option value="neutral">⚖️ Нейтральный</option>
                                     </select>
 
                                     <select
@@ -475,8 +493,13 @@ export default function CreatePoll({
                                         <option value={10}>10 вопросов</option>
                                     </select>
 
-                                    <select className="ai-select">
-                                        <option>🔒 Анонимно</option>
+                                    <select
+                                        className="ai-select"
+                                        value={aiPrivacy}
+                                        onChange={(e) => setAiPrivacy(e.target.value)}
+                                    >
+                                        <option value="anonymous">🔒 Анонимно</option>
+                                        <option value="named">👤 Не анонимно</option>
                                     </select>
 
                                     <button
@@ -811,10 +834,10 @@ export default function CreatePoll({
                                 <div className="participants-control">
 
                                     <input
-                                        className={`form-input participants-input ${unlimited ? "disabled" : ""
-                                            }`}
+                                        className={`form-input participants-input ${unlimited ? "disabled" : ""}`}
                                         type="number"
                                         value={participants}
+                                        placeholder="100"
                                         disabled={unlimited}
                                         onChange={(e) => {
                                             markEdited()

@@ -21,6 +21,7 @@ export default function Dashboard() {
     const [viewingPoll, setViewingPoll] = useState(null)
     const [viewLoading, setViewLoading] = useState(false)
     const [copyLoading, setCopyLoading] = useState(false)
+    const [statusLoading, setStatusLoading] = useState(null)
     const [copyPoll, setCopyPoll] = useState(null)
     const [toast, setToast] = useState(null)
     const [currentPage, setCurrentPage] = useState(1)
@@ -178,6 +179,7 @@ export default function Dashboard() {
     }
 
     const togglePollStatus = async (poll) => {
+        setStatusLoading(poll.status === "closed" ? "opening" : "closing")
         try {
             const token =
                 localStorage.getItem(
@@ -230,9 +232,11 @@ export default function Dashboard() {
             setSurveys(updated)
 
             setOpenedMenu(null)
-
+            setTimeout(() => {
+                setStatusLoading(null)
+            }, 500)
         } catch (err) {
-
+            setStatusLoading(null)
             alert(
                 err.message
             )
@@ -1044,6 +1048,29 @@ export default function Dashboard() {
                             </div>
 
                             <div className="copy-progress">
+                                <span />
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {statusLoading && (
+                    <div className="modal-backdrop">
+                        <div className="status-loader-card">
+                            <div className={`status-loader-icon ${statusLoading}`}>
+                                {statusLoading === "closing" ? "🔒" : "🔓"}
+                            </div>
+
+                            <div className="status-loader-title">
+                                {statusLoading === "closing"
+                                    ? "Закрываем опрос"
+                                    : "Открываем опрос"}
+                            </div>
+
+                            <div className="status-loader-text">
+                                Обновляем статус и список опросов...
+                            </div>
+
+                            <div className="status-loader-line">
                                 <span />
                             </div>
                         </div>

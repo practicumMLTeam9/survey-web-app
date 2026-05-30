@@ -219,7 +219,7 @@ class GeneratePollRequest(BaseModel):
     is_anonymous: bool = Field(True)
     one_response_only: bool = Field(True)
     model: str = Field(
-        default="baidu/cobuddy:free",
+        default="openrouter/owl-alpha",
         pattern="^[a-z0-9_\-\.]+/[a-z0-9_\-\.]+(:free|:latest)?$",
         description="ID модели на OpenRouter (например, google/gemini-2.0-flash-lite:free)"
     )

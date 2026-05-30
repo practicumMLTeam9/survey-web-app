@@ -3946,3 +3946,75 @@ select {
     color: var(--brand);
     transform: translateX(4px);
 }
+
+.results-empty-hero {
+    margin-top: 32px;
+    min-height: 420px;
+    border: 1px dashed var(--gray-200);
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at 20% 20%, rgba(79, 70, 229, .10), transparent 26%),
+        radial-gradient(circle at 80% 80%, rgba(16, 185, 129, .10), transparent 30%),
+        #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 48px;
+    animation: fadeUp .25s ease;
+}
+
+.results-empty-orbit {
+    width: 88px;
+    height: 88px;
+    border-radius: 28px;
+    background: linear-gradient(135deg, #eef2ff, #f5f3ff);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 22px;
+    box-shadow: 0 18px 45px rgba(79, 70, 229, .14);
+    animation: softFloat 2.4s ease-in-out infinite;
+}
+
+.results-empty-orbit span {
+    font-size: 42px;
+}
+
+.results-empty-hero h2 {
+    margin: 0 0 10px;
+    font-size: 26px;
+    color: var(--gray-900);
+}
+
+.results-empty-hero p {
+    max-width: 520px;
+    margin: 0;
+    color: var(--gray-500);
+    line-height: 1.6;
+}
+
+@keyframes softFloat {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-6px);
+    }
+}
+
+@keyframes fadeUp {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

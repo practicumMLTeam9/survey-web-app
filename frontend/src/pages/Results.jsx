@@ -382,13 +382,43 @@ export default function Results({
             </div>
 
             {!selectedPoll && (
-                <div style={{ padding: "60px 28px", textAlign: "center" }}>
-                    <div style={{ fontSize: "40px", marginBottom: "12px" }}>📊</div>
-                    <div style={{ fontSize: "16px", fontWeight: 600, color: "var(--gray-700)", marginBottom: "6px" }}>
-                        Выберите опрос
+                <div className="dashboard-content">
+                    <div className="results-picker-card no-print">
+                        <div className="results-picker-left">
+                            <div className="results-picker-label">Опрос</div>
+
+                            <select
+                                className="results-picker-select"
+                                value=""
+                                onChange={(e) => {
+                                    const poll = surveys.find(
+                                        p => String(p.id) === e.target.value
+                                    )
+
+                                    if (poll) openResults(poll)
+                                }}
+                            >
+                                <option value="">Выберите опрос</option>
+
+                                {surveys.map((poll) => (
+                                    <option key={poll.id} value={poll.id}>
+                                        {poll.title}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
-                    <div style={{ fontSize: "13px", color: "var(--gray-400)" }}>
-                        Перейдите в раздел «Опросы» и нажмите «Результаты» у нужного опроса
+
+                    <div className="results-empty-hero">
+                        <div className="results-empty-orbit">
+                            <span>📊</span>
+                        </div>
+
+                        <h2>Выберите опрос для анализа</h2>
+
+                        <p>
+                            Откройте выпадающий список выше и выберите нужный опрос, чтобы посмотреть ответы, метрики и аналитику.
+                        </p>
                     </div>
                 </div>
             )}
@@ -480,8 +510,8 @@ export default function Results({
                             return (
                                 <div
                                     className={`result-card ${question.type === "text" || !options.length
-                                            ? "full"
-                                            : ""
+                                        ? "full"
+                                        : ""
                                         }`}
                                     key={question.id || questionIndex}
                                 >

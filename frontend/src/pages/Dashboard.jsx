@@ -379,16 +379,10 @@ export default function Dashboard() {
                         </div>
 
                         <div
-                            onClick={async () => {
-
-                                if (surveys.length) {
-                                    await openResults(surveys[0])
-                                } else {
-                                    setSelectedPoll(null)
-                                    setSelectedResults(null)
-                                    setPage("results")
-                                }
-
+                            onClick={() => {
+                                setSelectedPoll(null)
+                                setSelectedResults(null)
+                                setPage("results")
                             }}
                             className={`nav-item ${page === "results" ? "active" : ""}`}
                         >

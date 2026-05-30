@@ -16,6 +16,7 @@ export default function Dashboard() {
     const [typeFilter, setTypeFilter] = useState("all")
     const [periodFilter, setPeriodFilter] = useState("all")
     const [openedMenu, setOpenedMenu] = useState(null)
+    const [openedFilter, setOpenedFilter] = useState(null)
     const [editingPoll, setEditingPoll] = useState(null)
     const [viewingPoll, setViewingPoll] = useState(null)
     const [viewLoading, setViewLoading] = useState(false)
@@ -348,8 +349,8 @@ export default function Dashboard() {
         }
     }
 
-    const CustomDropdown = ({ prefix, value, options, onChange }) => {
-        const [open, setOpen] = useState(false)
+    const CustomDropdown = ({ id, prefix, value, options, onChange }) => {
+        const open = openedFilter === id
         const current = options.find(o => o.value === value)
 
         return (
@@ -357,11 +358,15 @@ export default function Dashboard() {
                 <button
                     type="button"
                     className={`custom-dropdown-btn ${open ? "open" : ""}`}
-                    onClick={() => setOpen(!open)}
+                    onClick={() => {
+                        setOpenedFilter(open ? null : id)
+                        setOpenedMenu(null)
+                    }}
                 >
                     <span className="custom-dropdown-text">
                         <strong>{prefix}:</strong> {current?.label}
                     </span>
+
                     <span className="custom-dropdown-arrow">▾</span>
                 </button>
 
@@ -374,7 +379,7 @@ export default function Dashboard() {
                                 className={option.value === value ? "selected" : ""}
                                 onClick={() => {
                                     onChange(option.value)
-                                    setOpen(false)
+                                    setOpenedFilter(null)
                                 }}
                             >
                                 {option.label}
@@ -519,7 +524,10 @@ export default function Dashboard() {
 
             <main
                 className="main"
-                onClick={() => setOpenedMenu(null)}
+                onClick={() => {
+                    setOpenedMenu(null)
+                    setOpenedFilter(null)
+                }}
             >
                 {page === "dashboard" && (
                     <div className="page active">
@@ -527,7 +535,7 @@ export default function Dashboard() {
                             <div className="topbar-title">Дашборд</div>
                             <div className="topbar-actions">
                                 <button
-                                    className="btn btn-primary"
+                                    className="btn btn-primary new-poll-btn"
                                     onClick={() => setPage("create")}
                                 >
                                     <svg viewBox="0 0 20 20" fill="currentColor">
@@ -622,7 +630,7 @@ export default function Dashboard() {
                                                             </div>
 
                                                             <div className="survey-meta">
-                                                                Опрос
+                                                                {poll.questions_count ?? poll.questions?.length ?? 0} вопросов
                                                             </div>
                                                         </td>
 
@@ -711,7 +719,7 @@ export default function Dashboard() {
                             <div className="topbar-title">Все опросы</div>
                             <div className="topbar-actions">
                                 <button
-                                    className="btn btn-primary"
+                                    className="btn btn-primary new-poll-btn"
                                     onClick={() => setPage("create")}
                                 >
                                     <svg viewBox="0 0 20 20" fill="currentColor">
@@ -757,6 +765,7 @@ export default function Dashboard() {
                                 </div>
 
                                 <CustomDropdown
+                                    id="type"
                                     prefix="Тип"
                                     value={typeFilter}
                                     onChange={setTypeFilter}
@@ -769,6 +778,7 @@ export default function Dashboard() {
                                 />
 
                                 <CustomDropdown
+                                    id="period"
                                     prefix="Период"
                                     value={periodFilter}
                                     onChange={setPeriodFilter}
@@ -803,7 +813,7 @@ export default function Dashboard() {
                                             >
                                                 <td>
                                                     <div className="survey-name">{poll.title}</div>
-                                                    <div className="survey-meta">Опрос</div>
+                                                    <div className="survey-meta">{poll.questions_count ?? poll.questions?.length ?? 0} вопросов</div>
                                                 </td>
 
                                                 <td>

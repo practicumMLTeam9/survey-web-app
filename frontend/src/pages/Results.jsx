@@ -402,7 +402,7 @@ export default function Results({
 
                                 {surveys.map((poll) => (
                                     <option key={poll.id} value={poll.id}>
-                                        {poll.title}
+                                        {poll.title} • {formatDate(poll.created_at)}
                                     </option>
                                 ))}
                             </select>
@@ -441,7 +441,7 @@ export default function Results({
                         >
                             {surveys.map((poll) => (
                                 <option key={poll.id} value={poll.id}>
-                                    {poll.title}
+                                    {poll.title} • {formatDate(poll.created_at)}
                                 </option>
                             ))}
                         </select>

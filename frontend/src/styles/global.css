@@ -4269,3 +4269,110 @@ select {
 .table-menu {
     z-index: 99999;
 }
+
+.new-poll-btn {
+    position: relative;
+    overflow: hidden;
+    transition: .25s ease;
+}
+
+.new-poll-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 16px 35px rgba(79, 70, 229, .30);
+}
+
+.new-poll-btn:active {
+    transform: translateY(-1px) scale(.96);
+}
+
+.new-poll-btn::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -120%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255,255,255,.38),
+        transparent
+    );
+    transition: .7s;
+}
+
+.new-poll-btn:hover::before {
+    left: 150%;
+}
+
+.filter-bar {
+    position: relative;
+    z-index: 200;
+    overflow: visible;
+}
+
+.custom-dropdown {
+    position: relative;
+    z-index: 250;
+}
+
+.custom-dropdown:has(.custom-dropdown-menu) {
+    z-index: 500;
+}
+
+.custom-dropdown-menu {
+    z-index: 99999;
+}
+
+.survey-table {
+    position: relative;
+    z-index: 1;
+}
+
+.custom-dropdown-menu::before {
+    content: "";
+    position: absolute;
+    inset: -8px;
+    border-radius: 22px;
+    background: rgba(255,255,255,.72);
+    z-index: -1;
+}
+
+.section-header .btn-ghost {
+    position: relative;
+    font-weight: 800;
+    color: var(--gray-600);
+    transition: .25s ease;
+}
+
+.section-header .btn-ghost:hover {
+    color: var(--brand);
+    background: var(--brand-light);
+    transform: translateX(4px);
+    box-shadow: 0 10px 24px rgba(79, 70, 229, .12);
+}
+
+.section-header .btn-ghost:active {
+    transform: translateX(2px) scale(.97);
+}
+
+.stat-card {
+    animation: statCardIn .45s ease both;
+}
+
+.stat-card:nth-child(1) { animation-delay: .05s; }
+.stat-card:nth-child(2) { animation-delay: .10s; }
+.stat-card:nth-child(3) { animation-delay: .15s; }
+.stat-card:nth-child(4) { animation-delay: .20s; }
+
+@keyframes statCardIn {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

@@ -3202,29 +3202,47 @@ select {
 .table-menu {
     position: absolute;
     right: 0;
-    top: 36px;
-    width: 220px;
+    top: 38px;
+    width: 240px;
     background: #fff;
     border: 1px solid var(--gray-200);
-    border-radius: 12px;
-    box-shadow: var(--shadow-lg);
-    overflow: hidden;
-    z-index: 200;
+    border-radius: 18px;
+    box-shadow: 0 24px 70px rgba(15, 23, 42, .16);
+    padding: 8px;
+    z-index: 9999;
+    animation: menuIn .16s ease-out;
+    transform-origin: top right;
 }
 
 .table-menu button {
     width: 100%;
     padding: 12px 14px;
     border: none;
-    background: #fff;
+    background: transparent;
     text-align: left;
-    font-size: 13px;
+    font-size: 14px;
     color: var(--gray-700);
     cursor: pointer;
+    border-radius: 12px;
+    transition: .16s ease;
 }
 
 .table-menu button:hover {
-    background: var(--gray-50);
+    background: #f8fafc;
+    color: #4f46e5;
+    transform: translateX(3px);
+}
+
+@keyframes menuIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(.96);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .toast {

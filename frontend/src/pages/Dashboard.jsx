@@ -420,7 +420,10 @@ export default function Dashboard() {
                 </div>
             </aside>
 
-            <main className="main">
+            <main
+                className="main"
+                onClick={() => setOpenedMenu(null)}
+            >
                 {page === "dashboard" && (
                     <div className="page active">
                         <div className="topbar">
@@ -748,7 +751,10 @@ export default function Dashboard() {
                                                         >
                                                             Результаты
                                                         </button>
-                                                        <div className="menu-wrap">
+                                                        <div
+                                                            className="menu-wrap"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
                                                             <button
                                                                 className="btn btn-ghost btn-sm"
                                                                 onClick={() =>

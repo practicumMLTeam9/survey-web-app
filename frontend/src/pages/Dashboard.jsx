@@ -122,8 +122,15 @@ export default function Dashboard() {
 
     if (loading) {
         return (
-            <div className="page-loader">
-                Загружаем данные...
+            <div className="app-loading">
+                <div className="app-loading-card">
+                    <div className="app-loading-logo">SP</div>
+                    <div className="app-loading-title">SurveyPulse</div>
+                    <div className="app-loading-text">Загружаем данные...</div>
+                    <div className="app-loading-line">
+                        <span />
+                    </div>
+                </div>
             </div>
         )
     }

@@ -3512,3 +3512,110 @@ select {
 .survey-table th:nth-child(6) {
     text-align: center;
 }
+
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, .42);
+    backdrop-filter: blur(8px);
+    z-index: 5000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 32px;
+}
+
+.poll-view-modal {
+    width: min(760px, 100%);
+    max-height: 86vh;
+    overflow: auto;
+    background: #fff;
+    border-radius: 24px;
+    box-shadow: 0 30px 90px rgba(15, 23, 42, .24);
+}
+
+.poll-view-head {
+    padding: 28px 32px 20px;
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.poll-view-kicker {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #6366f1;
+    margin-bottom: 8px;
+}
+
+.poll-view-head h2 {
+    margin: 0;
+    font-size: 24px;
+}
+
+.poll-view-head p {
+    margin: 8px 0 0;
+    color: var(--gray-500);
+}
+
+.modal-close {
+    width: 38px;
+    height: 38px;
+    border: none;
+    border-radius: 12px;
+    background: var(--gray-100);
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.poll-view-meta {
+    padding: 18px 32px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    color: var(--gray-500);
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.poll-view-list {
+    padding: 24px 32px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.poll-view-question {
+    border: 1px solid var(--gray-200);
+    border-radius: 18px;
+    padding: 18px;
+    background: #f8fafc;
+}
+
+.poll-view-question-title {
+    font-weight: 800;
+    color: var(--gray-900);
+}
+
+.poll-view-type {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #6366f1;
+    font-weight: 800;
+}
+
+.poll-view-options {
+    margin-top: 14px;
+    display: grid;
+    gap: 8px;
+}
+
+.poll-view-option {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    color: var(--gray-700);
+}

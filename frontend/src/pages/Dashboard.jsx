@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { getMe, logoutUser } from "../api/auth"
-import { getMyPolls } from "../api/polls"
+import { getMyPolls, getPollById } from "../api/polls"
 import { getPollResults } from "../services/results"
 import CreatePoll from "./CreatePoll"
 import Settings from "./Settings"
@@ -17,6 +17,7 @@ export default function Dashboard() {
     const [periodFilter, setPeriodFilter] = useState("all")
     const [openedMenu, setOpenedMenu] = useState(null)
     const [editingPoll, setEditingPoll] = useState(null)
+    const [viewingPoll, setViewingPoll] = useState(null)
     const [copyPoll, setCopyPoll] = useState(null)
     const [toast, setToast] = useState(null)
 
@@ -254,6 +255,30 @@ export default function Dashboard() {
                 "Не удалось скопировать ссылку"
             )
 
+        }
+    }
+
+    const openPollEditor = async (poll) => {
+        try {
+            const fullPoll = await getPollById(poll.id)
+
+            setEditingPoll(fullPoll)
+            setCopyPoll(null)
+            setOpenedMenu(null)
+            setPage("create")
+        } catch (err) {
+            showToast(err.message || "Не удалось открыть опрос")
+        }
+    }
+
+    const openPollView = async (poll) => {
+        try {
+            const fullPoll = await getPollById(poll.id)
+
+            setViewingPoll(fullPoll)
+            setOpenedMenu(null)
+        } catch (err) {
+            showToast(err.message || "Не удалось открыть просмотр")
         }
     }
 
@@ -739,23 +764,14 @@ export default function Dashboard() {
 
                                                                     <button
                                                                         onClick={() => {
-
-                                                                            setEditingPoll(poll)
-
-                                                                            setPage("create")
-
-                                                                            setOpenedMenu(null)
-
+                                                                            if (poll.status === "draft") {
+                                                                                openPollEditor(poll)
+                                                                            } else {
+                                                                                openPollView(poll)
+                                                                            }
                                                                         }}
                                                                     >
-                                                                        {
-                                                                            poll.status === "draft"
-                                                                                ?
-                                                                                "✏️ Редактировать"
-
-                                                                                :
-                                                                                "👁 Посмотреть"
-                                                                        }
+                                                                        {poll.status === "draft" ? "✏️ Редактировать" : "👁 Посмотреть"}
                                                                     </button>
 
                                                                     <button
@@ -887,6 +903,68 @@ export default function Dashboard() {
 
                     )
                 }
+                {viewingPoll && (
+                    <div className="modal-backdrop" onClick={() => setViewingPoll(null)}>
+                        <div className="poll-view-modal" onClick={(e) => e.stopPropagation()}>
+                            <div className="poll-view-head">
+                                <div>
+                                    <div className="poll-view-kicker">Просмотр опроса</div>
+                                    <h2>{viewingPoll.title}</h2>
+                                    {viewingPoll.description && <p>{viewingPoll.description}</p>}
+                                </div>
+
+                                <button
+                                    className="modal-close"
+                                    onClick={() => setViewingPoll(null)}
+                                >
+                                    ×
+                                </button>
+                            </div>
+
+                            <div className="poll-view-meta">
+                                <span className={`status-badge ${viewingPoll.status}`}>
+                                    {getStatusText(viewingPoll.status)}
+                                </span>
+
+                                <span>{viewingPoll.questions?.length || 0} вопросов</span>
+                                <span>{formatDate(viewingPoll.created_at)}</span>
+                            </div>
+
+                            <div className="poll-view-list">
+                                {(viewingPoll.questions || []).map((question, index) => (
+                                    <div className="poll-view-question" key={question.id || index}>
+                                        <div className="poll-view-question-title">
+                                            {index + 1}. {question.text}
+                                        </div>
+
+                                        <div className="poll-view-type">
+                                            {question.type === "single_choice"
+                                                ? "Один вариант"
+                                                : question.type === "multiple_choice"
+                                                    ? "Несколько вариантов"
+                                                    : question.type === "scale"
+                                                        ? "Шкала"
+                                                        : "Текстовый ответ"}
+                                        </div>
+
+                                        {question.options?.length > 0 && (
+                                            <div className="poll-view-options">
+                                                {question.options.map((option) => (
+                                                    <div
+                                                        className="poll-view-option"
+                                                        key={option.id || option.position}
+                                                    >
+                                                        {option.text}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </main>
         </>
     )

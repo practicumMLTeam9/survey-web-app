@@ -4,8 +4,8 @@ export function getMyPolls() {
     return apiRequest("/api/v1/polls/?use_cookie=false&token_type=access")
 }
 
-export function getPollById(id) {
-    return apiRequest(`/api/v1/polls/${id}`)
+export function getPollById(pollId) {
+    return apiRequest(`/api/v1/polls/${pollId}`)
 }
 
 export function createPoll(data) {

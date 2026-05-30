@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { createPoll, updatePoll } from "../api/polls"
 import { generatePoll } from "../api/ai"
 
@@ -28,6 +28,60 @@ export default function CreatePoll({
     const [questions, setQuestions] = useState([])
 
     const [activeQuestionId, setActiveQuestionId] = useState(1)
+
+    useEffect(() => {
+        if (!initialData) return
+
+        setPollTitle(initialData.title || "")
+        setPollDescription(initialData.description || "")
+        setPollType(initialData.poll_type || "corporate")
+        setLanguage(initialData.language || "ru")
+
+        setParticipants(
+            initialData.max_participants || 0
+        )
+
+        setUnlimited(
+            initialData.max_participants == null
+        )
+
+        setShowProgress(
+            initialData.show_progress ?? true
+        )
+
+        const loadedQuestions =
+            (initialData.questions || []).map(
+                (q, index) => ({
+                    id: q.id || index + 1,
+                    text: q.text || "",
+                    type: q.type || "text",
+
+                    typeLabel:
+                        q.type === "single_choice"
+                            ? "Один вариант"
+                            : q.type === "multiple_choice"
+                                ? "Несколько"
+                                : q.type === "scale"
+                                    ? "Шкала"
+                                    : "Текст",
+
+                    options:
+                        (q.options || []).map(
+                            o => o.text
+                        ),
+
+                    allowOwnAnswer: false,
+                })
+            )
+
+        setQuestions(loadedQuestions)
+
+        if (loadedQuestions.length) {
+            setActiveQuestionId(
+                loadedQuestions[0].id
+            )
+        }
+    }, [initialData])
 
     const markEdited = () => {
         if (aiGenerated) {
@@ -208,7 +262,14 @@ export default function CreatePoll({
         }
 
         try {
-            await createPoll(payload)
+            if (editMode && initialData?.id) {
+                await updatePoll(
+                    initialData.id,
+                    payload
+                )
+            } else {
+                await createPoll(payload)
+            }
 
             setPollTitle("")
             setPollDescription("")
@@ -282,7 +343,11 @@ export default function CreatePoll({
     return (
         <div className="page active">
             <div className="topbar">
-                <div className="topbar-title">Создать опрос</div>
+                <div className="topbar-title">
+                    {editMode
+                        ? "Редактирование опроса"
+                        : "Создать опрос"}
+                </div>
 
                 <div className="topbar-actions">
                     <button

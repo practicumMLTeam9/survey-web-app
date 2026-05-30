@@ -174,15 +174,11 @@ export default function Subscription() {
                             Активный план
                         </div>
                         <div style={{ fontSize: "22px", fontWeight: 900, color: "#fff", marginBottom: "4px" }}>
-                            Pro{" "}
-                            <span style={{ fontSize: "14px", fontWeight: 500, color: "rgba(255,255,255,.6)" }}>
-                                · оплачено до 28 апреля 2027
-                            </span>
+                            Pro
                         </div>
                         <div style={{ fontSize: "13px", color: "rgba(255,255,255,.55)" }}>
-                            Следующее списание:{" "}
-                            <strong style={{ color: "rgba(255,255,255,.85)" }}>2 990 ₽</strong>
-                            {" "}· 28 апреля 2027
+                            {/* TODO: показать дату окончания и сумму следующего списания из API подписки */}
+                            Информация о подписке загружается из личного кабинета
                         </div>
                     </div>
                     <div style={{ position: "relative", zIndex: 1, display: "flex", gap: "10px" }}>
@@ -328,28 +324,12 @@ export default function Subscription() {
                         </div>
                     </div>
 
-                    {/* Pro (current, highlighted) */}
+                    {/* Pro */}
                     <div className="card" style={{
                         position: "relative",
                         borderColor: "var(--brand)",
                         boxShadow: "0 0 0 2px rgba(79,70,229,.15),var(--shadow-md)",
                     }}>
-                        <div style={{
-                            position: "absolute",
-                            top: "-12px",
-                            left: "50%",
-                            transform: "translateX(-50%)",
-                            background: "var(--brand)",
-                            color: "#fff",
-                            fontSize: "11px",
-                            fontWeight: 800,
-                            padding: "3px 14px",
-                            borderRadius: "20px",
-                            whiteSpace: "nowrap",
-                            letterSpacing: ".04em",
-                        }}>
-                            ТЕКУЩИЙ ПЛАН
-                        </div>
                         <div className="card-body" style={{ padding: "28px" }}>
                             <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--brand)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: "10px" }}>Pro</div>
                             <div style={{ fontSize: "36px", fontWeight: 900, color: "var(--gray-900)", lineHeight: 1, marginBottom: "4px" }}>{proPrice}</div>
@@ -440,30 +420,12 @@ export default function Subscription() {
                             </tr>
                         </thead>
                         <tbody>
-                            {[
-                                ["28 мар 2026", "Pro · Ежемесячный план", "Visa •••• 4242", "2 990 ₽"],
-                                ["28 фев 2026", "Pro · Ежемесячный план", "Visa •••• 4242", "2 990 ₽"],
-                                ["28 янв 2026", "Pro · Ежемесячный план", "Visa •••• 4242", "2 990 ₽"],
-                                ["28 дек 2025", "Переход с Free на Pro",   "Visa •••• 4242", "2 990 ₽"],
-                            ].map(([date, desc, card, amount]) => (
-                                <tr key={date}>
-                                    <td style={{ color: "var(--gray-500)", fontSize: "13px" }}>{date}</td>
-                                    <td>
-                                        <div className="survey-name">{desc}</div>
-                                        <div className="survey-meta">{card}</div>
-                                    </td>
-                                    <td style={{ fontWeight: 700, color: "var(--gray-900)" }}>{amount}</td>
-                                    <td><span className="status-badge active">Оплачено</span></td>
-                                    <td>
-                                        <button
-                                            className="btn btn-ghost btn-sm"
-                                            onClick={() => showToast(`Квитанция за ${date} — скоро`)}
-                                        >
-                                            Квитанция
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
+                            {/* TODO: загрузить историю платежей из API когда появится эндпоинт */}
+                            <tr>
+                                <td colSpan={5} style={{ textAlign: "center", padding: "32px", color: "var(--gray-400)", fontSize: "13px" }}>
+                                    История платежей пока недоступна
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>

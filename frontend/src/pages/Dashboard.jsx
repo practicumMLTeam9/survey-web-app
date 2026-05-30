@@ -22,6 +22,8 @@ export default function Dashboard() {
     const [copyLoading, setCopyLoading] = useState(false)
     const [copyPoll, setCopyPoll] = useState(null)
     const [toast, setToast] = useState(null)
+    const [currentPage, setCurrentPage] = useState(1)
+    const pollsPerPage = 8
 
     const navigate = useNavigate()
 
@@ -49,6 +51,15 @@ export default function Dashboard() {
 
         loadData()
     }, [])
+
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [
+        surveyTab,
+        searchQuery,
+        typeFilter,
+        periodFilter
+    ])
 
     const filteredSurveys = surveys.filter((poll) => {
         const statusOk =
@@ -103,6 +114,13 @@ export default function Dashboard() {
             && periodOk
         )
     })
+
+    const totalPages = Math.ceil(filteredSurveys.length / pollsPerPage)
+
+    const paginatedSurveys = filteredSurveys.slice(
+        (currentPage - 1) * pollsPerPage,
+        currentPage * pollsPerPage
+    )
 
     const totalPolls = surveys.length
     const activePolls = surveys.filter(p => p.status === "active").length
@@ -328,6 +346,44 @@ export default function Dashboard() {
                 setCopyLoading(false)
             }, 300)
         }
+    }
+
+    const CustomDropdown = ({ prefix, value, options, onChange }) => {
+        const [open, setOpen] = useState(false)
+        const current = options.find(o => o.value === value)
+
+        return (
+            <div className="custom-dropdown" onClick={(e) => e.stopPropagation()}>
+                <button
+                    type="button"
+                    className={`custom-dropdown-btn ${open ? "open" : ""}`}
+                    onClick={() => setOpen(!open)}
+                >
+                    <span className="custom-dropdown-text">
+                        <strong>{prefix}:</strong> {current?.label}
+                    </span>
+                    <span className="custom-dropdown-arrow">▾</span>
+                </button>
+
+                {open && (
+                    <div className="custom-dropdown-menu">
+                        {options.map(option => (
+                            <button
+                                type="button"
+                                key={option.value}
+                                className={option.value === value ? "selected" : ""}
+                                onClick={() => {
+                                    onChange(option.value)
+                                    setOpen(false)
+                                }}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+        )
     }
 
     return (
@@ -700,40 +756,29 @@ export default function Dashboard() {
                                     />
                                 </div>
 
-                                <select
-                                    className="filter-select"
+                                <CustomDropdown
+                                    prefix="Тип"
                                     value={typeFilter}
-                                    onChange={(e) => setTypeFilter(e.target.value)}
-                                >
-                                    <option value="all">Тип: Все</option>
-                                    <option value="corporate">Корпоративный</option>
-                                    <option value="client">Клиентский</option>
-                                    <option value="public">Публичный</option>
-                                </select>
+                                    onChange={setTypeFilter}
+                                    options={[
+                                        { value: "all", label: "Все" },
+                                        { value: "corporate", label: "Корпоративный" },
+                                        { value: "client", label: "Клиентский" },
+                                        { value: "public", label: "Публичный" },
+                                    ]}
+                                />
 
-                                <select
-                                    className="filter-select"
+                                <CustomDropdown
+                                    prefix="Период"
                                     value={periodFilter}
-                                    onChange={(e) =>
-                                        setPeriodFilter(e.target.value)
-                                    }
-                                >
-                                    <option value="all">
-                                        Период: Любой
-                                    </option>
-
-                                    <option value="7">
-                                        Последние 7 дней
-                                    </option>
-
-                                    <option value="30">
-                                        Последние 30 дней
-                                    </option>
-
-                                    <option value="90">
-                                        Последние 3 месяца
-                                    </option>
-                                </select>
+                                    onChange={setPeriodFilter}
+                                    options={[
+                                        { value: "all", label: "Любой" },
+                                        { value: "7", label: "Последние 7 дней" },
+                                        { value: "30", label: "Последние 30 дней" },
+                                        { value: "90", label: "Последние 3 месяца" },
+                                    ]}
+                                />
                             </div>
 
                             <div className="survey-table">
@@ -751,8 +796,11 @@ export default function Dashboard() {
                                     </thead>
 
                                     <tbody>
-                                        {filteredSurveys.map((poll) => (
-                                            <tr key={poll.id}>
+                                        {paginatedSurveys.map((poll) => (
+                                            <tr
+                                                key={poll.id}
+                                                className={openedMenu === poll.id ? "row-menu-open" : ""}
+                                            >
                                                 <td>
                                                     <div className="survey-name">{poll.title}</div>
                                                     <div className="survey-meta">Опрос</div>
@@ -881,6 +929,33 @@ export default function Dashboard() {
                                     </tbody>
                                 </table>
                             </div>
+                            {filteredSurveys.length > pollsPerPage && (
+                                <div className="pagination">
+                                    <div className="pagination-info">
+                                        Страница {currentPage} из {totalPages}
+                                    </div>
+
+                                    <div className="pagination-actions">
+                                        {currentPage > 1 && (
+                                            <button
+                                                className="pagination-btn"
+                                                onClick={() => setCurrentPage(currentPage - 1)}
+                                            >
+                                                ← Назад
+                                            </button>
+                                        )}
+
+                                        {currentPage < totalPages && (
+                                            <button
+                                                className="pagination-btn"
+                                                onClick={() => setCurrentPage(currentPage + 1)}
+                                            >
+                                                Вперёд →
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

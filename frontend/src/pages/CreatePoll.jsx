@@ -15,6 +15,8 @@ export default function CreatePoll({
     const [showProgress, setShowProgress] = useState(true)
     const [aiPrompt, setAiPrompt] = useState("")
     const [aiLoading, setAiLoading] = useState(false)
+    const [saving, setSaving] = useState(false)
+    const [successStatus, setSuccessStatus] = useState(null)
     const [aiQuestionsCount, setAiQuestionsCount] = useState(5)
     const [aiGenerated, setAiGenerated] = useState(false)
     const [userEditedDraft, setUserEditedDraft] = useState(false)
@@ -262,27 +264,34 @@ export default function CreatePoll({
         }
 
         try {
+            setSaving(true)
+
             if (editMode && initialData?.id) {
-                await updatePoll(
-                    initialData.id,
-                    payload
-                )
+                await updatePoll(initialData.id, payload)
             } else {
                 await createPoll(payload)
             }
 
-            setPollTitle("")
-            setPollDescription("")
-            setQuestions([])
+            setSuccessStatus(status)
 
-            if (onCreated) {
-                await onCreated()
-            }
+            setTimeout(() => {
+                setSaving(false)
+            }, 900)
 
-            alert(status === "draft" ? "Черновик сохранён" : "Опрос опубликован")
+            setTimeout(async () => {
+                setPollTitle("")
+                setPollDescription("")
+                setQuestions([])
+
+                if (onCreated) {
+                    await onCreated()
+                }
+            }, 2200)
+
         } catch (err) {
+            setSaving(false)
             alert(err.message)
-        }
+        } 
     }
 
     const handleAiGenerate = async () => {
@@ -352,18 +361,20 @@ export default function CreatePoll({
                 <div className="topbar-actions">
                     <button
                         className="btn btn-secondary"
+                        disabled={saving}
                         onClick={() => handlePublish("draft")}
                     >
-                        Сохранить черновик
+                        {saving ? "Сохраняем..." : "Сохранить черновик"}
                     </button>
                     <button
-                        className="btn btn-primary"
+                        className="btn btn-primary publish-btn"
+                        disabled={saving}
                         onClick={() => handlePublish("active")}
                     >
                         <svg viewBox="0 0 20 20" fill="currentColor">
                             <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />
                         </svg>
-                        Опубликовать
+                        {saving ? "Публикуем..." : "Опубликовать"}
                     </button>
                 </div>
             </div>
@@ -857,6 +868,41 @@ export default function CreatePoll({
                     </div>
                 </div>
             </div>
+            {saving && (
+                <div className="modal-backdrop">
+                    <div className="publish-loader-card">
+                        <div className="publish-orbit" />
+
+                        <div className="publish-title">
+                            Публикуем опрос
+                        </div>
+
+                        <div className="publish-text">
+                            Подготавливаем вопросы и настройки...
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {successStatus && !saving && (
+                <div className="modal-backdrop">
+                    <div className="publish-success-card">
+                        <div className="publish-success-icon">✓</div>
+
+                        <h2>
+                            {successStatus === "draft"
+                                ? "Черновик сохранён"
+                                : "Опрос опубликован"}
+                        </h2>
+
+                        <p>
+                            {successStatus === "draft"
+                                ? "Вы сможете вернуться к нему позже."
+                                : "Теперь можно скопировать ссылку и отправить участникам."}
+                        </p>
+                    </div>
+                </div>
+            )}
         </div >
     )
 }

@@ -18,6 +18,8 @@ export default function Dashboard() {
     const [openedMenu, setOpenedMenu] = useState(null)
     const [editingPoll, setEditingPoll] = useState(null)
     const [viewingPoll, setViewingPoll] = useState(null)
+    const [viewLoading, setViewLoading] = useState(false)
+    const [copyLoading, setCopyLoading] = useState(false)
     const [copyPoll, setCopyPoll] = useState(null)
     const [toast, setToast] = useState(null)
 
@@ -280,12 +282,51 @@ export default function Dashboard() {
 
     const openPollView = async (poll) => {
         try {
+            setViewLoading(true)
+            setOpenedMenu(null)
+
             const fullPoll = await getPollById(poll.id)
 
             setViewingPoll(fullPoll)
-            setOpenedMenu(null)
         } catch (err) {
             showToast(err.message || "Не удалось открыть просмотр")
+        } finally {
+            setViewLoading(false)
+        }
+    }
+
+    const createPollCopy = async (poll) => {
+        try {
+            setCopyLoading(true)
+            setOpenedMenu(null)
+
+            const fullPoll = await getPollById(poll.id)
+
+            setCopyPoll({
+                ...fullPoll,
+
+                id: null,
+
+                status: "draft",
+
+                title: `${fullPoll.title} (копия)`
+            })
+
+            setEditingPoll(null)
+
+            setTimeout(() => {
+                setPage("create")
+            }, 400)
+
+        } catch (err) {
+            showToast(
+                err.message ||
+                "Не удалось создать копию"
+            )
+        } finally {
+            setTimeout(() => {
+                setCopyLoading(false)
+            }, 300)
         }
     }
 
@@ -385,7 +426,11 @@ export default function Dashboard() {
                 </nav>
 
                 <div className="sidebar-bottom">
-                    <div className="user-card">
+                    <div
+                        className="user-card"
+                        onClick={() => setPage("settings")}
+                        title="Открыть профиль"
+                    >
                         <div className="avatar">
                             {(user?.first_name?.[0] || user?.email?.[0] || "?").toUpperCase()}
                         </div>
@@ -395,7 +440,9 @@ export default function Dashboard() {
                             </div>
 
                             <div className="user-role">
-                                {user?.role || "Пользователь"}
+                                {user?.role === "user"
+                                    ? "Пользователь"
+                                    : user?.role || "Пользователь"}
                             </div>
                         </div>
                     </div>
@@ -788,19 +835,7 @@ export default function Dashboard() {
                                                                     </button>
 
                                                                     <button
-                                                                        onClick={() => {
-
-                                                                            setCopyPoll({
-                                                                                ...poll,
-                                                                                title:
-                                                                                    `${poll.title} (копия)`
-                                                                            })
-
-                                                                            setPage("create")
-
-                                                                            setOpenedMenu(null)
-
-                                                                        }}
+                                                                        onClick={() => createPollCopy(poll)}
                                                                     >
                                                                         📄 Создать копию
                                                                     </button>
@@ -916,6 +951,38 @@ export default function Dashboard() {
 
                     )
                 }
+                {copyLoading && (
+                    <div className="modal-backdrop">
+                        <div className="copy-loader-card">
+                            <div className="copy-icon">📋</div>
+
+                            <div className="copy-title">
+                                Создаём копию
+                            </div>
+
+                            <div className="copy-text">
+                                Подготавливаем новый черновик...
+                            </div>
+
+                            <div className="copy-progress">
+                                <span />
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {viewLoading && (
+                    <div className="modal-backdrop">
+                        <div className="view-loading-card">
+                            <div className="view-loader"></div>
+                            <div className="view-loading-title">
+                                Открываем опрос
+                            </div>
+                            <div className="view-loading-text">
+                                Загружаем вопросы и варианты ответов...
+                            </div>
+                        </div>
+                    </div>
+                )}
                 {viewingPoll && (
                     <div className="modal-backdrop" onClick={() => setViewingPoll(null)}>
                         <div className="poll-view-modal" onClick={(e) => e.stopPropagation()}>

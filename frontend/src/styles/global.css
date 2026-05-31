@@ -4718,3 +4718,201 @@ select {
     font-size: 12px;
     font-weight: 700;
 }
+
+.activity-card {
+    overflow: hidden;
+    position: relative;
+    background:
+        radial-gradient(circle at top right, rgba(79, 70, 229, .16), transparent 34%),
+        linear-gradient(135deg, #ffffff, #f8fafc);
+}
+
+.activity-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.activity-status {
+    margin-top: 8px;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--gray-700);
+}
+
+.activity-emoji {
+    width: 42px;
+    height: 42px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #eef2ff;
+    font-size: 22px;
+    box-shadow: 0 12px 28px rgba(79, 70, 229, .16);
+}
+
+.activity-score {
+    margin-top: 14px;
+    font-size: 36px;
+    line-height: 1;
+    font-weight: 900;
+    color: var(--gray-900);
+}
+
+.activity-score span {
+    margin-left: 4px;
+    font-size: 15px;
+    color: var(--gray-400);
+}
+
+.activity-bar {
+    height: 8px;
+    margin-top: 16px;
+    border-radius: 999px;
+    background: #e5e7eb;
+    overflow: hidden;
+}
+
+.activity-bar span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #4f46e5, #22c55e);
+    animation: growBar .6s ease both;
+}
+
+@keyframes growBar {
+    from {
+        width: 0;
+    }
+}
+
+.metric-card {
+    overflow: hidden;
+    position: relative;
+    background:
+        radial-gradient(circle at top right, rgba(79, 70, 229, .10), transparent 34%),
+        linear-gradient(135deg, #ffffff, #f8fafc);
+}
+
+.metric-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.metric-sub {
+    margin-top: 8px;
+    color: var(--gray-500);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.metric-line {
+    height: 8px;
+    margin-top: 16px;
+    border-radius: 999px;
+    background: #e5e7eb;
+    overflow: hidden;
+}
+
+.metric-line span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    animation: growBar .6s ease both;
+}
+
+.metric-indigo .metric-line span {
+    background: linear-gradient(90deg, #4f46e5, #818cf8);
+}
+
+.metric-green .metric-line span {
+    background: linear-gradient(90deg, #10b981, #22c55e);
+}
+
+.metric-amber .metric-line span {
+    background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.metric-footer {
+    margin-top: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gray-500);
+}
+
+.metric-card .stat-icon {
+    float: none;
+    margin-top: 0;
+    width: 42px;
+    height: 42px;
+    border-radius: 16px;
+    font-size: 20px;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, .08);
+}
+
+.metric-card .activity-score,
+.activity-card .activity-score {
+    margin-top: 18px;
+}
+
+.metric-card .metric-line,
+.activity-card .activity-bar {
+    margin-top: 14px;
+}
+
+.metric-card .metric-sub+.metric-sub {
+    margin-top: 10px;
+}
+
+.draft-btn {
+    position: relative;
+    overflow: hidden;
+    transition: .25s ease;
+}
+
+.draft-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, .12);
+}
+
+.draft-btn:active {
+    transform: scale(.97);
+}
+
+.draft-btn::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -120%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg,
+            transparent,
+            rgba(255, 255, 255, .45),
+            transparent);
+    transition: .7s;
+}
+
+.draft-btn:hover::before {
+    left: 150%;
+}
+
+.draft-btn.saving {
+    pointer-events: none;
+    opacity: .9;
+}
+
+.draft-btn.saving::after {
+    content: "";
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(79, 70, 229, .22);
+    border-top-color: var(--brand);
+    border-radius: 50%;
+    margin-left: 8px;
+    display: inline-block;
+    animation: spin .8s linear infinite;
+}

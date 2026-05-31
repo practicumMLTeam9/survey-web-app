@@ -132,6 +132,18 @@ export default function Dashboard() {
     const draftPolls = surveys.filter(p => p.status === "draft").length
     const closedPolls = surveys.filter(p => p.status === "closed").length
     const totalVotes = surveys.reduce((sum, p) => sum + (p.total_votes || 0), 0)
+    const activityIndex = totalVotes > 0
+        ? Math.min(100, Math.round((totalVotes / Math.max(activePolls, 1)) * 30))
+        : null
+
+    const activityLabel =
+        activityIndex === null
+            ? "Нет данных"
+            : activityIndex >= 80
+                ? "Высокая активность"
+                : activityIndex >= 50
+                    ? "Средняя активность"
+                    : "Низкая активность"
 
     const getStatusText = (status) => {
         if (status === "active") return "Активен"
@@ -570,46 +582,80 @@ export default function Dashboard() {
 
                         <div style={{ padding: "28px" }}>
                             <div className="stats-grid">
-                                <div className="stat-card">
-                                    <div className="stat-icon indigo">
-                                        <svg viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M3 5a1 1 0 000 2h14a1 1 0 100-2H3zm0 4a1 1 0 000 2h14a1 1 0 100-2H3zm0 4a1 1 0 000 2h8a1 1 0 100-2H3z" clipRule="evenodd" />
-                                        </svg>
+                                <div className="stat-card metric-card metric-indigo">
+                                    <div className="metric-top">
+                                        <div>
+                                            <div className="stat-label">Всего опросов</div>
+                                            <div className="metric-sub">создано в системе</div>
+                                        </div>
+                                        <div className="stat-icon indigo">📋</div>
                                     </div>
-                                    <div className="stat-label">Всего опросов</div>
-                                    <div className="stat-value">{totalPolls}</div>
+                                    <div className="activity-score">{totalPolls}</div>
+
+                                    <div className="metric-sub">
+                                        Активных: {activePolls}
+                                    </div>
+
+                                    <div className="metric-line">
+                                        <span style={{ width: "100%" }} />
+                                    </div>
                                 </div>
 
-                                <div className="stat-card">
-                                    <div className="stat-icon green">
-                                        <svg viewBox="0 0 20 20" fill="currentColor">
-                                            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zm8 0a3 3 0 11-6 0 3 3 0 016 0zm-4.07 11c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-                                        </svg>
+                                <div className="stat-card metric-card metric-green">
+                                    <div className="metric-top">
+                                        <div>
+                                            <div className="stat-label">Ответов получено</div>
+                                            <div className="metric-sub">суммарно по опросам</div>
+                                        </div>
+                                        <div className="stat-icon green">💬</div>
                                     </div>
-                                    <div className="stat-label">Ответов получено</div>
-                                    <div className="stat-value">{totalVotes}</div>
+                                    <div className="activity-score">{totalVotes}</div>
+
+                                    <div className="metric-sub">
+                                        В среднем {totalPolls
+                                            ? Math.round(totalVotes / totalPolls)
+                                            : 0} на опрос
+                                    </div>
+                                    <div className="metric-line"><span style={{ width: `${Math.min(100, totalVotes * 4)}%` }} /></div>
                                 </div>
 
-                                <div className="stat-card">
-                                    <div className="stat-icon amber">
-                                        <svg viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                                        </svg>
+                                <div className="stat-card metric-card metric-amber">
+                                    <div className="metric-top">
+                                        <div>
+                                            <div className="stat-label">Активных опросов</div>
+                                            <div className="metric-sub">принимают ответы</div>
+                                        </div>
+                                        <div className="stat-icon amber">🚀</div>
                                     </div>
-                                    <div className="stat-label">Активных опросов</div>
-                                    <div className="stat-value">{activePolls}</div>
+                                    <div className="activity-score">{activePolls}</div>
+
+                                    <div className="metric-sub">
+                                        {totalPolls
+                                            ? Math.round((activePolls / totalPolls) * 100)
+                                            : 0}% от всех опросов
+                                    </div>
+                                    <div className="metric-line"><span style={{ width: `${totalPolls ? Math.round((activePolls / totalPolls) * 100) : 0}%` }} /></div>
                                 </div>
 
-                                <div className="stat-card">
-                                    <div className="stat-icon green">
-                                        <svg viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                        </svg>
+                                <div className="stat-card activity-card">
+                                    <div className="activity-top">
+                                        <div>
+                                            <div className="stat-label">Пульс аудитории</div>
+                                            <div className="activity-status">{activityLabel}</div>
+                                        </div>
+
+                                        <div className="activity-emoji">
+                                            {activityIndex === null ? "○" : activityIndex >= 80 ? "🔥" : activityIndex >= 50 ? "🙂" : "🌱"}
+                                        </div>
                                     </div>
-                                    <div className="stat-label">Средний отклик</div>
-                                    <div className="stat-value">—</div>
-                                    <div className="stat-delta muted">
-                                        появится после ответов
+
+                                    <div className="activity-score">
+                                        {activityIndex ?? "—"}
+                                        {activityIndex !== null && <span>/100</span>}
+                                    </div>
+
+                                    <div className="activity-bar">
+                                        <span style={{ width: `${activityIndex ?? 0}%` }} />
                                     </div>
                                 </div>
                             </div>
@@ -666,10 +712,20 @@ export default function Dashboard() {
                                                             {poll.total_votes || 0}
                                                         </td>
 
-                                                        <td>—</td>
+                                                        <td>
+                                                            {poll.total_votes > 20
+                                                                ? "🔥 Высокий"
+                                                                : poll.total_votes > 5
+                                                                    ? "👍 Средний"
+                                                                    : poll.total_votes >= 0
+                                                                        ? "🙂 Низкий"
+                                                                        : "—"}
+                                                        </td>
 
                                                         <td>
-                                                            {formatDate(poll.expires_at)}
+                                                            {poll.expires_at
+                                                                ? formatDate(poll.expires_at)
+                                                                : "∞ Бессрочно"}
                                                         </td>
 
                                                         <td>
@@ -858,7 +914,15 @@ export default function Dashboard() {
 
                                                 <td>{poll.total_votes || 0}</td>
 
-                                                <td>—</td>
+                                                <td>
+                                                    {poll.total_votes > 20
+                                                        ? "🔥 Высокий"
+                                                        : poll.total_votes > 5
+                                                            ? "👍 Средний"
+                                                            : poll.total_votes >= 0
+                                                                ? "🙂 Низкий"
+                                                                : "—"}
+                                                </td>
 
                                                 <td style={{ color: "var(--gray-500)" }}>
                                                     {formatDate(poll.created_at)}

@@ -428,9 +428,9 @@ const CreatePoll = forwardRef(function CreatePoll({
 
                 <div className="topbar-actions">
                     <button
-                        className="btn btn-secondary"
-                        disabled={saving}
+                        className={`btn btn-secondary draft-btn ${saving ? "saving" : ""}`}
                         onClick={() => handlePublish("draft")}
+                        disabled={saving}
                     >
                         {saving ? "Сохраняем..." : "Сохранить черновик"}
                     </button>

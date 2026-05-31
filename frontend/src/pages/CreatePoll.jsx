@@ -34,7 +34,18 @@ const CreatePoll = forwardRef(function CreatePoll({
     const [questions, setQuestions] = useState([])
 
     const [activeQuestionId, setActiveQuestionId] = useState(1)
+    const audienceMap = {
+        employees: "сотрудников",
+        clients: "клиентов",
+        students: "студентов",
+        event: "участников мероприятия",
+    }
 
+    const toneMap = {
+        formal: "формальном",
+        friendly: "дружелюбном",
+        neutral: "нейтральном",
+    }
     const hasUnsavedChanges =
         pollTitle.trim() ||
         pollDescription.trim() ||
@@ -338,8 +349,19 @@ const CreatePoll = forwardRef(function CreatePoll({
         setAiLoading(true)
         setUserEditedDraft(false)
         try {
+            const enhancedPrompt = `
+                ${aiPrompt}
+
+                Требования:
+                - Аудитория: ${audienceMap[aiAudience]}
+                - Стиль вопросов: ${toneMap[aiTone]}
+                - Количество вопросов: ${aiQuestionsCount}
+                - Опрос должен быть ${aiPrivacy === "anonymous" ? "анонимным" : "неанонимным"}
+                - Используй шкалы 1-10 там, где это уместно.
+                - Добавляй открытые вопросы только при необходимости.
+                `
             const data = await generatePoll({
-                prompt: aiPrompt,
+                prompt: enhancedPrompt,
                 poll_type: pollType,
                 language,
                 questions_count: Number(aiQuestionsCount),
@@ -388,6 +410,11 @@ const CreatePoll = forwardRef(function CreatePoll({
 
     useImperativeHandle(ref, () => ({
         saveDraft: () => handlePublish("draft"),
+        hasUnsavedChanges: () => Boolean(
+            pollTitle.trim() ||
+            pollDescription.trim() ||
+            questions.length > 0
+        ),
     }))
 
     return (

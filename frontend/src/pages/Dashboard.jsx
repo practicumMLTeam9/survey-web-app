@@ -400,9 +400,14 @@ export default function Dashboard() {
 
     const goToPage = (nextPage) => {
         if (page === "create") {
-            setPendingPage(nextPage)
-            setShowLeaveCreateModal(true)
-            return
+            const hasCreateDraft =
+                createPollRef.current?.hasUnsavedChanges?.()
+
+            if (hasCreateDraft) {
+                setPendingPage(nextPage)
+                setShowLeaveCreateModal(true)
+                return
+            }
         }
 
         setPage(nextPage)

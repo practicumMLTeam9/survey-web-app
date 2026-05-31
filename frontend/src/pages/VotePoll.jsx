@@ -212,6 +212,37 @@ export default function VotePoll() {
                                 }
                                 placeholder="Введите ваш ответ..."
                             />
+                        ) : current.type === "scale" ? (
+                            <div className="vote-scale">
+                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => {
+                                    const option = (current.options || []).find(
+                                        o => String(o.text) === String(value)
+                                    )
+
+                                    const optionId =
+                                        option?.id ||
+                                        option?.position ||
+                                        value
+
+                                    const checked = currentAnswer === optionId
+
+                                    return (
+                                        <button
+                                            type="button"
+                                            key={value}
+                                            className={`vote-scale-btn ${checked ? "selected" : ""}`}
+                                            onClick={() => setSingleAnswer(current.id, optionId)}
+                                        >
+                                            {value}
+                                        </button>
+                                    )
+                                })}
+
+                                <div className="vote-scale-labels">
+                                    <span>Совсем не согласен</span>
+                                    <span>Полностью согласен</span>
+                                </div>
+                            </div>
                         ) : (
                             <div className="vote-options">
                                 {(current.options || []).map((option) => {

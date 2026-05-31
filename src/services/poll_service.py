@@ -20,6 +20,35 @@ from src.db.models import Poll, Question, QuestionOption, Submission, Answer, Ai
 logger = logging.getLogger(__name__)
 
 
+async def _get_poll_stats(db: AsyncSession, poll_id: int) -> dict:
+    """Получение статистики опроса."""
+    votes_stmt = select(func.count(Submission.id)).where(
+        Submission.poll_id == poll_id, Submission.completed_at.isnot(None)
+    )
+    questions_stmt = select(func.count(Question.id)).where(Question.poll_id == poll_id)
+
+    votes_res = await db.execute(votes_stmt)
+    questions_res = await db.execute(questions_stmt)
+    return {
+        "total_votes": votes_res.scalar() or 0,
+        "questions_count": questions_res.scalar() or 0
+    }
+
+
+def _build_poll_summary(poll_data, stats: dict) -> PollSummary:
+    """Унифицированный маппер ответа."""
+    return PollSummary(
+        id=poll_data.id,
+        title=poll_data.title,
+        status=poll_data.status,
+        type=poll_data.poll_type,
+        created_at=poll_data.created_at,
+        expires_at=poll_data.expires_at,
+        total_votes=stats["total_votes"],
+        questions_count=stats["questions_count"]
+    )
+
+
 async def _sync_questions_tree(
         db: AsyncSession,
         poll: Poll,
@@ -395,39 +424,34 @@ async def vote_poll_service(poll_id: int,
 
 async def get_list_polls(db: AsyncSession, user_id: int) -> list[PollSummary]:
     """
-    Возвращает список опросов пользователя с подсчитанным количеством завершённых голосов.
-    Использует один запрос с LEFT JOIN + COUNT для избежания N+1 проблемы.
+    Возвращает список опросов пользователя с подсчитанным количеством завершённых голосов
+    и количеством вопросов в опроснике.
     """
+    votes_subq = select(func.count(Submission.id)).where(
+        Submission.poll_id == Poll.id, Submission.completed_at.isnot(None)
+    ).scalar_subquery()
+
+    questions_subq = select(func.count(Question.id)).where(
+        Question.poll_id == Poll.id
+    ).scalar_subquery()
+
     stmt = (
         select(
-            Poll.id,
-            Poll.title,
-            Poll.status,
-            Poll.poll_type,
-            Poll.created_at,
-            Poll.expires_at,
-            func.count(Submission.id).filter(
-                Submission.completed_at.isnot(None)
-            ).label("total_votes")
+            Poll,
+            votes_subq.label("total_votes"),
+            questions_subq.label("questions_count")
         )
-        .outerjoin(Submission, Poll.id == Submission.poll_id)
         .where(Poll.created_by_user_id == user_id)
-        .group_by(Poll.id)  # Postgres автоматически включает остальные поля, если id — PK
         .order_by(Poll.created_at.desc())
     )
 
     result = await db.execute(stmt)
     rows = result.all()
     return [
-        PollSummary(
-            id=row.id,
-            title=row.title,
-            status=row.status,
-            type=row.poll_type,
-            created_at=row.created_at,
-            expires_at=row.expires_at,
-            total_votes=row.total_votes
-        )
+        _build_poll_summary(row.Poll, {
+            "total_votes": row.total_votes or 0,
+            "questions_count": row.questions_count or 0
+        })
         for row in rows]
 
 
@@ -437,46 +461,24 @@ async def update_poll_status_service(
         user_id: int,
         status_in: PollStatusUpdate
 ) -> PollSummary:
-    """
-        Обновляет статус опроса. Проверяет права доступа и возвращает обновлённые данные.
-        """
-    # Находим опрос и проверяем, что он принадлежит текущему пользователю
+    """Обновляет статус опроса и возвращает актуальную сводку."""
+
     stmt = select(Poll).where(Poll.id == poll_id, Poll.created_by_user_id == user_id)
-    result = await db.execute(stmt)
-    poll = result.scalar_one_or_none()
+    poll = (await db.execute(stmt)).scalar_one_or_none()
 
     if not poll:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Опрос не найден или у вас нет прав на его изменение"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Опрос не найден или у вас нет прав на его изменение")
 
-    # if poll.status == "closed" and status_in.status != "closed":
-    #     raise HTTPException(400, detail="Нельзя изменить статус закрытого опроса")
     if poll.status == "active" and status_in.status == "draft":
         raise HTTPException(400, detail="Нельзя вернуть активный опрос в черновик")
 
-    # Обновляем статус
     poll.status = status_in.status
     await db.commit()
     await db.refresh(poll)
 
-    # Считаем актуальное количество голосов (один быстрый запрос)
-    count_stmt = select(func.count(Submission.id)).where(
-        Submission.poll_id == poll_id, Submission.completed_at.isnot(None)
-    )
-    count_result = await db.execute(count_stmt)
-    total_votes = count_result.scalar() or 0
-
-    return PollSummary(
-        id=poll.id,
-        title=poll.title,
-        status=poll.status,
-        type=poll.poll_type,
-        created_at=poll.created_at,
-        expires_at=poll.expires_at,
-        total_votes=total_votes
-    )
+    stats = await _get_poll_stats(db, poll.id)
+    return _build_poll_summary(poll, stats)
 
 
 async def update_poll_service(
@@ -490,8 +492,7 @@ async def update_poll_service(
     """
     # 1. Проверка прав
     stmt = select(Poll).where(Poll.id == poll_id, Poll.created_by_user_id == user_id)
-    result = await db.execute(stmt)
-    poll = result.scalar_one_or_none()
+    poll = (await db.execute(stmt)).scalar_one_or_none()
 
     if not poll:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
@@ -504,30 +505,27 @@ async def update_poll_service(
         # 2.ОБНОВЛЕНИЕ ПОЛЕЙ
         update_data = poll_update.model_dump(
             exclude={"questions"},
-            exclude_unset=True  # Меняет только явно переданные поля
-        )
+            exclude_unset=True)  # Меняет только явно переданные поля
         for field, value in update_data.items():
             if hasattr(poll, field):
                 setattr(poll, field, value)
 
-        # 3. Автозаполнение даты публикации
+        # Автозаполнение даты публикации
         if poll.status == "active" and poll.published_at is None:
             poll.published_at = datetime.now(timezone.utc)
 
-        # 4. Удаление старого дерева вопросов
+        # Удаление старого дерева вопросов
         await db.execute(
             delete(QuestionOption).where(
                 QuestionOption.question_id.in_(
-                    select(Question.id).where(Question.poll_id == poll_id)
-                )
+                    select(Question.id).where(Question.poll_id == poll_id))
             )
         )
         await db.execute(delete(Question).where(Question.poll_id == poll_id))
         await db.flush()
 
-        # 5. Добавление новых вопросов
+        # Добавление новых вопросов
         await _sync_questions_tree(db, poll, poll_update.questions)
-
         await db.commit()
         await db.refresh(poll)
 
@@ -539,22 +537,8 @@ async def update_poll_service(
         await db.rollback()
         raise
 
-    # 6. Формирование ответа
-    count_stmt = select(func.count(Submission.id)).where(
-        Submission.poll_id == poll_id,
-        Submission.completed_at.isnot(None)
-    )
-    total_votes = (await db.execute(count_stmt)).scalar() or 0
-
-    return PollSummary(
-        id=poll.id,
-        title=poll.title,
-        status=poll.status,
-        type=poll.poll_type,
-        created_at=poll.created_at,
-        expires_at=poll.expires_at,
-        total_votes=total_votes)
-
+    stats = await _get_poll_stats(db, poll.id)
+    return _build_poll_summary(poll, stats)
 
 async def get_poll_results(poll_id: int,
                            user_id: int,
@@ -670,7 +654,7 @@ async def get_poll_results(poll_id: int,
             if avg_val is not None:
                 q_pos, q_text, _ = questions_map[q_id]
                 avg_res_list.append(AverageValue(
-                    question_id = q_id,
+                    question_id=q_id,
                     question_text=q_text,
                     question_position=q_pos,
                     avg_value=round(float(avg_val), 2),
@@ -692,9 +676,9 @@ async def get_poll_results(poll_id: int,
 
 
 async def get_text_answers(
-    poll_id: int,
-    user_id: int,
-    db: AsyncSession
+        poll_id: int,
+        user_id: int,
+        db: AsyncSession
 ):
     """Проверка существования опроса"""
     poll_query = select(Poll).where(
@@ -714,22 +698,22 @@ async def get_text_answers(
             Question.poll_id == poll_id,
             Question.type == 'text',  # ← КЛЮЧЕВОЙ ФИЛЬТР
             Answer.text_value.isnot(None),
-            Answer.text_value != '',   # ← исключаем пустые строки
+            Answer.text_value != '',  # ← исключаем пустые строки
             Answer.text_value != 'string'  # ← исключаем "string"
         )
     )
     # Выполнение и сохранение в list
     result = await db.execute(answers_query)
-    text_answers = result.scalars().all()   
+    text_answers = result.scalars().all()
     return text_answers, poll.title, poll.description, poll.poll_type, poll.language
 
 
 async def get_aggregate_val(
-    poll_id: int,
-    user_id: int,
-    db: AsyncSession,
-    categorical_question_id: int, scale_question_id: int
-    ):
+        poll_id: int,
+        user_id: int,
+        db: AsyncSession,
+        categorical_question_id: int, scale_question_id: int
+):
     """Проверка существования опроса"""
     poll_query = select(Poll).where(
         and_(Poll.id == poll_id, Poll.created_by_user_id == user_id)
@@ -743,8 +727,8 @@ async def get_aggregate_val(
         )
     # Создаём алиасы для одной и той же таблицы QuestionOption
     category_option = aliased(QuestionOption)  # для ответа на категориальный вопрос
-    scale_option = aliased(QuestionOption)     # для ответа на шкальный вопрос
-    scale_answer = aliased(Answer) 
+    scale_option = aliased(QuestionOption)  # для ответа на шкальный вопрос
+    scale_answer = aliased(Answer)
 
     aggregation_query = (
         select(
@@ -759,7 +743,7 @@ async def get_aggregate_val(
         .join(category_option, category_option.id == Answer.option_id)
         .join(Question, Question.id == category_option.question_id)
         .where(Question.id == categorical_question_id)  # ID вопроса "Отдел"
-        
+
         # Джойним ответы на шкальный вопрос (через алиас)
         .join(
             scale_answer,
@@ -770,7 +754,7 @@ async def get_aggregate_val(
         )
         .join(scale_option, scale_option.id == scale_answer.option_id)
         .where(scale_option.text.regexp_match(r'^-?\d+$'))
-        
+
         .group_by(category_option.text)
     )
     result = await db.execute(aggregation_query)

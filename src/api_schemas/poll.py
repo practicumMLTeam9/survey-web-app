@@ -183,6 +183,7 @@ class PollSummary(BaseModel):
     created_at: datetime = Field(..., description="Дата и время создания")
     expires_at: Optional[datetime] = Field(default=None, description="Дата окончания опроса")
     total_votes: int = Field(..., description="Общее количество голосов")
+    questions_count: int = Field(..., description="Количество вопросов в опросе")
 
 
 class AnswerRequest(BaseModel):

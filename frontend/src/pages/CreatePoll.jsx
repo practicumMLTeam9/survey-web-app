@@ -430,7 +430,7 @@ export default function CreatePoll({
                 </div>
 
                 {createMode === "ai" && (
-                    <div className="ai-create-panel">
+                    <div className="ai-create-panel mode-switch-anim">
                         <div className="ai-input-panel">
                             <div className="ai-input-inner">
                                 <div className="ai-panel-label">
@@ -546,7 +546,7 @@ export default function CreatePoll({
                     </div>
                 )}
 
-                <div className="create-layout">
+                <div className="create-layout mode-switch-anim" key={createMode}>
                     <div>
                         <div className="card" style={{ marginBottom: "16px" }}>
                             <div className="card-header">
@@ -891,6 +891,27 @@ export default function CreatePoll({
                     </div>
                 </div>
             </div>
+
+            {aiLoading && (
+                <div className="modal-backdrop">
+                    <div className="ai-generating-card">
+                        <div className="ai-generating-orb">✦</div>
+
+                        <div className="ai-generating-title">
+                            Генерируем опрос
+                        </div>
+
+                        <div className="ai-generating-text">
+                            AI подбирает вопросы, варианты ответов и структуру...
+                        </div>
+
+                        <div className="ai-generating-line">
+                            <span />
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {saving && (
                 <div className="modal-backdrop">
                     <div className="publish-loader-card">

@@ -4292,12 +4292,10 @@ select {
     left: -120%;
     width: 60%;
     height: 100%;
-    background: linear-gradient(
-        90deg,
-        transparent,
-        rgba(255,255,255,.38),
-        transparent
-    );
+    background: linear-gradient(90deg,
+            transparent,
+            rgba(255, 255, 255, .38),
+            transparent);
     transition: .7s;
 }
 
@@ -4334,7 +4332,7 @@ select {
     position: absolute;
     inset: -8px;
     border-radius: 22px;
-    background: rgba(255,255,255,.72);
+    background: rgba(255, 255, 255, .72);
     z-index: -1;
 }
 
@@ -4360,10 +4358,21 @@ select {
     animation: statCardIn .45s ease both;
 }
 
-.stat-card:nth-child(1) { animation-delay: .05s; }
-.stat-card:nth-child(2) { animation-delay: .10s; }
-.stat-card:nth-child(3) { animation-delay: .15s; }
-.stat-card:nth-child(4) { animation-delay: .20s; }
+.stat-card:nth-child(1) {
+    animation-delay: .05s;
+}
+
+.stat-card:nth-child(2) {
+    animation-delay: .10s;
+}
+
+.stat-card:nth-child(3) {
+    animation-delay: .15s;
+}
+
+.stat-card:nth-child(4) {
+    animation-delay: .20s;
+}
 
 @keyframes statCardIn {
     from {
@@ -4383,13 +4392,13 @@ select {
 
 .ai-select:hover {
     transform: translateY(-2px);
-    background: rgba(255,255,255,.18);
-    box-shadow: 0 12px 28px rgba(0,0,0,.18);
+    background: rgba(255, 255, 255, .18);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, .18);
 }
 
 .ai-select:focus {
-    border-color: rgba(255,255,255,.45);
-    box-shadow: 0 0 0 3px rgba(255,255,255,.12);
+    border-color: rgba(255, 255, 255, .45);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, .12);
 }
 
 .status-loader-card {
@@ -4442,6 +4451,114 @@ select {
 }
 
 .status-loader-line span {
+    display: block;
+    width: 42%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #4f46e5, #7c3aed);
+    animation: loadingMove 1s infinite ease-in-out;
+}
+
+.create-mode-picker {
+    animation: fadeUp .28s ease both;
+}
+
+.mode-card {
+    animation: createCardIn .35s ease both;
+}
+
+.mode-card:nth-child(1) {
+    animation-delay: .05s;
+}
+
+.mode-card:nth-child(2) {
+    animation-delay: .1s;
+}
+
+.ai-create-panel,
+.create-layout {
+    animation: fadeUp .32s ease both;
+}
+
+@keyframes createCardIn {
+    from {
+        opacity: 0;
+        transform: translateY(14px) scale(.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.question-card {
+    animation: tableRowIn .24s ease both;
+}
+
+.mode-switch-anim {
+    animation: modeSwitchIn .32s ease both;
+}
+
+@keyframes modeSwitchIn {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(.985);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.ai-generating-card {
+    width: 390px;
+    padding: 38px;
+    border-radius: 26px;
+    background: #fff;
+    text-align: center;
+    box-shadow: 0 30px 90px rgba(15, 23, 42, .24);
+    animation: copyAppear .22s ease;
+}
+
+.ai-generating-orb {
+    width: 78px;
+    height: 78px;
+    margin: 0 auto 20px;
+    border-radius: 26px;
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 34px;
+    font-weight: 900;
+    box-shadow: 0 18px 45px rgba(79, 70, 229, .35);
+    animation: softFloat 1.4s ease-in-out infinite;
+}
+
+.ai-generating-title {
+    font-size: 21px;
+    font-weight: 900;
+    color: var(--gray-900);
+}
+
+.ai-generating-text {
+    margin-top: 8px;
+    color: var(--gray-500);
+    line-height: 1.5;
+}
+
+.ai-generating-line {
+    height: 6px;
+    margin-top: 22px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: #eef2ff;
+}
+
+.ai-generating-line span {
     display: block;
     width: 42%;
     height: 100%;

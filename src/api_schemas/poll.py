@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, model_validator, ConfigDict, field_validator
+from pydantic import BaseModel, Field, model_validator, ConfigDict, field_validator, computed_field
 from datetime import datetime
 from typing import List, Optional, Literal, Any
 from zoneinfo import ZoneInfo
@@ -120,6 +120,11 @@ class PollDetailResponse(BaseModel):
     notify_on_response: Optional[bool] = None
     questions: List[QuestionResponse]
 
+    @computed_field
+    @property
+    def questions_count(self) -> int:
+        return len(self.questions)
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -220,7 +225,7 @@ class GeneratePollRequest(BaseModel):
     one_response_only: bool = Field(True)
     model: str = Field(
         default="openrouter/owl-alpha",
-        pattern="^[a-z0-9_\-\.]+/[a-z0-9_\-\.]+(:free|:latest)?$",
+        pattern="^[a-z0-9_\-\.]+/[a-z0-9_\-\.]+(:[a-z0-9-]+)?$",
         description="ID модели на OpenRouter (например, google/gemini-2.0-flash-lite:free)"
     )
 

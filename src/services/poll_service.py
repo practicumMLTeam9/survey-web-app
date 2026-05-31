@@ -1,14 +1,3 @@
-from sqlalchemy.orm import selectinload, aliased
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy import select, and_, func, cast, Integer
-from fastapi import HTTPException, status
-from typing import List, Any, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime, timezone
-
-from src.db.models import Poll, Question, QuestionOption, Submission, Answer
-from src.api_schemas.poll import PollCreate, VoteRequest, AnswerRequest, PollSummary, PollStatusUpdate, OptionResult, \
-    PollResultsResponse, AverageValue, QuestionOptionCreate, QuestionResult
 import logging
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -16,13 +5,16 @@ from typing import Any, Optional
 from typing import List
 
 from fastapi import HTTPException, status
+from sqlalchemy import cast
 from sqlalchemy import select, and_, func, Integer, delete, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 from sqlalchemy.orm import selectinload
 
 from src.api_schemas.poll import QuestionCreate, PollCreate, VoteRequest, AnswerRequest, PollSummary, \
     PollStatusUpdate, OptionResult, PollResultsResponse, AverageValue, QuestionOptionCreate
+from src.api_schemas.poll import QuestionResult
 from src.db.models import Poll, Question, QuestionOption, Submission, Answer, AiRequest, AiChatMessage
 
 logger = logging.getLogger(__name__)
@@ -139,7 +131,7 @@ async def create_poll_service(db: AsyncSession, poll_in: PollCreate, user_id: in
             if result.rowcount == 0:
                 logger.warning(
                     f"⚠️ AiRequest с session_token='{session_token[:8]}...' не найден. "
-                    "Возможно, транзакция в /generate была откатчена из-за таймаута. "
+                    "Возможно, транзакция в /generate была откачена из-за таймаута. "
                     "Чат будет сохранён без привязки к бенчмарку."
                 )
             # Сохраняем историю чата (ВЫПОЛНЯЕТСЯ ВСЕГДА, даже если UPDATE не сработал)

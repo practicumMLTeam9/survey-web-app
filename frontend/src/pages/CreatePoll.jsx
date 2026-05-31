@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react"
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react"
 import { createPoll, updatePoll } from "../api/polls"
 import { generatePoll } from "../api/ai"
 
-export default function CreatePoll({
+const CreatePoll = forwardRef(function CreatePoll({
     onCreated,
     initialData = null,
     editMode = false,
-}) {
+}, ref) {
     const [createMode, setCreateMode] = useState("ai")
     const [participants, setParticipants] = useState("")
 
@@ -15,6 +15,7 @@ export default function CreatePoll({
     const [showProgress, setShowProgress] = useState(true)
     const [aiPrompt, setAiPrompt] = useState("")
     const [aiLoading, setAiLoading] = useState(false)
+    const [aiError, setAiError] = useState("")
     const [saving, setSaving] = useState(false)
     const [successStatus, setSuccessStatus] = useState(null)
     const [aiQuestionsCount, setAiQuestionsCount] = useState(5)
@@ -33,6 +34,12 @@ export default function CreatePoll({
     const [questions, setQuestions] = useState([])
 
     const [activeQuestionId, setActiveQuestionId] = useState(1)
+
+    const hasUnsavedChanges =
+        pollTitle.trim() ||
+        pollDescription.trim() ||
+        aiPrompt.trim() ||
+        questions.length > 0
 
     useEffect(() => {
         if (!initialData) return
@@ -87,6 +94,21 @@ export default function CreatePoll({
             )
         }
     }, [initialData])
+
+    useEffect(() => {
+        const handleBeforeUnload = (e) => {
+            if (!hasUnsavedChanges || saving || successStatus) return
+
+            e.preventDefault()
+            e.returnValue = ""
+        }
+
+        window.addEventListener("beforeunload", handleBeforeUnload)
+
+        return () => {
+            window.removeEventListener("beforeunload", handleBeforeUnload)
+        }
+    }, [hasUnsavedChanges, saving, successStatus])
 
     const markEdited = () => {
         if (aiGenerated) {
@@ -153,7 +175,9 @@ export default function CreatePoll({
                         options:
                             type === "single_choice" || type === "multiple_choice"
                                 ? (q.options?.length >= 2 ? q.options : ["", ""])
-                                : [],
+                                : type === "scale"
+                                    ? ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+                                    : [],
                         allowOwnAnswer: q.allowOwnAnswer || false,
                     }
                     : q
@@ -213,7 +237,7 @@ export default function CreatePoll({
             return
         }
         const invalidOptions = questions.find(q =>
-            (q.type === "single_choice" || q.type === "multiple_choice") &&
+            (q.type === "single_choice" || q.type === "multiple_choice" || q.type === "scale") &&
             (q.options.filter(o => o.trim()).length < 2)
         )
 
@@ -241,7 +265,7 @@ export default function CreatePoll({
             tone: aiTone,
             is_anonymous: aiPrivacy === "anonymous",
             one_response_only: true,
-            max_participants: unlimited ? null : Number(participants),
+            max_participants: unlimited || !participants ? null : Number(participants),
             show_progress: showProgress,
             generated_by_ai: aiGenerated,
             ai_request_session_token: aiSessionToken,
@@ -255,11 +279,16 @@ export default function CreatePoll({
                     position: index + 1,
                 }
 
-                if (q.type === "single_choice" || q.type === "multiple_choice") {
-                    questionPayload.options = (q.options || [])
-                        .filter(option => option.trim())
+                if (q.type === "single_choice" || q.type === "multiple_choice" || q.type === "scale") {
+                    const rawOptions =
+                        q.type === "scale"
+                            ? ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+                            : (q.options || [])
+
+                    questionPayload.options = rawOptions
+                        .filter(option => String(option).trim())
                         .map((option, optionIndex) => ({
-                            text: option,
+                            text: String(option),
                             position: optionIndex + 1,
                         }))
                 }
@@ -305,6 +334,7 @@ export default function CreatePoll({
             return
         }
 
+        setAiError("")
         setAiLoading(true)
         setUserEditedDraft(false)
         try {
@@ -316,10 +346,12 @@ export default function CreatePoll({
                 allowed_question_types: [
                     "single_choice",
                     "multiple_choice",
+                    "scale",
+                    "text",
                 ],
-                is_anonymous: true,
+                is_anonymous: aiPrivacy === "anonymous",
                 one_response_only: true,
-                model: "baidu/cobuddy:free",
+                model: "openrouter/owl-alpha",
             })
 
             setPollTitle(data.title || "")
@@ -348,11 +380,15 @@ export default function CreatePoll({
             setAiGenerated(true)
             setAiSessionToken(data.ai_request_session_token || null)
         } catch (err) {
-            alert(err.message)
+            setAiError(err.message || "Не удалось сгенерировать опрос")
         } finally {
             setAiLoading(false)
         }
     }
+
+    useImperativeHandle(ref, () => ({
+        saveDraft: () => handlePublish("draft"),
+    }))
 
     return (
         <div className="page active">
@@ -784,6 +820,14 @@ export default function CreatePoll({
                                                         </>
                                                     )}
 
+                                                    {question.type === "text" && (
+                                                        <div className="text-question-preview">
+                                                            <div className="text-question-placeholder">
+                                                                Пользователь увидит поле для свободного ответа
+                                                            </div>
+                                                        </div>
+                                                    )}
+
                                                     <div className="divider"></div>
 
                                                     <div style={{ display: "flex", gap: "8px" }}>
@@ -912,17 +956,42 @@ export default function CreatePoll({
                 </div>
             )}
 
+            {aiError && (
+                <div className="modal-backdrop">
+                    <div className="ai-error-card">
+                        <div className="ai-error-icon">:(</div>
+
+                        <div className="ai-error-title">
+                            Что-то не вышло
+                        </div>
+
+                        <div className="ai-error-text">
+                            {aiError}
+                        </div>
+
+                        <button
+                            className="btn btn-primary"
+                            onClick={() => setAiError("")}
+                        >
+                            Попробовать ещё раз
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {saving && (
                 <div className="modal-backdrop">
                     <div className="publish-loader-card">
                         <div className="publish-orbit" />
 
                         <div className="publish-title">
-                            Публикуем опрос
+                            {successStatus === "draft" ? "Сохраняем черновик" : "Публикуем опрос"}
                         </div>
 
                         <div className="publish-text">
-                            Подготавливаем вопросы и настройки...
+                            {successStatus === "draft"
+                                ? "Сохраняем вопросы и настройки..."
+                                : "Подготавливаем вопросы и настройки..."}
                         </div>
                     </div>
                 </div>
@@ -949,4 +1018,6 @@ export default function CreatePoll({
             )}
         </div >
     )
-}
+})
+
+export default CreatePoll

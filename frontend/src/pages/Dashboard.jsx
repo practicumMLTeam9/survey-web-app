@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useRef } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { getMe, logoutUser } from "../api/auth"
@@ -11,6 +12,8 @@ import Results from "./Results"
 
 export default function Dashboard() {
     const [page, setPage] = useState("dashboard")
+    const [pendingPage, setPendingPage] = useState(null)
+    const [showLeaveCreateModal, setShowLeaveCreateModal] = useState(false)
     const [surveyTab, setSurveyTab] = useState("all")
     const [searchQuery, setSearchQuery] = useState("")
     const [typeFilter, setTypeFilter] = useState("all")
@@ -26,7 +29,7 @@ export default function Dashboard() {
     const [toast, setToast] = useState(null)
     const [currentPage, setCurrentPage] = useState(1)
     const pollsPerPage = 8
-
+    const createPollRef = useRef(null)
     const navigate = useNavigate()
 
     const [user, setUser] = useState(null)
@@ -395,6 +398,16 @@ export default function Dashboard() {
         )
     }
 
+    const goToPage = (nextPage) => {
+        if (page === "create") {
+            setPendingPage(nextPage)
+            setShowLeaveCreateModal(true)
+            return
+        }
+
+        setPage(nextPage)
+    }
+
     return (
         <>
             <aside className="sidebar">
@@ -413,7 +426,7 @@ export default function Dashboard() {
                         <div className="nav-label">Меню</div>
 
                         <div
-                            onClick={() => setPage("dashboard")}
+                            onClick={() => goToPage("dashboard")}
                             className={`nav-item ${page === "dashboard" ? "active" : ""}`}
                         >
                             <svg viewBox="0 0 20 20" fill="currentColor">
@@ -423,7 +436,7 @@ export default function Dashboard() {
                         </div>
 
                         <div
-                            onClick={() => setPage("surveys")}
+                            onClick={() => goToPage("surveys")}
                             className={`nav-item ${page === "surveys" ? "active" : ""}`}
                         >
                             <svg viewBox="0 0 20 20" fill="currentColor">
@@ -447,7 +460,7 @@ export default function Dashboard() {
                             onClick={() => {
                                 setSelectedPoll(null)
                                 setSelectedResults(null)
-                                setPage("results")
+                                goToPage("results")
                             }}
                             className={`nav-item ${page === "results" ? "active" : ""}`}
                         >
@@ -462,7 +475,7 @@ export default function Dashboard() {
                         <div className="nav-label">Управление</div>
 
                         <div
-                            onClick={() => setPage("subscription")}
+                            onClick={() => goToPage("subscription")}
                             className={`nav-item ${page === "subscription" ? "active" : ""}`}
                         >
                             <svg viewBox="0 0 20 20" fill="currentColor">
@@ -473,7 +486,7 @@ export default function Dashboard() {
                         </div>
 
                         <div
-                            onClick={() => setPage("settings")}
+                            onClick={() => goToPage("settings")}
                             className={`nav-item ${page === "settings" ? "active" : ""}`}
                         >
                             <svg viewBox="0 0 20 20" fill="currentColor">
@@ -975,6 +988,7 @@ export default function Dashboard() {
                 )}
                 {page === "create" && (
                     <CreatePoll
+                        ref={createPollRef}
                         initialData={
                             editingPoll ||
                             copyPoll
@@ -1034,6 +1048,53 @@ export default function Dashboard() {
 
                     )
                 }
+                {showLeaveCreateModal && (
+                    <div className="modal-backdrop">
+                        <div className="leave-create-card">
+                            <div className="leave-create-icon">💾</div>
+
+                            <div className="leave-create-title">
+                                Сохранить опрос как черновик?
+                            </div>
+
+                            <div className="leave-create-text">
+                                Вы начали создавать опрос. Если уйти сейчас, несохранённые изменения могут потеряться.
+                            </div>
+
+                            <div className="leave-create-actions">
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={async () => {
+                                        setShowLeaveCreateModal(false)
+                                        await createPollRef.current?.saveDraft()
+                                        setPendingPage(null)
+                                    }}
+                                >
+                                    Сохранить черновик
+                                </button>
+                                <button
+                                    className="btn btn-secondary"
+                                    onClick={() => {
+                                        setShowLeaveCreateModal(false)
+                                        setPendingPage(null)
+                                    }}
+                                >
+                                    Остаться
+                                </button>
+                                <button
+                                    className="btn btn-secondary"
+                                    onClick={() => {
+                                        setShowLeaveCreateModal(false)
+                                        setPage(pendingPage)
+                                        setPendingPage(null)
+                                    }}
+                                >
+                                    Уйти без сохранения
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 {copyLoading && (
                     <div className="modal-backdrop">
                         <div className="copy-loader-card">

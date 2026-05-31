@@ -4566,3 +4566,110 @@ select {
     background: linear-gradient(90deg, #4f46e5, #7c3aed);
     animation: loadingMove 1s infinite ease-in-out;
 }
+
+.ai-error-card {
+    width: 420px;
+    padding: 38px;
+    border-radius: 26px;
+    background: #fff;
+    text-align: center;
+    box-shadow: 0 30px 90px rgba(15, 23, 42, .24);
+    animation: copyAppear .22s ease;
+}
+
+.ai-error-icon {
+    width: 78px;
+    height: 78px;
+    margin: 0 auto 20px;
+    border-radius: 26px;
+    background: #fee2e2;
+    color: #dc2626;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 34px;
+    font-weight: 900;
+}
+
+.ai-error-title {
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--gray-900);
+}
+
+.ai-error-text {
+    margin: 10px 0 22px;
+    color: var(--gray-500);
+    line-height: 1.5;
+    font-size: 14px;
+}
+
+.text-question-preview {
+    margin-top: 14px;
+    padding: 18px;
+    border: 1px dashed var(--gray-200);
+    border-radius: 14px;
+    background: var(--gray-50);
+}
+
+.text-question-placeholder {
+    color: var(--gray-400);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.leave-create-card {
+    width: 430px;
+    padding: 38px;
+    border-radius: 26px;
+    background: #fff;
+    text-align: center;
+    box-shadow: 0 30px 90px rgba(15, 23, 42, .24);
+    animation: copyAppear .22s ease;
+}
+
+.leave-create-icon {
+    width: 78px;
+    height: 78px;
+    margin: 0 auto 20px;
+    border-radius: 26px;
+    background: #eef2ff;
+    color: var(--brand);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 34px;
+}
+
+.leave-create-title {
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--gray-900);
+}
+
+.leave-create-text {
+    margin: 10px 0 24px;
+    color: var(--gray-500);
+    line-height: 1.5;
+}
+
+.leave-create-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 22px;
+}
+
+.leave-create-actions .btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 42px;
+    border-radius: 12px;
+    white-space: nowrap;
+}
+
+.leave-create-card {
+    width: 430px;
+    max-width: calc(100vw - 32px);
+}

@@ -141,6 +141,7 @@ class QuestionResult(BaseModel):
     question_position: int = Field(..., description="Позиция вопроса")
     question_type: str = Field(default='draft', pattern='^(single_choice|multiple_choice|scale|text)$', description="Тип вопроса")
     question_votes: Optional[List[OptionResult]] = Field(..., description="Словарь с подсчётом голосов")
+    text_answers: Optional[List[str]] = Field(..., description="Список с текстовыми ответами")
 
 
 class AverageValue(BaseModel):

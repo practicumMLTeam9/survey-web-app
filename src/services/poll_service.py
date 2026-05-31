@@ -611,25 +611,43 @@ async def get_poll_results(poll_id: int,
     votes_list = []
     for question_id in questions_map:
         results_list = []
+        text_answers = []
         question_pos, question_text, question_type = questions_map[question_id]
-        for q_id, option_text, option_pos, count in votes_data:  # Сохраняем результаты по вариантам
-            q_count = votes_q_data[question_id]
-            if q_id == question_id:
-                option_result = OptionResult(
-                    option_position=option_pos,
-                    option=option_text,
-                    votes=count,
-                    percentage=round(count / q_count * 100, 2) if q_count > 0 else 0.0
+        if question_type != "text":
+            for q_id, option_text, option_pos, count in votes_data:  # Сохраняем результаты по вариантам
+                q_count = votes_q_data[question_id]
+                if q_id == question_id:
+                    option_result = OptionResult(
+                        option_position=option_pos,
+                        option=option_text,
+                        votes=count,
+                        percentage=round(count / q_count * 100, 2) if q_count > 0 else 0.0
+                    )
+                    results_list.append(option_result)
+            # Сортируем по позиции
+            results_list.sort(key=lambda x: x.option_position)
+        else:
+            answers_query = (
+                select(Answer.text_value)
+                .join(Question, Answer.question_id == Question.id)
+                .where(
+                    Question.poll_id == poll_id,
+                    Question.type == 'text',
+                    Answer.text_value.isnot(None),
+                    Answer.text_value != '',  # ← исключаем пустые строки
+                    Answer.text_value != 'string'  # ← исключаем "string"
                 )
-                results_list.append(option_result)
-        # Сортируем по позиции
-        results_list.sort(key=lambda x: x.option_position)
+            )
+            # Выполнение и сохранение в list
+            result = await db.execute(answers_query)
+            text_answers = result.scalars().all()
         question_result = QuestionResult(
             question_id=question_id,
             question_text=question_text,
             question_position=question_pos,
             question_type=question_type,
-            question_votes=results_list
+            question_votes=results_list,
+            text_answers=text_answers if text_answers else []
         )
         votes_list.append(question_result)
     """Подсчёт среднего значения для опросов с типом scale"""

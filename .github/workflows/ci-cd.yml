@@ -3,7 +3,7 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [ main ]
-    paths: &paths-filter  # определяем якорь
+    paths:
       - 'src/**'
       - 'frontend/**'
       - 'requirements.txt'
@@ -11,10 +11,6 @@ on:
       - 'Dockerfile'
       - 'frontend/Dockerfile'
       - '.github/workflows/ci-cd.yml'
-  pull_request:
-    branches: [ main ]
-    paths: *paths-filter  # ссылаемся на якорь (звёздочка!)
-  workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -67,13 +63,11 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          # Пушим только при пуше в main
-          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          push: true  # ✅ Теперь можно оставить true — срабатывает только на push в main
           tags: ${{ steps.meta-backend.outputs.tags }}
           labels: ${{ steps.meta-backend.outputs.labels }}
           cache-from: type=gha
-          # Экспорт кэша только для main
-          cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,mode=max' || '' }}
+          cache-to: type=gha,mode=max
 
       # --- Frontend ---
       - name: Frontend image metadata
@@ -89,8 +83,8 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
-          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          push: true
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
           cache-from: type=gha
-          cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,mode=max' || '' }}
+          cache-to: type=gha,mode=max

@@ -177,7 +177,6 @@ export default function Subscription() {
                             Pro
                         </div>
                         <div style={{ fontSize: "13px", color: "rgba(255,255,255,.55)" }}>
-                            {/* TODO: показать дату окончания и сумму следующего списания из API подписки */}
                             Информация о подписке загружается из личного кабинета
                         </div>
                     </div>
@@ -233,7 +232,6 @@ export default function Subscription() {
                         percent={pct(responseCount, PLAN_RESPONSE_LIMIT)}
                         barColor="var(--success)"
                     />
-                    {/* TODO: участников — заменить на реальные данные когда появится эндпоинт /api/v1/users или /api/v1/organization/members */}
                     <UsageStat
                         colorClass="amber"
                         icon={
@@ -247,7 +245,6 @@ export default function Subscription() {
                         percent={0}
                         barColor="var(--warning)"
                     />
-                    {/* TODO: AI-запросов — заменить на реальные данные когда появится счётчик в API */}
                     <UsageStat
                         colorClass="indigo"
                         icon={
@@ -420,7 +417,6 @@ export default function Subscription() {
                             </tr>
                         </thead>
                         <tbody>
-                            {/* TODO: загрузить историю платежей из API когда появится эндпоинт */}
                             <tr>
                                 <td colSpan={5} style={{ textAlign: "center", padding: "32px", color: "var(--gray-400)", fontSize: "13px" }}>
                                     История платежей пока недоступна

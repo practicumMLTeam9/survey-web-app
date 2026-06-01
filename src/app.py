@@ -1,5 +1,6 @@
 from fastapi import FastAPI
-from src.api import polls, health, auth, polls_ai, benchmarks
+from src.api import polls
+from src.api import benchmarks, polls_ai, auth, health
 from fastapi.security import HTTPBearer
 app = FastAPI(
     title="Poll Application",

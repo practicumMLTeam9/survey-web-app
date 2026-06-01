@@ -2,7 +2,7 @@ from openai import AsyncOpenAI
 from dotenv import load_dotenv
 import os
 import httpx
-from typing import Optional, Dict, Any
+from typing import Optional, Dict
 import json
 from fastapi import HTTPException
 from src.api_schemas.ai import LLMRequestParams, LLMResponse

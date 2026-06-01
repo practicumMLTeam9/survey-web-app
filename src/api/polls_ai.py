@@ -1,6 +1,7 @@
-import os
+import asyncio
 import json
 import logging
+import os
 import time
 import uuid
 from datetime import datetime
@@ -9,20 +10,16 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Depends, status, Body
 from pydantic import ValidationError
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api_schemas.poll import PollCreate, GeneratePollRequest, PollResultsResponse, GenerateAnalyticsRequest
 from src.api_schemas.ai import LLMRequestParams, Test, AnalyticsResponse
-from src.db.models import User, AiRequest
+from src.api_schemas.poll import PollCreate, GeneratePollRequest, PollResultsResponse
+from src.db.async_session import get_db as get_assync_db
+from src.db.models import AiSummary, AiRequest
+from src.db.models import User
 from src.security.security import security_scheme, get_current_user
 from src.services.ai_service import ApiLLMService, get_llm_service
 from src.services.poll_service import get_text_answers, get_aggregate_val
-from src.db.models import AiSummary, AiRequest
-import json
-from src.db.async_session import get_db as get_assync_db
-from sqlalchemy.ext.asyncio import AsyncSession
-from math import ceil
-import asyncio
-import time
 
 DEFAULT_MODEL = os.getenv("DEFAULT_LLM_MODEL", "openrouter/owl-alpha")
 ALLOWED_MODELS = {

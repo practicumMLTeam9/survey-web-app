@@ -11,6 +11,16 @@ on:
       - 'Dockerfile'
       - 'frontend/Dockerfile'
       - '.github/workflows/ci-cd.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'frontend/**'
+      - 'requirements.txt'
+      - 'frontend/package.json'
+      - 'Dockerfile'
+      - 'frontend/Dockerfile'
+      - '.github/workflows/ci-cd.yml'
   workflow_dispatch:
 env:
   REGISTRY: ghcr.io

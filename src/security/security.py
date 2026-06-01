@@ -141,12 +141,15 @@ def generate_fingerprint(request: Request):
     return hash_token(fingerprint_data)
 
 
-def get_respondent_token(request: Request, response: Response):
+def get_respondent_token(request: Request):
     respondent_token = request.cookies.get("respondent_token")
-    if respondent_token is None:
-        respondent_token = generate_fingerprint(request)
-        response.set_cookie(key="respondent_token", value=respondent_token,
-                            httponly=True, samesite="lax", secure=True, max_age=365*24*60*60)
+    return respondent_token
+
+
+def create_respondent_token(request: Request, response: Response):
+    respondent_token = generate_fingerprint(request)
+    response.set_cookie(key="respondent_token", value=respondent_token,
+                        httponly=True, samesite="lax", secure=True, max_age=365*24*60*60)
     return respondent_token
 
 

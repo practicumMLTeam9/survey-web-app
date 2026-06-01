@@ -1,13 +1,13 @@
 from fastapi import APIRouter, status, HTTPException, Depends, Request, Response, Query
 from datetime import datetime, timezone
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession as Session
 from src.db.async_session import get_db
 from src.db.models import User
 from src.api_schemas.auth import (
     UserRegister, UserResponse, UserLogin, AuthToken, AccessToken, RefreshToken, ForgotPasswordRequest, ResetPasswordLink,
-    ResetPasswordRequest
+    ResetPasswordRequest, UserChangedData, ChangedPassword
 )
 from src.security.security import (
     hash_password, verify_password, create_access_token, create_refresh_token, get_current_user, create_reset_token,
@@ -199,3 +199,78 @@ async def logout(response: Response):
     response.delete_cookie("access_token")
     response.delete_cookie("refresh_token")
     return {"message": "Успешный выход из системы"}
+
+
+@router.patch("/update-profile",
+          response_model=UserResponse,
+          summary="Изменить данные пользователя",
+          description="Сохраняет изменённые данные зарегестрированного пользователя.",
+          tags=["Authorization"])
+async def update_profile(changed_data: UserChangedData, 
+                         current_user = Depends(get_current_user()),
+                         db: Session = Depends(get_db)):   
+    
+    update_data = {}
+    if changed_data.email is not None:
+        update_data["email"] = changed_data.email
+    if changed_data.first_name is not None:
+        update_data["first_name"] = changed_data.first_name
+    if changed_data.last_name is not None:
+        update_data["last_name"] = changed_data.last_name
+    if changed_data.company_name is not None:
+        update_data["company_name"] = changed_data.company_name
+    if changed_data.position is not None:
+        update_data["position"] = changed_data.position
+    if changed_data.phone is not None:
+        update_data["phone"] = changed_data.phone
+    if changed_data.interface_language is not None:
+        update_data["interface_language"] = changed_data.interface_language
+    if changed_data.avatar_url is not None:
+        update_data["avatar_url"] = changed_data.avatar_url
+    
+    if not update_data:
+        # Ничего не обновляем, возвращаем пользователя
+        return await db.get(User, current_user.id)
+    try:
+        result = await db.execute(
+            update(User)
+            .where(User.id == current_user.id)
+            .values(**update_data)
+            .returning(User)
+        )
+        await db.commit()
+        
+        user = result.scalar_one_or_none()
+        return user
+        
+    except Exception:
+        await db.rollback()
+        raise
+
+
+@router.patch("/change-password",
+          summary="Изменить пароль пользователя",
+          description="Сохраняет новый пароль зарегестрированного пользователя.",
+          tags=["Authorization"])
+async def change_password(new_password: ChangedPassword, current_user = Depends(get_current_user()),
+                          db: Session = Depends(get_db)):
+    if new_password.password != new_password.confirmed_password:
+        raise HTTPException(status_code=422, detail="Пароли не совпадают")
+    
+    hashed_password = hash_password(new_password.password)
+    try:
+        result = await db.execute(
+            update(User)
+            .where(User.id == current_user.id)
+            .values(password_hash=hashed_password)
+            .returning(User.id)
+        )
+        await db.commit()
+        
+        # Проверяем, был ли обновлён хотя бы один ряд
+        updated_id = result.scalar_one_or_none()
+        return updated_id is not None
+        
+    except Exception:
+        await db.rollback()
+        raise

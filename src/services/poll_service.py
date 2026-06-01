@@ -709,21 +709,54 @@ async def get_text_answers(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Опрос не найден или не активен"
         )
-    answers_query = (
+    all_answers = []
+
+    # 1. Текстовые ответы — берём как есть
+    text_query = (
         select(Answer.text_value)
         .join(Question, Answer.question_id == Question.id)
         .where(
             Question.poll_id == poll_id,
-            Question.type == 'text',  # ← КЛЮЧЕВОЙ ФИЛЬТР
+            Question.type == 'text',
             Answer.text_value.isnot(None),
-            Answer.text_value != '',  # ← исключаем пустые строки
-            Answer.text_value != 'string'  # ← исключаем "string"
+            Answer.text_value != '',
+            Answer.text_value != 'string'
         )
     )
-    # Выполнение и сохранение в list
-    result = await db.execute(answers_query)
-    text_answers = result.scalars().all()
-    return text_answers, poll.title, poll.description, poll.poll_type, poll.language
+    result = await db.execute(text_query)
+    all_answers.extend(result.scalars().all())
+
+    # 2. Ответы с выбором (single_choice, multiple_choice) — форматируем как текст
+    choice_query = (
+        select(Question.text, QuestionOption.text)
+        .join(Answer, Answer.option_id == QuestionOption.id)
+        .join(Question, Answer.question_id == Question.id)
+        .where(
+            Question.poll_id == poll_id,
+            Question.type.in_(['single_choice', 'multiple_choice']),
+            Answer.option_id.isnot(None)
+        )
+    )
+    result = await db.execute(choice_query)
+    for q_text, opt_text in result.all():
+        all_answers.append(f"{q_text}: {opt_text}")
+
+    # 3. Шкальные ответы — форматируем как текст
+    scale_query = (
+        select(Question.text, QuestionOption.text)
+        .join(Answer, Answer.option_id == QuestionOption.id)
+        .join(Question, Answer.question_id == Question.id)
+        .where(
+            Question.poll_id == poll_id,
+            Question.type == 'scale',
+            Answer.option_id.isnot(None)
+        )
+    )
+    result = await db.execute(scale_query)
+    for q_text, opt_text in result.all():
+        all_answers.append(f"{q_text}: оценка {opt_text}")
+
+    return all_answers, poll.title, poll.description, poll.poll_type, poll.language
 
 
 async def get_aggregate_val(

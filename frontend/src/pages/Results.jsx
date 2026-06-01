@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
 import { apiRequest } from "../api/client"
@@ -23,6 +23,13 @@ function AiAnalyticsPanel({ results }) {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState("")
 
+    // Сбрасываем аналитику при смене опроса
+    useEffect(() => {
+        setAnalytics(null)
+        setError("")
+        setLoading(false)
+    }, [results?.id])
+
     const handleGenerate = async () => {
         if (!results) return
         setLoading(true)
@@ -30,7 +37,11 @@ function AiAnalyticsPanel({ results }) {
         setAnalytics(null)
         try {
             const data = await fetchAiAnalytics(results)
-            setAnalytics(data)
+            if (data?.status === "no_data") {
+                setError("В опросе нет ответов для анализа. Добавьте текстовые, шкальные или вопросы с выбором.")
+            } else {
+                setAnalytics(data)
+            }
         } catch (err) {
             setError(err.message || "Не удалось получить AI-аналитику")
         } finally {
@@ -333,13 +344,18 @@ export default function Results({
         selectedResults?.questions ??
         selectedResults?.question_results ??
         selectedResults?.results ??
+        selectedResults?.votes ??
         []
 
     const getQuestionTitle = (question, index) =>
-        question.text || question.title || question.question || `Вопрос ${index + 1}`
+        question.text || question.question_text || question.title || question.question || `Вопрос ${index + 1}`
+
+    const getQuestionType = (question) =>
+        question.type || question.question_type || ""
 
     const getOptions = (question) =>
         question.options ||
+        question.question_votes ||
         question.answers_distribution ||
         question.choices ||
         []
@@ -348,6 +364,7 @@ export default function Results({
         question.answers ||
         question.responses ||
         question.text_answers ||
+        question.question_votes ||
         []
 
     const getOptionCount = (option) =>
@@ -358,7 +375,7 @@ export default function Results({
         0
 
     const getOptionLabel = (option, index) =>
-        option.text || option.label || option.title || `Вариант ${index + 1}`
+        option.text || option.option || option.label || option.title || `Вариант ${index + 1}`
 
     return (
         <div className="page active">
@@ -509,7 +526,7 @@ export default function Results({
 
                             return (
                                 <div
-                                    className={`result-card ${question.type === "text" || !options.length
+                                    className={`result-card ${getQuestionType(question) === "text" || !options.length
                                         ? "full"
                                         : ""
                                         }`}

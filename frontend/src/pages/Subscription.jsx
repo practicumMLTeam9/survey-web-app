@@ -1,0 +1,455 @@
+import { useState, useEffect, useCallback } from "react"
+import { getMyPolls } from "../api/polls"
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+
+function Toast({ message, type }) {
+    //Всплывающее уведомление в правом нижнем углу экрана. Появляется на 3.5 секунды, потом исчезает.
+    const isError = type === "error"
+    return (
+        <div style={{
+            position: "fixed",
+            bottom: "28px",
+            right: "28px",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            background: isError ? "#FEF2F2" : "#F0FDF4",
+            border: `1px solid ${isError ? "#FECACA" : "#BBF7D0"}`,
+            color: isError ? "#B91C1C" : "#15803D",
+            borderRadius: "10px",
+            padding: "12px 18px",
+            fontSize: "13px",
+            fontWeight: 600,
+            boxShadow: "0 4px 12px rgba(0,0,0,.12)",
+            minWidth: "260px",
+        }}>
+            <span style={{ fontSize: "16px" }}>{isError ? "✕" : "✓"}</span>
+            {message}
+        </div>
+    )
+}
+
+// ─── Plan feature list ────────────────────────────────────────────────────────
+
+function FeatureList({ items }) {
+    return (
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {items.map(([ok, label]) => (
+                <div key={label} style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontSize: "13px",
+                    color: ok ? "var(--gray-600)" : "var(--gray-300)",
+                }}>
+                    <span style={{ fontWeight: 700, color: ok ? "var(--success)" : undefined }}>
+                        {ok ? "✓" : "✗"}
+                    </span>
+                    {label}
+                </div>
+            ))}
+        </div>
+    )
+}
+
+function EnterpriseFeatureList({ items }) {
+    return (
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {items.map((label) => (
+                <div key={label} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "rgba(255,255,255,.75)" }}>
+                    <span style={{ fontWeight: 700, color: "#10B981" }}>✓</span>
+                    {label}
+                </div>
+            ))}
+        </div>
+    )
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
+
+export default function Subscription() {
+    const [period, setPeriod] = useState("monthly")
+    const [toast, setToast] = useState(null)
+
+    // ── Лимиты тарифа Pro ──────────────────────────────────────────────────────
+    const PLAN_POLL_LIMIT      = 50
+    const PLAN_RESPONSE_LIMIT  = 5000
+
+    // ── Реальная статистика из API ─────────────────────────────────────────────
+    const [usageLoading, setUsageLoading] = useState(true)
+    const [pollCount,    setPollCount]    = useState(null)   // число опросов
+    const [responseCount, setResponseCount] = useState(null) // сумма total_votes
+
+    useEffect(() => {
+        /** Загружает список опросов и считает количество опросов и суммарное
+         *  число ответов (total_votes). Частичный ответ принимается — если
+         *  поле отсутствует, используется 0. */
+        async function loadUsage() {
+            try {
+                const polls = await getMyPolls()
+                const list = Array.isArray(polls) ? polls : (polls?.items ?? polls?.polls ?? [])
+                setPollCount(list.length)
+                const votes = list.reduce((sum, p) => sum + (p.total_votes ?? p.responses_count ?? 0), 0)
+                setResponseCount(votes)
+            } catch {
+                // Не критично — оставляем null, UsageStat покажет "—"
+            } finally {
+                setUsageLoading(false)
+            }
+        }
+        loadUsage()
+    }, [])
+
+    /** Форматирует число для отображения: null → "—", иначе locale-строка */
+    function fmt(n) { return n === null ? "—" : n.toLocaleString("ru-RU") }
+
+    /** Возвращает процент заполнения шкалы, 0–100, или 0 при отсутствии данных */
+    function pct(n, limit) { return n === null ? 0 : Math.min(100, Math.round(n / limit * 100)) }
+
+    const proPrice = period === "monthly" ? "2 990 ₽" : "2 392 ₽"
+    const proPeriodLabel = period === "monthly"
+        ? "в месяц · при оплате ежемесячно"
+        : "в месяц · при оплате ежегодно"
+
+    const showToast = useCallback((message, type = "success") => {
+        setToast({ message, type })
+        setTimeout(() => setToast(null), 3500)
+    }, [])
+
+    return (
+        <div className="page active">
+            {toast && <Toast message={toast.message} type={toast.type} />}
+
+            <div className="topbar">
+                <div className="topbar-title">Подписка</div>
+                <div className="topbar-actions">
+                    <span style={{ fontSize: "13px", color: "var(--gray-500)" }}>Текущий план:</span>
+                    <span style={{
+                        fontSize: "13px",
+                        fontWeight: 700,
+                        color: "var(--brand)",
+                        background: "var(--brand-light)",
+                        padding: "4px 12px",
+                        borderRadius: "20px",
+                    }}>
+                        Pro
+                    </span>
+                </div>
+            </div>
+
+            <div style={{ padding: "28px" }}>
+
+                {/* ── Current plan banner ── */}
+                <div style={{
+                    background: "linear-gradient(135deg,#1E1B4B,#312E81,#1E3A5F)",
+                    borderRadius: "var(--radius)",
+                    padding: "24px 28px",
+                    marginBottom: "28px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    position: "relative",
+                    overflow: "hidden",
+                }}>
+                    <div style={{
+                        position: "absolute",
+                        top: "-50px",
+                        right: "-50px",
+                        width: "220px",
+                        height: "220px",
+                        borderRadius: "50%",
+                        background: "radial-gradient(circle,rgba(124,58,237,.3) 0%,transparent 70%)",
+                    }} />
+                    <div style={{ position: "relative", zIndex: 1 }}>
+                        <div style={{
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            color: "rgba(255,255,255,.6)",
+                            textTransform: "uppercase",
+                            letterSpacing: ".06em",
+                            marginBottom: "6px",
+                        }}>
+                            Активный план
+                        </div>
+                        <div style={{ fontSize: "22px", fontWeight: 900, color: "#fff", marginBottom: "4px" }}>
+                            Pro
+                        </div>
+                        <div style={{ fontSize: "13px", color: "rgba(255,255,255,.55)" }}>
+                            {/* TODO: показать дату окончания и сумму следующего списания из API подписки */}
+                            Информация о подписке загружается из личного кабинета
+                        </div>
+                    </div>
+                    <div style={{ position: "relative", zIndex: 1, display: "flex", gap: "10px" }}>
+                        <button
+                            className="btn btn-sm"
+                            style={{
+                                background: "rgba(255,255,255,.12)",
+                                border: "1px solid rgba(255,255,255,.2)",
+                                color: "#fff",
+                            }}
+                            onClick={() => {
+                                const el = document.getElementById("payment-history")
+                                el?.scrollIntoView({ behavior: "smooth" })
+                            }}
+                        >
+                            История платежей
+                        </button>
+                        <button
+                            className="btn btn-sm"
+                            style={{ background: "#fff", color: "#312E81", fontWeight: 700 }}
+                            onClick={() => showToast("Управление картой — скоро")}
+                        >
+                            Управление картой
+                        </button>
+                    </div>
+                </div>
+
+                {/* ── Usage stats ── */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "16px", marginBottom: "28px" }}>
+                    <UsageStat
+                        colorClass="indigo"
+                        icon={
+                            <svg viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M3 5a1 1 0 000 2h14a1 1 0 100-2H3zm0 4a1 1 0 000 2h14a1 1 0 100-2H3zm0 4a1 1 0 000 2h8a1 1 0 100-2H3z" clipRule="evenodd" />
+                            </svg>
+                        }
+                        label="Опросов"
+                        value={usageLoading ? "…" : fmt(pollCount)}
+                        limit={`из ${PLAN_POLL_LIMIT} в месяц`}
+                        percent={pct(pollCount, PLAN_POLL_LIMIT)}
+                    />
+                    <UsageStat
+                        colorClass="green"
+                        icon={
+                            <svg viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zm8 0a3 3 0 11-6 0 3 3 0 016 0zm-4.07 11c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                            </svg>
+                        }
+                        label="Ответов"
+                        value={usageLoading ? "…" : fmt(responseCount)}
+                        limit={`из ${PLAN_RESPONSE_LIMIT.toLocaleString("ru-RU")} в месяц`}
+                        percent={pct(responseCount, PLAN_RESPONSE_LIMIT)}
+                        barColor="var(--success)"
+                    />
+                    {/* TODO: участников — заменить на реальные данные когда появится эндпоинт /api/v1/users или /api/v1/organization/members */}
+                    <UsageStat
+                        colorClass="amber"
+                        icon={
+                            <svg viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zm8 0a3 3 0 11-6 0 3 3 0 016 0zm-4.07 11c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                            </svg>
+                        }
+                        label="Участников"
+                        value="—"
+                        limit="из 1 000 в аккаунте"
+                        percent={0}
+                        barColor="var(--warning)"
+                    />
+                    {/* TODO: AI-запросов — заменить на реальные данные когда появится счётчик в API */}
+                    <UsageStat
+                        colorClass="indigo"
+                        icon={
+                            <svg viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" />
+                            </svg>
+                        }
+                        label="AI-запросов"
+                        value="—"
+                        limit="из 200 в месяц"
+                        percent={0}
+                    />
+                </div>
+
+                {/* ── Plan selection ── */}
+                <div className="section-header" style={{ marginBottom: "20px" }}>
+                    <div className="section-title">Выберите план</div>
+                    <div style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        background: "var(--gray-100)",
+                        borderRadius: "8px",
+                        padding: "4px",
+                    }}>
+                        {["monthly", "annual"].map((p) => (
+                            <span
+                                key={p}
+                                onClick={() => setPeriod(p)}
+                                style={{
+                                    padding: "5px 14px",
+                                    borderRadius: "6px",
+                                    fontSize: "13px",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    ...(period === p
+                                        ? { background: "#fff", color: "var(--gray-900)", boxShadow: "0 1px 3px rgba(0,0,0,.1)" }
+                                        : { color: "var(--gray-500)" }
+                                    ),
+                                }}
+                            >
+                                {p === "monthly" ? "Ежемесячно" : (
+                                    <>Ежегодно{" "}<span style={{ fontSize: "11px", color: "var(--success)", fontWeight: 700 }}>−20%</span></>
+                                )}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "20px", marginBottom: "32px" }}>
+
+                    {/* Free */}
+                    <div className="card" style={{ position: "relative" }}>
+                        <div className="card-body" style={{ padding: "28px" }}>
+                            <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--gray-500)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: "10px" }}>Free</div>
+                            <div style={{ fontSize: "36px", fontWeight: 900, color: "var(--gray-900)", lineHeight: 1, marginBottom: "4px" }}>0 ₽</div>
+                            <div style={{ fontSize: "13px", color: "var(--gray-400)", marginBottom: "24px" }}>Бесплатно навсегда</div>
+                            <button
+                                className="btn btn-secondary"
+                                style={{ width: "100%", justifyContent: "center", marginBottom: "24px" }}
+                                onClick={() => showToast("Понижение плана — скоро")}
+                            >
+                                Перейти на Free
+                            </button>
+                            <FeatureList items={[
+                                [true,  "До 5 опросов в месяц"],
+                                [true,  "До 100 ответов в месяц"],
+                                [true,  "До 10 участников"],
+                                [true,  "Базовые типы вопросов"],
+                                [false, "AI-генерация опросов"],
+                                [false, "AI-аналитика"],
+                                [false, "Экспорт PDF"],
+                            ]} />
+                        </div>
+                    </div>
+
+                    {/* Pro */}
+                    <div className="card" style={{
+                        position: "relative",
+                        borderColor: "var(--brand)",
+                        boxShadow: "0 0 0 2px rgba(79,70,229,.15),var(--shadow-md)",
+                    }}>
+                        <div className="card-body" style={{ padding: "28px" }}>
+                            <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--brand)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: "10px" }}>Pro</div>
+                            <div style={{ fontSize: "36px", fontWeight: 900, color: "var(--gray-900)", lineHeight: 1, marginBottom: "4px" }}>{proPrice}</div>
+                            <div style={{ fontSize: "13px", color: "var(--gray-400)", marginBottom: "24px" }}>{proPeriodLabel}</div>
+                            <button className="btn btn-primary" style={{
+                                width: "100%",
+                                justifyContent: "center",
+                                marginBottom: "24px",
+                                opacity: .5,
+                                cursor: "default",
+                            }}>
+                                Активен
+                            </button>
+                            <FeatureList items={[
+                                [true,  "До 50 опросов в месяц"],
+                                [true,  "До 5 000 ответов в месяц"],
+                                [true,  "До 1 000 участников"],
+                                [true,  "Все типы вопросов"],
+                                [true,  "AI-генерация (200/мес)"],
+                                [true,  "AI-аналитика и инсайты"],
+                                [true,  "Экспорт PDF"],
+                                [false, "Безлимитные участники"],
+                                [false, "SSO / корпоративный вход"],
+                            ]} />
+                        </div>
+                    </div>
+
+                    {/* Enterprise */}
+                    <div className="card" style={{
+                        position: "relative",
+                        background: "linear-gradient(160deg,#1E1B4B 0%,#1e2a4b 100%)",
+                        borderColor: "#312E81",
+                    }}>
+                        <div className="card-body" style={{ padding: "28px" }}>
+                            <div style={{ fontSize: "13px", fontWeight: 700, color: "#A78BFA", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: "10px" }}>Enterprise</div>
+                            <div style={{ fontSize: "36px", fontWeight: 900, color: "#fff", lineHeight: 1, marginBottom: "4px" }}>По запросу</div>
+                            <div style={{ fontSize: "13px", color: "rgba(255,255,255,.4)", marginBottom: "24px" }}>Индивидуальные условия</div>
+                            <button
+                                className="btn btn-sm"
+                                style={{
+                                    width: "100%",
+                                    justifyContent: "center",
+                                    marginBottom: "24px",
+                                    background: "rgba(255,255,255,.15)",
+                                    border: "1px solid rgba(255,255,255,.25)",
+                                    color: "#fff",
+                                    padding: "10px",
+                                }}
+                                onClick={() => showToast("Мы свяжемся с вами в ближайшее время")}
+                            >
+                                Связаться с нами
+                            </button>
+                            <EnterpriseFeatureList items={[
+                                "Безлимитные опросы",
+                                "Безлимитные ответы",
+                                "Безлимитные участники",
+                                "AI-генерация без ограничений",
+                                "SSO / корпоративный вход",
+                                "Выделенный менеджер",
+                                "SLA и приоритетная поддержка",
+                                "Брендирование интерфейса",
+                            ]} />
+                        </div>
+                    </div>
+
+                </div>
+
+                {/* ── Payment history ── */}
+                <div id="payment-history" className="section-header" style={{ marginBottom: "16px" }}>
+                    <div className="section-title">История платежей</div>
+                    <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => showToast("Скачивание истории — скоро")}
+                    >
+                        Скачать все
+                    </button>
+                </div>
+
+                <div className="survey-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Дата</th>
+                                <th>Описание</th>
+                                <th>Сумма</th>
+                                <th>Статус</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {/* TODO: загрузить историю платежей из API когда появится эндпоинт */}
+                            <tr>
+                                <td colSpan={5} style={{ textAlign: "center", padding: "32px", color: "var(--gray-400)", fontSize: "13px" }}>
+                                    История платежей пока недоступна
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+    )
+}
+
+// ─── UsageStat ────────────────────────────────────────────────────────────────
+
+function UsageStat({ colorClass, icon, label, value, limit, percent, barColor }) {
+    return (
+        <div className="stat-card">
+            <div className={`stat-icon ${colorClass}`}>{icon}</div>
+            <div className="stat-label">{label}</div>
+            <div className="stat-value">{value}</div>
+            <div className="stat-delta" style={{ color: "var(--gray-400)" }}>{limit}</div>
+            <div className="progress-bar" style={{ marginTop: "8px" }}>
+                <div
+                    className="progress-fill"
+                    style={{ width: `${percent}%`, ...(barColor ? { background: barColor } : {}) }}
+                />
+            </div>
+        </div>
+    )
+}

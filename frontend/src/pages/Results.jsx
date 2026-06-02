@@ -94,10 +94,25 @@ function AiAnalyticsPanel({ results }) {
 
                 {/* Лоадер */}
                 {loading && (
-                    <div className="chat-msg ai">
-                        <div className="chat-avatar ai-av">✦</div>
-                        <div className="chat-bubble" style={{ color: "var(--gray-400)" }}>
-                            Анализирую ответы…
+                    <div className="ai-analysis-loader">
+                        <div className="ai-analysis-orb">✦</div>
+
+                        <div className="ai-analysis-title">
+                            AI анализирует ответы
+                        </div>
+
+                        <div className="ai-analysis-text">
+                            Ищем ключевые темы, тональность и рекомендации...
+                        </div>
+
+                        <div className="ai-analysis-steps">
+                            <span>Читаем ответы</span>
+                            <span>Выделяем инсайты</span>
+                            <span>Формируем рекомендации</span>
+                        </div>
+
+                        <div className="ai-analysis-line">
+                            <span />
                         </div>
                     </div>
                 )}
@@ -273,6 +288,23 @@ export default function Results({
     formatDate,
 }) {
     const [copied, setCopied] = useState(false)
+
+    const [chartsLoading, setChartsLoading] = useState(false)
+
+    useEffect(() => {
+        if (!selectedPoll) {
+            setChartsLoading(false)
+            return
+        }
+
+        setChartsLoading(true)
+
+        const timer = setTimeout(() => {
+            setChartsLoading(false)
+        }, 900)
+
+        return () => clearTimeout(timer)
+    }, [selectedPoll?.id, selectedResults])
 
     const handleShare = () => {
         if (!selectedPoll) return
@@ -517,107 +549,124 @@ export default function Results({
                         </div>
                     </div>
                 </div>
+                {chartsLoading ? (
+                    <div className="results-charts-loader">
+                        <div className="charts-loader-icon">📊</div>
+                        <div className="charts-loader-title">Строим графики</div>
+                        <div className="charts-loader-text">
+                            Загружаем ответы и собираем визуализацию...
+                        </div>
 
-                <div className="results-grid">
-                    {questions.length > 0 ? (
-                        questions.map((question, questionIndex) => {
-                            const options = getOptions(question)
-                            const textAnswers = getTextAnswers(question)
+                        <div className="charts-skeleton-grid">
+                            <div />
+                            <div />
+                            <div />
+                            <div />
+                        </div>
+                    </div>
+                ) : (
+                    <div className="results-grid">
+                        {selectedResults && questions.length > 0 ? (
+                            questions.map((question, questionIndex) => {
+                                const options = getOptions(question)
+                                const textAnswers = getTextAnswers(question)
 
-                            return (
-                                <div
-                                    className={`result-card ${getQuestionType(question) === "text" || !options.length
-                                        ? "full"
-                                        : ""
-                                        }`}
-                                    key={question.id || questionIndex}
-                                >
-                                    <div className="rc-title">
-                                        Вопрос {questionIndex + 1} — {getQuestionTitle(question, questionIndex)}
+                                return (
+                                    <div
+                                        className={`result-card ${getQuestionType(question) === "text" || !options.length
+                                            ? "full"
+                                            : ""
+                                            }`}
+                                        key={question.id || questionIndex}
+                                    >
+                                        <div className="rc-title">
+                                            Вопрос {questionIndex + 1} — {getQuestionTitle(question, questionIndex)}
+                                        </div>
+
+                                        {options.length > 0 ? (
+                                            <div className="bar-chart">
+                                                {options.map((option, optionIndex) => {
+                                                    const count = getOptionCount(option)
+
+                                                    const percent =
+                                                        totalAnswers > 0
+                                                            ? Math.round((count / totalAnswers) * 100)
+                                                            : 0
+
+                                                    return (
+                                                        <div
+                                                            className="bar-row"
+                                                            key={option.id || optionIndex}
+                                                        >
+                                                            <div className="bar-label">
+                                                                {getOptionLabel(option, optionIndex)}
+                                                            </div>
+
+                                                            <div className="bar-track">
+                                                                <div
+                                                                    className="bar-fill"
+                                                                    style={{ width: `${percent}%` }}
+                                                                >
+                                                                    {percent > 0 ? `${percent}%` : ""}
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="bar-pct">
+                                                                {count}
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <div className="response-feed">
+                                                {textAnswers.length > 0 ? (
+                                                    textAnswers.slice(0, 5).map((answer, answerIndex) => (
+                                                        <div
+                                                            className="response-item"
+                                                            key={answerIndex}
+                                                        >
+                                                            {typeof answer === "string"
+                                                                ? answer
+                                                                : answer.text || answer.value || "Ответ без текста"}
+
+                                                            {typeof answer !== "string" && answer.created_at && (
+                                                                <div className="response-meta">
+                                                                    {formatDate(answer.created_at)}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <div className="empty-state compact">
+                                                        <div className="empty-title">
+                                                            Пока нет ответов по этому вопросу
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )
+                            })
+                        ) : (
+                            <div className="result-card full">
+                                <div className="empty-state">
+                                    <div className="empty-icon">📊</div>
+
+                                    <div className="empty-title">
+                                        Пока нет результатов
                                     </div>
 
-                                    {options.length > 0 ? (
-                                        <div className="bar-chart">
-                                            {options.map((option, optionIndex) => {
-                                                const count = getOptionCount(option)
-
-                                                const percent =
-                                                    totalAnswers > 0
-                                                        ? Math.round((count / totalAnswers) * 100)
-                                                        : 0
-
-                                                return (
-                                                    <div
-                                                        className="bar-row"
-                                                        key={option.id || optionIndex}
-                                                    >
-                                                        <div className="bar-label">
-                                                            {getOptionLabel(option, optionIndex)}
-                                                        </div>
-
-                                                        <div className="bar-track">
-                                                            <div
-                                                                className="bar-fill"
-                                                                style={{ width: `${percent}%` }}
-                                                            >
-                                                                {percent > 0 ? `${percent}%` : ""}
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="bar-pct">
-                                                            {count}
-                                                        </div>
-                                                    </div>
-                                                )
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <div className="response-feed">
-                                            {textAnswers.length > 0 ? (
-                                                textAnswers.slice(0, 5).map((answer, answerIndex) => (
-                                                    <div
-                                                        className="response-item"
-                                                        key={answerIndex}
-                                                    >
-                                                        {typeof answer === "string"
-                                                            ? answer
-                                                            : answer.text || answer.value || "Ответ без текста"}
-
-                                                        {typeof answer !== "string" && answer.created_at && (
-                                                            <div className="response-meta">
-                                                                {formatDate(answer.created_at)}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <div className="empty-state compact">
-                                                    <div className="empty-title">
-                                                        Пока нет ответов по этому вопросу
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            )
-                        })
-                    ) : (
-                        <div className="result-card full">
-                            <div className="empty-state">
-                                <div className="empty-icon">📊</div>
-
-                                <div className="empty-title">
-                                    Пока нет результатов
-                                </div>
-
-                                <div className="empty-text">
-                                    Когда пользователи начнут отвечать — здесь появится аналитика
+                                    <div className="empty-text">
+                                        Когда пользователи начнут отвечать — здесь появится аналитика
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
-                </div>
+
+                        )}
+                    </div>
+                )}
 
                 {/* AI-аналитика */}
                 <AiAnalyticsPanel results={selectedResults} />

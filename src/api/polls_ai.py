@@ -282,9 +282,9 @@ START_PROMPT_ANALYTICS = """
   "summary": "string (4-5 предложений с основными выводами)",
 
 
-  Валидация тональности: Проанализируй каждый элемент из `text_answers`. 
-Количество ответов, отнесённых к позитивным, нейтральным и негативным, в сумме должно быть строго равно `total_votes`. 
-Процентное соотношение должно считаться от `total_votes` и в сумме давать 100%.
+  Валидация тональности: Проанализируй каждый элемент из `text_answers`(текстовые ответы) и ответы на вопросы со шкалой и выбором варианта. 
+Количество ответов, отнесённых к позитивным, нейтральным и негативным, в сумме должно быть строго равно `batch_len`. 
+Процентное соотношение должно считаться от `batch_len` и в сумме давать 100%.
   "sentiment": {
     "positive": {"count": "int", "percentage": "float"},
     "neutral": {"count": "int", "percentage": "float"},
@@ -352,7 +352,7 @@ START_PROMPT_ANALYTICS = """
 
 Пример обработки (твоя внутренняя логика)
 1.  Получив `answers_list`, классифицируй каждый ответ. 
-Если ответов меньше, чем `total_votes`, дозаполни тональность до 100% пропорционально уже классифицированным, но в поле `conclusion` обязательно укажи это допущение.
+Если ответов меньше, чем `batch_len`, дозаполни тональность до 100% пропорционально уже классифицированным, но в поле `conclusion` обязательно укажи это допущение.
 2.  При выделении 3 тем из `answers_list` сгруппируй семантически близкие ответы. 
 Если уникальных ответов меньше 3, создай оставшиеся темы с заглушкой "Прочие аспекты", но с пустыми цитатами. Стремись к тому, чтобы значимые темы были первыми.
 3.  Формируя `insights`, базируйся на цифрах (корреляция между данными из `votes`, `avg_values`, `sentiment`). 
@@ -457,53 +457,130 @@ async def generate_analytics(
         current_user: User = Depends(get_current_user()),
         llm_service: ApiLLMService = Depends(get_llm_service),
         db: AsyncSession = Depends(get_assync_db)):
-    answers_list, poll_title, poll_description, poll_type, poll_language  = await get_text_answers(req.id, current_user.id, db)
     try: 
+        answers_list = await get_text_answers(req.id, current_user.id, db)
+        all_text_answers = []
+        
+
+        poll_header = {
+            "id": req.id,
+            "title": req.title,
+            "description": req.description,
+            "poll_type": req.poll_type,
+            "language": req.language,
+            "created_at": req.created_at.isoformat() if req.created_at else None,
+            "total_votes": req.total_votes,
+            "response_rate": req.response_rate,
+            "avg_completion_time": req.avg_completion_time,
+            "avg_values": [
+                {
+                    "question_id": avg.question_id,
+                    "question_text": avg.question_text,
+                    "question_position": avg.question_position,
+                    "option": avg.option,
+                    "avg_value": avg.avg_value
+                }
+                for avg in req.avg_values or []
+            ]
+        }
+        
+        # ===== ИЗВЛЕКАЕМ ВОПРОСЫ, НЕ ОТНОСЯЩИЕСЯ К ТИПУ "text" =====
+        non_text_questions = [
+            {
+                "question_id": q.question_id,
+                "question_text": q.question_text,
+                "question_position": q.question_position,
+                "question_type": q.question_type,
+                "votes": [
+                    {
+                        "option": v.option,
+                        "option_position": v.option_position,
+                        "votes": v.votes,
+                        "percentage": v.percentage
+                    }
+                    for v in q.question_votes or []
+                ]
+            }
+            for q in req.votes or []
+            if q.question_type != "text"
+        ]
+        
+        # ===== ОБЪЕДИНЯЕМ ШАПКУ И ОТФИЛЬТРОВАННЫЕ ВОПРОСЫ =====
+        filtered_poll_data = {
+            **poll_header,
+            "votes": non_text_questions
+        }
+
+        # Проходим по всем вопросам в поле "votes"
+        for question in req.votes or []:
+            # Проверяем, есть ли у вопроса текстовые ответы
+            text_answers = question.text_answers or []
+            if text_answers:
+                for answer in text_answers:
+                    all_text_answers.append(f"{question.question_text}: {answer}")
+
         # Валидация входных данных
-        if not answers_list:
+        if not answers_list and not all_text_answers:
             logger.warning("Нет текстовых ответов для анализа")
             return {
                 "status": "no_data",
                 "message": "Нет текстовых ответов для анализа",
                 "analytics": {}
-            }
+        }
     
-        batch_size = 100
-        
-        # Создаем батчи с весами
+        batch_size = 1000
+
+        # Подсчитываем, сколько ответов из answers_list попадает в каждый батч
         batches = []
-        for i in range(0, len(answers_list), batch_size):
-            batch = answers_list[i:i+batch_size]
-            weight = len(batch) / batch_size  # вес = количество ответов в батче / 10
-            batches.append({
-                'answers': batch,
+        answers_idx = 0          # текущая позиция в answers_list
+        texts_idx = 0            # текущая позиция в all_text_answers
+
+        batch_num = 1
+        while answers_idx < len(answers_list) or texts_idx < len(all_text_answers):
+            # Определяем, сколько места осталось в батче (максимум 100)
+            remaining = batch_size
+            batch_answers = []
+            batch_texts = []
+            
+            # Берём из answers_list, сколько можем
+            take_from_answers = min(remaining, len(answers_list) - answers_idx)
+            if take_from_answers > 0:
+                batch_answers = answers_list[answers_idx:answers_idx + take_from_answers]
+                answers_idx += take_from_answers
+                remaining -= take_from_answers
+            
+            # Оставшееся место заполняем из all_text_answers
+            take_from_texts = min(remaining, len(all_text_answers) - texts_idx)
+            if take_from_texts > 0:
+                batch_texts = all_text_answers[texts_idx:texts_idx + take_from_texts]
+                texts_idx += take_from_texts
+            
+            # Вес = количество ответов в батче / batch_size (как в вашем коде)
+            weight = (take_from_answers + take_from_texts) / batch_size
+            
+            batches.append({   
+                'answers': batch_answers,        # только answers_list (для сохранения результатов)
+                'texts': batch_texts,            # только all_text_answers (для сохранения)
                 'weight': weight,
-                'batch_num': i // batch_size + 1
+                'batch_num': batch_num
             })
-        
-        # Если нет текстовых ответов, создаем один пустой батч
-        if not batches:
-            batches.append({
-                'answers': [],
-                'weight': 0,
-                'batch_num': 1
-            })
-        
-        logger.info(f"Разбито на {len(batches)} батчей. Веса: {[b['weight'] for b in batches]}")
+            
+            batch_num += 1
         
         # 2. Функция для обработки одного батча
         async def process_batch(batch_data: dict, system_prompt: str) -> dict:
             start_time = time.time()
             logger.info(f"Батч {batch_data['batch_num']} начал выполнение в {start_time}")
 
-            batch_answers = '\n'.join(batch_data['answers']) if batch_data['answers'] else "Нет ответов в этом батче"
-            
+            text_answers = batch_data['texts'] if batch_data['texts'] else "Нет текстовых ответов в этом батче"
+            opt_scale_answers = batch_data['answers'] if batch_data['answers'] else "Нет ответов со шкалой и выбором варианта в этом батче"
+            batch_len = len(text_answers) + len(opt_scale_answers)
+
             poll_params = (
-                f"Название: {poll_title}. "
-                f"Описание: {poll_description}. "
-                f"Язык: {poll_language}. Тип опроса: {poll_type}. "
-                f"Результаты опроса: {req}"
-                f"Текстовые ответы: {batch_answers}"
+                f"Результаты опроса: {filtered_poll_data}"
+                f"Текстовые ответы: {text_answers}"
+                f"Ответы со шкалой и выбором варианта (в текстовом формате): {opt_scale_answers}"
+                f"Batch_len: {batch_len}"
             )
             
             llm_params = LLMRequestParams(
@@ -551,9 +628,47 @@ async def generate_analytics(
             tasks = [process_batch(batch, system_prompt) for batch in batches]
             batch_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-            summary_prompt = SYSTEM_PROPMT_ANALYTICS + SUMMARY_PROMPT_ANALYTICS
+            # Отфильтровываем успешные результаты
+            successful_results = []
+            batch_sentiments = []  # ← сохраняем sentiment каждого батча отдельно
+    
+            for result in batch_results:
+                if isinstance(result, Exception):
+                    logger.error(f"Ошибка в батче: {result}")
+                    continue
+                if isinstance(result, dict):
+                    successful_results.append(result)
+                    # Сохраняем sentiment из каждого батча (если есть)
+                    if "sentiment" in result:
+                        batch_sentiments.append({
+                            "batch_num": result.get("_batch_metadata", {}).get("batch_num", "unknown"),
+                            "sentiment": result["sentiment"]
+                        })
             
-            generate_results = await process_batch(batch_results, summary_prompt, timeout=600)
+            if not successful_results:
+                generate_results = []
+            else:
+                summary_prompt = SYSTEM_PROPMT_ANALYTICS + SUMMARY_PROMPT_ANALYTICS
+                
+                # ✅ Преобразуем список результатов в СТРОКУ
+                combined_prompt = json.dumps(successful_results, ensure_ascii=False, indent=2)
+                
+                llm_params = LLMRequestParams(
+                    prompt=combined_prompt,  # ← теперь это строка
+                    model=DEFAULT_MODEL,
+                    temperature=0.1,
+                    max_tokens=32000,
+                    top_p=0.9,
+                    response_format={"type": "json_object"}
+                )
+                
+                llm_result = await llm_service.generate_ai(llm_params, summary_prompt, timeout=600)
+
+                # Добавляем sentiment каждого батча в итоговый результат
+                if isinstance(llm_result, dict) and batch_sentiments:
+                    llm_result["batch_sentiment"] = batch_sentiments
+
+                generate_results = [llm_result]
 
          # ─── АГРЕГАЦИЯ SENTIMENT, THEMES, INSIGHTS, RECOMMENDATIONS ИЗ BATCH_RESULTS ───
         total_counts = {"positive": 0, "neutral": 0, "negative": 0}
@@ -565,13 +680,17 @@ async def generate_analytics(
 
         for result in generate_results:
             if isinstance(result, dict):
-                # Агрегация sentiment
-                if "sentiment" in result:
-                    sentiment = result["sentiment"]
-                    total_counts["positive"] += sentiment.get("positive", {}).get("count", 0) if isinstance(sentiment.get("positive"), dict) else sentiment.get("positive", 0)
-                    total_counts["neutral"] += sentiment.get("neutral", {}).get("count", 0) if isinstance(sentiment.get("neutral"), dict) else sentiment.get("neutral", 0)
-                    total_counts["negative"] += sentiment.get("negative", {}).get("count", 0) if isinstance(sentiment.get("negative"), dict) else sentiment.get("negative", 0)
-                
+                if "batch_sentiment" in result and isinstance(result["batch_sentiment"], list):  # ← проверка, что список не пустой
+                    for bs in result["batch_sentiments"]:
+                        sentiment = bs["sentiment"]
+                        total_counts["positive"] += sentiment.get("positive", {}).get("count", 0) if isinstance(sentiment.get("positive"), dict) else sentiment.get("positive", 0)
+                        total_counts["neutral"] += sentiment.get("neutral", {}).get("count", 0) if isinstance(sentiment.get("neutral"), dict) else sentiment.get("neutral", 0)
+                        total_counts["negative"] += sentiment.get("negative", {}).get("count", 0) if isinstance(sentiment.get("negative"), dict) else sentiment.get("negative", 0)
+                elif "sentiment" in result:
+                        sentiment = result["sentiment"]
+                        total_counts["positive"] += sentiment.get("positive", {}).get("count", 0) if isinstance(sentiment.get("positive"), dict) else sentiment.get("positive", 0)
+                        total_counts["neutral"] += sentiment.get("neutral", {}).get("count", 0) if isinstance(sentiment.get("neutral"), dict) else sentiment.get("neutral", 0)
+                        total_counts["negative"] += sentiment.get("negative", {}).get("count", 0) if isinstance(sentiment.get("negative"), dict) else sentiment.get("negative", 0)
                 # Агрегация themes
                 if "themes" in result and isinstance(result["themes"], list):
                     for theme in result["themes"]:
@@ -596,21 +715,52 @@ async def generate_analytics(
                 if "key_questions" in result and key_questions is None:
                     key_questions = result["key_questions"]
 
-        # Формирование итогового словаря
+         # Формирование итогового словаря
         total_responses = sum(total_counts.values())
-        negative_percentage = round((total_counts["negative"] / total_responses * 100), 2) if total_responses > 0 else 0
+        negative_percentage = round(
+            (total_counts["negative"] / total_responses * 100), 2) if total_responses > 0 else 0
+
+        aggregated_themes_list = [
+            {"theme": name, "count": data["count"], "quotes": list(
+                dict.fromkeys(data["quotes"]))[:3]}
+            for name, data in aggregated_themes.items()
+        ]
+
+        aggregated_themes_list = sorted(
+            aggregated_themes_list,
+            key=lambda x: x["count"],
+            reverse=True
+            )[:10]
+
+        unique_insights = []
+        seen_insights = set()
+
+        for item in aggregated_insights:
+            text = item.get("text", "")
+            if text and text not in seen_insights:
+                unique_insights.append(item)
+                seen_insights.add(text)
+
+        unique_recommendations = []
+        seen_recommendations = set()
+
+        for item in aggregated_recommendations:
+            text = item.get("text", "")
+            if text and text not in seen_recommendations:
+                unique_recommendations.append(item)
+                seen_recommendations.add(text)
 
         aggregated_result = {
-            "summary": " ".join(summary_parts) if summary_parts else "Аналитика сгенерирована",
+            "summary": summary_parts[0] if summary_parts else "Аналитика сгенерирована",
             "sentiment": {
                 "positive": {"count": total_counts["positive"], "percentage": round((total_counts["positive"] / total_responses * 100), 2) if total_responses > 0 else 0},
                 "neutral": {"count": total_counts["neutral"], "percentage": round((total_counts["neutral"] / total_responses * 100), 2) if total_responses > 0 else 0},
                 "negative": {"count": total_counts["negative"], "percentage": negative_percentage},
                 "conclusion": f"{negative_percentage}% текстовых ответов имеют негативную тональность, что указывает на {'критическую' if negative_percentage >= 60 else 'значительную' if negative_percentage >= 40 else 'умеренную'} неудовлетворенность сотрудников." if total_responses > 0 else "Нет данных"
             },
-            "themes": [{"theme": name, "count": data["count"], "quotes": data["quotes"]} for name, data in aggregated_themes.items()],
-            "insights": aggregated_insights,
-            "recommendations": aggregated_recommendations,
+            "themes": aggregated_themes_list,
+            "insights": unique_insights[:4],
+            "recommendations": unique_recommendations[:4],
             "aggregated_values": await get_aggregate_val(req.id, current_user.id, db, key_questions.get("categorical_question"), key_questions.get("scale_question")) if key_questions else {},
         }
         logger.info(f"AI аналитика для опроса {req.id} сгенерирована")

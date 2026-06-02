@@ -1,0 +1,173 @@
+from passlib.context import CryptContext    # зеркало: pip install -i https://mirrors.cloud.tencent.com/pypi/simple passlib[bcrypt]
+from jose import JWTError, jwt              # pip install -i https://mirrors.cloud.tencent.com/pypi/simple python-jose
+from typing import Optional
+from datetime import datetime, timedelta, timezone
+from fastapi import HTTPException, status, Depends, Request, Response
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.ext.asyncio import AsyncSession as Session
+from sqlalchemy import select
+from src.db.async_session import get_db
+from src.db.models import User
+from src.security.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
+import secrets
+import hashlib
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+security_scheme = HTTPBearer(
+    auto_error=False,
+    scheme_name="BearerAuth"  # ← это имя появится в Swagger
+)
+
+def hash_password(password):
+    """Хеширование пароля"""
+    # bcrypt работает с байтами, поэтому кодируем в UTF-8
+    if len(password.encode('utf-8')) > 72:
+        # Обрезаем до 72 байт
+        password = password.encode('utf-8')[:72].decode('utf-8', errors='ignore')
+    return pwd_context.hash(password)
+
+
+def verify_password(original_password, hashed_password):
+    """Проверка пароля"""
+    return pwd_context.verify(original_password, hashed_password)
+
+
+def create_access_token(user_data: dict, expires_delta: Optional[timedelta] = None):
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    user_data.update({"exp": expire, "type": "access"})
+    return jwt.encode(user_data, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def create_refresh_token(user_data: dict):
+    expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    user_data.update({"exp": expire, "type": "refresh"})
+    return jwt.encode(user_data, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def decode_token(token: str):
+    """Расшифровка токена"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except JWTError:
+        return None
+    
+
+async def get_token(request: Request, credentials: HTTPAuthorizationCredentials = Depends(security_scheme), 
+                    use_cookie: bool = True, 
+                    token_type: str = "access"):
+    """Извлекает токен из заголовка Authorization: Bearer ..."""
+    if use_cookie == True: 
+        if token_type == "access":
+            token = request.cookies.get("access_token")
+        elif token_type == "refresh":
+            token = request.cookies.get("refresh_token")
+        if token is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Выполните вход заново"
+            )
+        return token
+    else: 
+        if credentials is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Токен не предоставлен",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return credentials.credentials
+
+
+def get_current_user(token_type: str = "access"):
+    """Валидация access/refresh токенов.
+        Принимает соединение с БД, тип токена и сам токен из заголовка запроса.
+        Возвращает данные пользователя из БД
+    """
+    async def dependency(db: Session = Depends(get_db), access_token: str = Depends(get_token)):
+        credentials_exception = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Недействительный или просроченный токен"
+        )
+        payload = decode_token(access_token)
+        if payload is None or payload.get("type") != token_type:
+            raise credentials_exception
+
+        sub_email = payload.get("sub")
+        if sub_email is None:
+            raise credentials_exception
+
+        result = await db.execute(select(User).where(User.email == sub_email))
+        user = result.scalar_one_or_none()
+        if user is None:
+            raise credentials_exception
+        return user
+    return dependency
+
+
+def hash_token(token):
+    """Хеширование токена"""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def create_reset_token():
+    """Генерация одноразового токена для восстановления пароля"""
+    reset_token = secrets.token_urlsafe(32)
+    reset_expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+    token_hash = hash_token(reset_token)
+    return {
+        "token": reset_token,      
+        "token_hash": token_hash,  
+        "expires_at": reset_expires_at
+    }
+
+
+def generate_fingerprint(request: Request):
+    """Генерация уникального отпечатка пользователя"""
+    user_agent = request.headers.get("user-agent", "")
+    accept_language = request.headers.get("accept-language", "")
+    ip_address = request.client.host
+    # Комбинируем параметры
+    fingerprint_data = "_".join([
+        user_agent[:100],  # ограничиваем длину
+        accept_language[:50],
+        ip_address,
+        secrets.token_hex(8) 
+    ])
+    # Создаем хеш
+    return hash_token(fingerprint_data)
+
+
+def get_respondent_token(request: Request):
+    respondent_token = request.cookies.get("respondent_token")
+    return respondent_token
+
+
+def create_respondent_token(request: Request, response: Response):
+    respondent_token = generate_fingerprint(request)
+    response.set_cookie(key="respondent_token", value=respondent_token,
+                        httponly=True, samesite="lax", secure=True, max_age=365*24*60*60)
+    return respondent_token
+
+
+def set_cookies(response: Response, access: str, refresh: str):
+    response.set_cookie(
+        key = "access_token",
+        value = access,
+        httponly = True,
+        samesite = "lax",
+        secure = True,
+        max_age = ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    )
+    response.set_cookie(
+        key = "refresh_token",
+        value = refresh,
+        httponly = True,
+        samesite = "lax",
+        secure = True,
+        max_age = REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+    )
+    return 

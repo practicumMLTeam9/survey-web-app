@@ -1,0 +1,29 @@
+# Фронтенд и его зависимости
+frontend/
+node_modules/
+package-lock.json
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Git, IDE, Docs
+.git/
+.idea/
+.vscode/
+*.md
+Designs/
+docs/
+tests/
+
+# Env & Docker
+.env
+.env.*
+docker-compose*.yml
+Dockerfile

@@ -712,19 +712,19 @@ async def get_text_answers(
     all_answers = []
 
     # 1. Текстовые ответы — берём как есть
-    text_query = (
-        select(Answer.text_value)
-        .join(Question, Answer.question_id == Question.id)
-        .where(
-            Question.poll_id == poll_id,
-            Question.type == 'text',
-            Answer.text_value.isnot(None),
-            Answer.text_value != '',
-            Answer.text_value != 'string'
-        )
-    )
-    result = await db.execute(text_query)
-    all_answers.extend(result.scalars().all())
+    # text_query = (
+    #     select(Answer.text_value)
+    #     .join(Question, Answer.question_id == Question.id)
+    #     .where(
+    #         Question.poll_id == poll_id,
+    #         Question.type == 'text',
+    #         Answer.text_value.isnot(None),
+    #         Answer.text_value != '',
+    #         Answer.text_value != 'string'
+    #     )
+    # )
+    # result = await db.execute(text_query)
+    # all_answers.extend(result.scalars().all())
 
     # 2. Ответы с выбором (single_choice, multiple_choice) — форматируем как текст
     choice_query = (
@@ -756,7 +756,7 @@ async def get_text_answers(
     for q_text, opt_text in result.all():
         all_answers.append(f"{q_text}: оценка {opt_text}")
 
-    return all_answers, poll.title, poll.description, poll.poll_type, poll.language
+    return all_answers
 
 
 async def get_aggregate_val(

@@ -283,8 +283,8 @@ START_PROMPT_ANALYTICS = """
 
 
   Валидация тональности: Проанализируй каждый элемент из `text_answers`. 
-Количество ответов, отнесённых к позитивным, нейтральным и негативным, в сумме должно быть строго равно `total_votes`. 
-Процентное соотношение должно считаться от `total_votes` и в сумме давать 100%.
+Количество ответов, отнесённых к позитивным, нейтральным и негативным, в сумме должно быть строго равно `batch_len`. 
+Процентное соотношение должно считаться от `batch_len` и в сумме давать 100%.
   "sentiment": {
     "positive": {"count": "int", "percentage": "float"},
     "neutral": {"count": "int", "percentage": "float"},
@@ -457,53 +457,130 @@ async def generate_analytics(
         current_user: User = Depends(get_current_user()),
         llm_service: ApiLLMService = Depends(get_llm_service),
         db: AsyncSession = Depends(get_assync_db)):
-    answers_list, poll_title, poll_description, poll_type, poll_language  = await get_text_answers(req.id, current_user.id, db)
     try: 
+        answers_list = await get_text_answers(req.id, current_user.id, db)
+        all_text_answers = []
+        
+
+        poll_header = {
+            "id": req.id,
+            "title": req.title,
+            "description": req.description,
+            "poll_type": req.poll_type,
+            "language": req.language,
+            "created_at": req.created_at.isoformat() if req.created_at else None,
+            "total_votes": req.total_votes,
+            "response_rate": req.response_rate,
+            "avg_completion_time": req.avg_completion_time,
+            "avg_values": [
+                {
+                    "question_id": avg.question_id,
+                    "question_text": avg.question_text,
+                    "question_position": avg.question_position,
+                    "option": avg.option,
+                    "avg_value": avg.avg_value
+                }
+                for avg in req.avg_values or []
+            ]
+        }
+        
+        # ===== ИЗВЛЕКАЕМ ВОПРОСЫ, НЕ ОТНОСЯЩИЕСЯ К ТИПУ "text" =====
+        non_text_questions = [
+            {
+                "question_id": q.question_id,
+                "question_text": q.question_text,
+                "question_position": q.question_position,
+                "question_type": q.question_type,
+                "votes": [
+                    {
+                        "option": v.option,
+                        "option_position": v.option_position,
+                        "votes": v.votes,
+                        "percentage": v.percentage
+                    }
+                    for v in q.question_votes or []
+                ]
+            }
+            for q in req.votes or []
+            if q.question_type != "text"
+        ]
+        
+        # ===== ОБЪЕДИНЯЕМ ШАПКУ И ОТФИЛЬТРОВАННЫЕ ВОПРОСЫ =====
+        filtered_poll_data = {
+            **poll_header,
+            "votes": non_text_questions
+        }
+
+        # Проходим по всем вопросам в поле "votes"
+        for question in req.votes or []:
+            # Проверяем, есть ли у вопроса текстовые ответы
+            text_answers = question.text_answers or []
+            if text_answers:
+                for answer in text_answers:
+                    all_text_answers.append(f"{question.question_text}: {answer}")
+
         # Валидация входных данных
-        if not answers_list:
+        if not answers_list and not all_text_answers:
             logger.warning("Нет текстовых ответов для анализа")
             return {
                 "status": "no_data",
                 "message": "Нет текстовых ответов для анализа",
                 "analytics": {}
-            }
+        }
     
-        batch_size = 100
-        
-        # Создаем батчи с весами
+        batch_size = 1000
+
+        # Подсчитываем, сколько ответов из answers_list попадает в каждый батч
         batches = []
-        for i in range(0, len(answers_list), batch_size):
-            batch = answers_list[i:i+batch_size]
-            weight = len(batch) / batch_size  # вес = количество ответов в батче / 10
-            batches.append({
-                'answers': batch,
+        answers_idx = 0          # текущая позиция в answers_list
+        texts_idx = 0            # текущая позиция в all_text_answers
+
+        batch_num = 1
+        while answers_idx < len(answers_list) or texts_idx < len(all_text_answers):
+            # Определяем, сколько места осталось в батче (максимум 100)
+            remaining = batch_size
+            batch_answers = []
+            batch_texts = []
+            
+            # Берём из answers_list, сколько можем
+            take_from_answers = min(remaining, len(answers_list) - answers_idx)
+            if take_from_answers > 0:
+                batch_answers = answers_list[answers_idx:answers_idx + take_from_answers]
+                answers_idx += take_from_answers
+                remaining -= take_from_answers
+            
+            # Оставшееся место заполняем из all_text_answers
+            take_from_texts = min(remaining, len(all_text_answers) - texts_idx)
+            if take_from_texts > 0:
+                batch_texts = all_text_answers[texts_idx:texts_idx + take_from_texts]
+                texts_idx += take_from_texts
+            
+            # Вес = количество ответов в батче / batch_size (как в вашем коде)
+            weight = (take_from_answers + take_from_texts) / batch_size
+            
+            batches.append({   
+                'answers': batch_answers,        # только answers_list (для сохранения результатов)
+                'texts': batch_texts,            # только all_text_answers (для сохранения)
                 'weight': weight,
-                'batch_num': i // batch_size + 1
+                'batch_num': batch_num
             })
-        
-        # Если нет текстовых ответов, создаем один пустой батч
-        if not batches:
-            batches.append({
-                'answers': [],
-                'weight': 0,
-                'batch_num': 1
-            })
-        
-        logger.info(f"Разбито на {len(batches)} батчей. Веса: {[b['weight'] for b in batches]}")
+            
+            batch_num += 1
         
         # 2. Функция для обработки одного батча
         async def process_batch(batch_data: dict, system_prompt: str) -> dict:
             start_time = time.time()
             logger.info(f"Батч {batch_data['batch_num']} начал выполнение в {start_time}")
 
-            batch_answers = '\n'.join(batch_data['answers']) if batch_data['answers'] else "Нет ответов в этом батче"
-            
+            text_answers = batch_data['texts'] if batch_data['texts'] else "Нет текстовых ответов в этом батче"
+            opt_scale_answers = batch_data['answers'] if batch_data['answers'] else "Нет ответов со шкалой и выбором варианта в этом батче"
+            batch_len = len(text_answers) + len(opt_scale_answers)
+
             poll_params = (
-                f"Название: {poll_title}. "
-                f"Описание: {poll_description}. "
-                f"Язык: {poll_language}. Тип опроса: {poll_type}. "
-                f"Результаты опроса: {req}"
-                f"Текстовые ответы: {batch_answers}"
+                f"Результаты опроса: {filtered_poll_data}"
+                f"Текстовые ответы: {text_answers}"
+                f"Ответы со шкалой и выбором варианта (в текстовом формате): {opt_scale_answers}"
+                f"Batch_len: {batch_len}"
             )
             
             llm_params = LLMRequestParams(

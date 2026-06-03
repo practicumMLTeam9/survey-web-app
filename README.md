@@ -56,3 +56,7 @@
 
 #### логи бэкендa (для swagger - добавить в url `/docs` )
 `docker compose logs -f backend`
+
+
+## 📜 Лицензия
+Этот проект распространяется под лицензией MIT. Подробности в файле [LICENSE](LICENSE).
